@@ -4,44 +4,69 @@
 //        4.bojler temperature
 
 //HW
-//Arduino UNO
+//Arduino Pro Mini ATMega168
 //Ethernet shield
 //I2C display
 //2 Relays module
+//DALLAS
+//keyboard
+
+// A0 - DALLAS
+// A1 - relay 1
+// A2 - relay 2
+// A3 - keyboard
+// A4 - I2C display SDA
+// A5 - I2C display SCL
+// D0 - Rx
+// D1 - Tx
+// D2 - keyboard
+// D3 - keyboard
+// D4 - SD card on ethernet shield
+// D5 - keyboard
+// D6 - keyboard
+// D7 - keyboard
+// D8 - keyboard
+// D9 - keyboard
+// D10 - ethernet shield
+// D11 - ethernet shield
+// D12 - ethernet shield
+// D13 - ethernet shield
+
+
 
 //spina rele pro cerpadlo v zavislosti na rozdilu teplot z cidla 1 a 2 nebo 4. Rozdil teplot lze nastavit v konfiguraci pres internet
 //posila teploty ze vsech 4 cidel na cosm.com
 //spina ventil(y) pro rizeni natapeni bojleru nebo radiatoru v zavislosti na konfiguraci zjistene pres internet
 //
 
-
-
 #include <limits.h>
+#include <LiquidCrystal_I2C.h>
 #include <Wire.h> 
 
-//#define ethernet
-#ifdef ethernet
-#include <Ethernet.h>
-byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x70};
-EthernetClient client;
-char server[] = "api.cosm.com";   // name address for cosm API
-//COSM
-#define APIKEY         "" // your cosm api key
-#define FEEDID         0 // your feed ID
-#define USERAGENT      "Solar Arduino" // user agent is the project name
-char dataString[280];
-
-unsigned long lastSendTime;
+#ifndef dummy //this section prevent from error while program is compiling without Ethernetdef
+char a[0]; //do not delete this dummy variable
 #endif
 
-//#include <LCD.h>
-#include <LiquidCrystal_I2C.h>
 
-#define BACKLIGHT_PIN     0
+//#define ethernet
+// #ifdef ethernet
+// #include <Ethernet.h>
+// byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x70};
+// EthernetClient client;
+// char server[] = "api.cosm.com";   // name address for cosm API COSM
+// #define APIKEY         "" // your cosm api key
+// #define FEEDID         0 // your feed ID
+// #define USERAGENT      "Solar Arduino" // user agent is the project name
+// char dataString[280];
+
+// unsigned long lastSendTime;
+// #endif
+
 
 //LiquidCrystal_I2C lcd(0x20);  // Set the LCD I2C address
 //LiquidCrystal_I2C lcd(0x20,6,5,4);  // set the LCD address to 0x20 for a 16 chars and 2 line display
 LiquidCrystal_I2C lcd(0x20,2,1,0,4,5,6,7,3, POSITIVE);  // set the LCD address to 0x20 for a 16 chars and 2 line display
+#define BACKLIGHT_PIN     0
 
 
 //LiquidCrystal_I2C lcd(0x38, BACKLIGHT_PIN, POSITIVE);  // Set the LCD I2C address
@@ -103,8 +128,8 @@ unsigned long lastMeasTime=0;
 unsigned long dsLastPrintTime=0;
 unsigned int const dsPrintTimeDelay=60000; //interval to show results
 
-#define RELAY1PIN 10
-#define RELAY2PIN 11
+#define RELAY1PIN A1
+#define RELAY2PIN A2
 
 bool relay1=LOW;
 bool relay2=HIGH;
@@ -119,7 +144,7 @@ char hexaKeys[ROWS][COLS] = {
   {'B','6','5','4'},
   {'A','3','2','1'}
 };
-byte rowPins[ROWS] = {5,4,3,2}; //connect to the row pinouts of the keypad
+byte rowPins[ROWS] = {5,A3,3,2}; //connect to the row pinouts of the keypad
 byte colPins[COLS] = {9,8,7,6}; //connect to the column pinouts of the keypad
 
 //initialize an instance of class NewKeypad
