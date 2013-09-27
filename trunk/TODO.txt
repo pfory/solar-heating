@@ -1,0 +1,31 @@
+//nastaveni cidel
+
+postupne prochazi pres vsechna cidla
+
+1234567890123456
+----------------
+285DF3CF0200007E
+Poz:2
+----------------
+
+pozice se meni cisly klavesnice, cidla prirazena na nizsi pozici uz nejdou znovu zadat aby se zabranilo duplicite
+
+//nastaveni teplotnich diferenci
+
+nastavi spinaci diferenci
+
+1234567890123456
+----------------
+Rozdil pro ON
+dT[°C]:20
+----------------
+
+dvojmistne cislo se zadava klavesnici
+
+1234567890123456
+----------------
+Rozdil pro OFF
+dT[°C]:10
+----------------
+
+dvojmistne cislo se zadava klavesnici
