@@ -1,17 +1,16 @@
-//sensors 1.solar OUT temperature
+//sensors 0.solar OUT temperature
+//        1.solar IN temperature
 //        2.room temperature
-//        3.solar IN temperature
-//        4.bojler temperature
 
 //HW
-//Arduino Pro Mini ATMega168
+//Arduino 2009
 //Ethernet shield
 //I2C display
 //2 Relays module
 //DALLAS
 //keyboard
 
-// A0 - DALLAS
+// A0 - DALLAS temperature sensors
 // A1 - relay 1
 // A2 - relay 2
 // A3 - keyboard
@@ -34,10 +33,13 @@
 
 
 
-//spina rele pro cerpadlo v zavislosti na rozdilu teplot z cidla 1 a 2 nebo 4. Rozdil teplot lze nastavit v konfiguraci pres internet
-//posila teploty ze vsech 4 cidel na cosm.com
+//spina rele pro cerpadlo v zavislosti na rozdilu teplot z cidla 1 a 3. 
+
+//TODO
+//Rozdil teplot lze nastavit v konfiguraci pres internet
+//posila teploty ze vsech 3 cidel na cosm.com
 //spina ventil(y) pro rizeni natapeni bojleru nebo radiatoru v zavislosti na konfiguraci zjistene pres internet
-//
+//cidlo 2 slouzi k zjistovani vykonu podle rozdilu teplot
 
 #include <limits.h>
 #include <LiquidCrystal_I2C.h>
@@ -93,45 +95,44 @@ OneWire onewire(ONE_WIRE_BUS); // pin for onewire DALLAS bus
 DallasTemperature dsSensors(&onewire);
 DeviceAddress tempDeviceAddress;
 #ifndef NUMBER_OF_DEVICES
-#define NUMBER_OF_DEVICES 4
+#define NUMBER_OF_DEVICES 3
 #endif
 DeviceAddress tempDeviceAddresses[NUMBER_OF_DEVICES];
 //int  resolution = 12;
 unsigned int numberOfDevices; // Number of temperature devices found
 unsigned long lastDisplayTempTime;
 unsigned long lastDsMeasStartTime;
-unsigned int const dsMeassureDelay=750; //delay between start meassurement and read valid data in ms
 bool dsMeasStarted=false;
 float sensor[NUMBER_OF_DEVICES];
 unsigned int sample=0;
 bool checkConfigFlag = false;
 unsigned int const sendTimeDelay=5000; //to send to cosm.com
+float tempDiffON = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
+float tempDiffOFF = 10.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
+int sensorReading = INT_MIN;
+unsigned int const dsMeassureInterval=750; //inteval between meassurements
+unsigned long lastMeasTime=0;
 
-#define TEMP1X 2
+/*#define TEMP1X 0
 #define TEMP1Y 0
-#define TEMP2X 9
+#define TEMP2X 6
 #define TEMP2Y 0
-#define TEMP3X 2
+#define TEMP3X 0
 #define TEMP3Y 1
-#define TEMP4X 9
-#define TEMP4Y 1
+//#define TEMP4X 9
+//#define TEMP4Y 1
+*/
 
 #define RELAY1X 15
 #define RELAY1Y 0
 #define RELAY2X 15
 #define RELAY2Y 1
 
-
-int sensorReading = INT_MIN;
-unsigned int const dsMeassureInterval=4000; //inteval between meassurements
-unsigned long lastMeasTime=0;
-unsigned long dsLastPrintTime=0;
-unsigned int const dsPrintTimeDelay=60000; //interval to show results
-
 #define RELAY1PIN A1
 #define RELAY2PIN A2
 
-bool relay1=LOW;
+//HIGH - relay OFF, LOW - relay ON
+bool relay1=HIGH; 
 bool relay2=HIGH;
 
 #include <Keypad.h>
@@ -150,7 +151,7 @@ byte colPins[COLS] = {9,8,7,6}; //connect to the column pinouts of the keypad
 //initialize an instance of class NewKeypad
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
 
-char versionSW[]="0.01";
+char versionSW[]="0.10";
 char versionSWString[] = "Solar v"; //SW name & version
 
 void dsInit(void);
@@ -181,7 +182,7 @@ void setup() {
   Serial.println(Ethernet.dnsServerIP());
   Serial.println();
   */
-  lastSendTime = dsLastPrintTime = lastMeasTime = millis();
+  lastSendTime = lastMeasTime = millis();
   #endif
 
   
@@ -231,50 +232,62 @@ void setup() {
 
 void loop() {
   displayRelayStatus();
-  //start sampling
-  if (millis() - lastMeasTime > dsMeassureInterval) {
-    sample++;
-    lastMeasTime = millis();
-    //startTimer();
-    dsSensors.requestTemperatures(); 
-    lastDsMeasStartTime=millis();
+  if (!dsMeasStarted) {
+    //start sampling
     dsMeasStarted=true;
+    dsSensors.requestTemperatures(); 
+    lastDsMeasStartTime = millis();
   }
-  
-  if (dsMeasStarted) {
-    if (millis() - lastDsMeasStartTime>dsMeassureDelay) {
-      dsMeasStarted=false;
-      //saving temperatures into variables
-      for (byte i=0;i<numberOfDevices; i++) {
-        float tempTemp=-126;
-        for (byte j=0;j<10;j++) { //try to read temperature ten times
-          //tempTemp = dsSensors.getTempCByIndex(i);
-          tempTemp = dsSensors.getTempC(tempDeviceAddresses[i]);
-          if (tempTemp>=-55) {
-            break;
-          }
+  else if (dsMeasStarted && (millis() - lastDsMeasStartTime>dsMeassureInterval)) {
+    dsMeasStarted=false;
+    //saving temperatures into variables
+    for (byte i=0;i<numberOfDevices; i++) {
+      float tempTemp=-126;
+      for (byte j=0;j<10;j++) { //try to read temperature ten times
+        //tempTemp = dsSensors.getTempCByIndex(i);
+        tempTemp = dsSensors.getTempC(tempDeviceAddresses[i]);
+        if (tempTemp>=-55) {
+          break;
         }
-        sensor[i]=tempTemp;
-      } 
+      }
+      sensor[i] = tempTemp;
+    } 
 
-      lcd.setCursor(TEMP1X,TEMP1Y);
-      lcd.print(sensor[0]);
-      lcd.setCursor(TEMP2X,TEMP2Y);
-      lcd.print(sensor[1]);
-      lcd.setCursor(TEMP3X,TEMP3Y);
-      lcd.print(sensor[2]);
-      lcd.setCursor(TEMP4X,TEMP4Y);
-      lcd.print(sensor[3]);
+    //char buffer[7];
+    lcd.setCursor(0,0);
+    lcd.print((int)sensor[0]);
+    lcd.print(".");
+    lcd.print(abs((int)(sensor[0]*10)%10));
+    //sprintf(buffer,"%u",sensor[0]);
+    //lcd.print(buffer);
+    //lcd.setCursor(TEMP2X,TEMP2Y);
+    lcd.print(" ");
+    lcd.print((int)sensor[1]);
+    lcd.print(".");
+    lcd.print(abs((int)(sensor[1]*10)%10));
+    //lcd.setCursor(TEMP3X,TEMP3Y);
+    lcd.print(" ");
+    lcd.print((int)sensor[2]);
+    lcd.print(".");
+    lcd.print(abs((int)(sensor[2]*10)%10));
+    //lcd.setCursor(TEMP4X,TEMP4Y);
+    //lcd.print(sensor[3]);
+    Serial.println(sensor[0]);
+    Serial.println(sensor[1]);
+    if (relay1==HIGH) {
+      if (sensor[0] - sensor[2] >= tempDiffON) {
+        relay1=LOW; //relay ON
+        digitalWrite(RELAY1PIN, relay1);
+      }
+    }
+    if (relay1==LOW) {
+      if (sensor[0] - sensor[2] < tempDiffOFF) {
+        relay1=HIGH; ///relay OFF
+        digitalWrite(RELAY1PIN, relay1);
+      }
     }
   }
 
-  if (millis() - dsLastPrintTime >= dsPrintTimeDelay) {
-    dsLastPrintTime = millis(); 
-    relay1 = !relay1;
-    digitalWrite(RELAY1PIN, relay1);
-    relay2 = !relay2;
-    digitalWrite(RELAY2PIN, relay2);
-  }
 
   #ifdef ethernet
   if (sample==2) {
@@ -330,14 +343,14 @@ void dsInit(void) {
 void displayRelayStatus(void) {
   lcd.setCursor(RELAY1X,RELAY1Y);
   if (relay1==LOW)
-    lcd.print("V");
-  else
     lcd.print("Z");
+  else
+    lcd.print("V");
   lcd.setCursor(RELAY2X,RELAY2Y);
   if (relay2==LOW)
-    lcd.print("V");
-  else
     lcd.print("Z");
+  else
+    lcd.print("V");
 }
 
 #ifdef ethernet
