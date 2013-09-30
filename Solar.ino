@@ -33,9 +33,10 @@
 
 
 
-//spina rele pro cerpadlo v zavislosti na rozdilu teplot z cidla 1 a 3. 
+//spina rele pro cerpadlo v zavislosti na rozdilu teplot z cidla 0 a 2. 
 
 //TODO
+//umazat znaky za teplotami
 //Rozdil teplot lze nastavit v konfiguraci pres internet
 //posila teploty ze vsech 3 cidel na cosm.com
 //spina ventil(y) pro rizeni natapeni bojleru nebo radiatoru v zavislosti na konfiguraci zjistene pres internet
@@ -112,6 +113,13 @@ float tempDiffOFF = 10.0; //difference between room temperature and solar OUT (s
 int sensorReading = INT_MIN;
 unsigned int const dsMeassureInterval=750; //inteval between meassurements
 unsigned long lastMeasTime=0;
+unsigned long msDayON = 0;  //kolik ms uz jsem za aktualni den byl ve stavu ON
+unsigned long lastOn=0;     //ms posledniho behu ve stavu ON
+unsigned long lastOff = 0;  //ms posledniho vypnuti rele
+unsigned long const dayInterval=1000*60*60*12; //
+unsigned int power = 0; //actual power in W
+float energy = 0; //energy a day in kWh
+float energyKoef = 283.0; //Ws
 
 /*#define TEMP1X 0
 #define TEMP1Y 0
@@ -125,11 +133,12 @@ unsigned long lastMeasTime=0;
 
 #define RELAY1X 15
 #define RELAY1Y 0
-#define RELAY2X 15
+/*#define RELAY2X 15
 #define RELAY2Y 1
+*/
 
 #define RELAY1PIN A1
-#define RELAY2PIN A2
+//#define RELAY2PIN A2
 
 //HIGH - relay OFF, LOW - relay ON
 bool relay1=HIGH; 
@@ -151,7 +160,7 @@ byte colPins[COLS] = {9,8,7,6}; //connect to the column pinouts of the keypad
 //initialize an instance of class NewKeypad
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
 
-char versionSW[]="0.10";
+char versionSW[]="0.11";
 char versionSWString[] = "Solar v"; //SW name & version
 
 void dsInit(void);
@@ -223,15 +232,14 @@ void setup() {
   lcd.clear();
 
   pinMode(RELAY1PIN, OUTPUT);
-  pinMode(RELAY2PIN, OUTPUT);
+  //pinMode(RELAY2PIN, OUTPUT);
   
   digitalWrite(RELAY1PIN, relay1);
-  digitalWrite(RELAY2PIN, relay2);
-  displayRelayStatus();
+  //digitalWrite(RELAY2PIN, relay2);
+  //displayRelayStatus();
 }
 
 void loop() {
-  displayRelayStatus();
   if (!dsMeasStarted) {
     //start sampling
     dsMeasStarted=true;
@@ -251,40 +259,75 @@ void loop() {
         }
       }
       sensor[i] = tempTemp;
+      Serial.println(sensor[i]);
     } 
 
-    //char buffer[7];
+
+    //show temperatures on display (first row)
     lcd.setCursor(0,0);
     lcd.print((int)sensor[0]);
     lcd.print(".");
     lcd.print(abs((int)(sensor[0]*10)%10));
-    //sprintf(buffer,"%u",sensor[0]);
-    //lcd.print(buffer);
+
     //lcd.setCursor(TEMP2X,TEMP2Y);
     lcd.print(" ");
     lcd.print((int)sensor[1]);
     lcd.print(".");
     lcd.print(abs((int)(sensor[1]*10)%10));
+
     //lcd.setCursor(TEMP3X,TEMP3Y);
     lcd.print(" ");
     lcd.print((int)sensor[2]);
     lcd.print(".");
     lcd.print(abs((int)(sensor[2]*10)%10));
-    //lcd.setCursor(TEMP4X,TEMP4Y);
-    //lcd.print(sensor[3]);
-    Serial.println(sensor[0]);
-    Serial.println(sensor[1]);
-    if (relay1==HIGH) {
+
+    lcd.print("    "); //smaze znaky za teplotami
+    
+    
+    if (relay1==LOW) {  //relay is ON
+      msDayON+=(millis()-lastOn);
+      energy+=(((millis()-lastOn)/1000)*energyKoef*(sensor[0]-sensor[1])); //in Ws
+      lastOn = millis();
+    }
+
+    //zobrazeni okamziteho vykonu ve W
+    //zobrazeni celkoveho vykonu za den v kWh
+    //zobrazeni poctu minut behu cerpadla za aktualni den
+    //0123456789012345
+    // 636 0.1234 720T
+    lcd.setCursor(0,1);
+    lcd.print((int)power);
+   
+    lcd.setCursor(5,1);
+    lcd.print(energy/1000/3600); //Wh -> kWh (show it in kWh)
+    
+    lcd.setCursor(12,1);
+    lcd.print((int)msDayON/1000/60); //ms->min (show it in minutes)
+    
+    
+    //change relay 1 status
+    if (relay1==HIGH) { //switch OFF->ON
       if (sensor[0] - sensor[2] >= tempDiffON) {
         relay1=LOW; //relay ON
         digitalWrite(RELAY1PIN, relay1);
+        lastOn = millis();
+        if (lastOff==0) { //first ON in actual day
+          energy=0.0;
+          msDayON=0;
+        }
       }
     }
-    if (relay1==LOW) {
+    if (relay1==LOW) { //switch ON->OFF
       if (sensor[0] - sensor[2] < tempDiffOFF) {
         relay1=HIGH; ///relay OFF
         digitalWrite(RELAY1PIN, relay1);
+        lastOff=millis();
       }
+    }
+    displayRelayStatus();
+    
+    if (lastOff > 0 && (millis() - lastOff>dayInterval)) {
+        lastOff = 0;
     }
   }
 
@@ -340,17 +383,19 @@ void dsInit(void) {
   }
 }
 
+//show relay's status in column 15
 void displayRelayStatus(void) {
   lcd.setCursor(RELAY1X,RELAY1Y);
   if (relay1==LOW)
-    lcd.print("Z");
+    lcd.print("T");
   else
-    lcd.print("V");
-  lcd.setCursor(RELAY2X,RELAY2Y);
+    lcd.print("N");
+/*  lcd.setCursor(RELAY2X,RELAY2Y);
   if (relay2==LOW)
-    lcd.print("Z");
+    lcd.print("T");
   else
-    lcd.print("V");
+    lcd.print("N");
+*/
 }
 
 #ifdef ethernet
