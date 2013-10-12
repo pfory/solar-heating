@@ -51,6 +51,8 @@ char a[0]; //do not delete this dummy variable
 #endif
 
 
+#define verbose
+
 //#define ethernet
 // #ifdef ethernet
 // #include <Ethernet.h>
@@ -90,10 +92,16 @@ LiquidCrystal_I2C lcd(0x20,2,1,0,4,5,6,7,3, POSITIVE);  // set the LCD address t
 */
 
 #include <OneWire.h>
-#include <DallasTemperature.h>
 #define ONE_WIRE_BUS A0
 OneWire onewire(ONE_WIRE_BUS); // pin for onewire DALLAS bus
+#define dallasMinimal //-956 Bytes
+#ifdef dallasMinimal
+#include <DallasTemperatureMinimal.h>
+DallasTemperatureMinimal dsSensors(&onewire);
+#else
+#include <DallasTemperature.h>
 DallasTemperature dsSensors(&onewire);
+#endif
 DeviceAddress tempDeviceAddress;
 #ifndef NUMBER_OF_DEVICES
 #define NUMBER_OF_DEVICES 3
@@ -101,7 +109,6 @@ DeviceAddress tempDeviceAddress;
 DeviceAddress tempDeviceAddresses[NUMBER_OF_DEVICES];
 //int  resolution = 12;
 unsigned int numberOfDevices; // Number of temperature devices found
-unsigned long lastDisplayTempTime;
 unsigned long lastDsMeasStartTime;
 bool dsMeasStarted=false;
 float sensor[NUMBER_OF_DEVICES];
@@ -109,7 +116,7 @@ unsigned int sample=0;
 bool checkConfigFlag = false;
 unsigned int const sendTimeDelay=5000; //to send to cosm.com
 float tempDiffON = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
-float tempDiffOFF = 10.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
+float tempDiffOFF = 20.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
 int sensorReading = INT_MIN;
 unsigned int const dsMeassureInterval=750; //inteval between meassurements
 unsigned long lastMeasTime=0;
@@ -117,19 +124,28 @@ unsigned long msDayON = 0;  //kolik ms uz jsem za aktualni den byl ve stavu ON
 unsigned long lastOn=0;     //ms posledniho behu ve stavu ON
 unsigned long lastOff = 0;  //ms posledniho vypnuti rele
 unsigned long const dayInterval=1000*60*60*12; //
-unsigned int power = 0; //actual power in W
-float energy = 0; //energy a day in kWh
-float energyKoef = 283.0; //Ws
+float power = 0; //actual power in W
+float energy = 0.0; //energy a day in kWh
+float energyKoef = 283.5; //Ws
 
-/*#define TEMP1X 0
+//0123456789012345
+//15.6 15.8 15.8 V
+//1234 0.12 624
+#define TEMP1X 0
 #define TEMP1Y 0
-#define TEMP2X 6
+#define TEMP2X 5
 #define TEMP2Y 0
-#define TEMP3X 0
-#define TEMP3Y 1
+#define TEMP3X 10
+#define TEMP3Y 0
 //#define TEMP4X 9
 //#define TEMP4Y 1
-*/
+#define POWERX 0
+#define POWERY 1
+#define ENERGYX 5
+#define ENERGYY 1
+#define TIMEX 10
+#define TIMEY 1
+
 
 #define RELAY1X 15
 #define RELAY1Y 0
@@ -141,7 +157,7 @@ float energyKoef = 283.0; //Ws
 //#define RELAY2PIN A2
 
 //HIGH - relay OFF, LOW - relay ON
-bool relay1=HIGH; 
+bool relay1=LOW; 
 bool relay2=HIGH;
 
 #include <Keypad.h>
@@ -160,37 +176,41 @@ byte colPins[COLS] = {9,8,7,6}; //connect to the column pinouts of the keypad
 //initialize an instance of class NewKeypad
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
 
-char versionSW[]="0.11";
+char versionSW[]="0.3";
 char versionSWString[] = "Solar v"; //SW name & version
 
 void dsInit(void);
 void displayRelayStatus(void);
 
 void setup() {
-  // start serial port:
+  #ifdef verbose
   Serial.begin(115200);
-//  Serial.println();
   Serial.println(versionSW);
+  #endif
 
   //  Serial.print("waiting for net connection...");
   #ifdef ethernet
   if (Ethernet.begin(mac) == 0) {
+    #ifdef verbose
     Serial.println("Failed using DHCP");
+    #endif
     // DHCP failed, so use a fixed IP address:
   }
 
+  #ifdef verbose
   Serial.println("EthOK");
-  
-//  Serial.print("\nIP:");
-//  Serial.println(Ethernet.localIP());
-  /*Serial.print("Mask:");
+ 
+  Serial.print("\nIP:");
+  Serial.println(Ethernet.localIP());
+  Serial.print("Mask:");
   Serial.println(Ethernet.subnetMask());
   Serial.print("Gateway:");
   Serial.println(Ethernet.gatewayIP());
   Serial.print("DNS:");
   Serial.println(Ethernet.dnsServerIP());
   Serial.println();
-  */
+  #endif
+  
   lastSendTime = lastMeasTime = millis();
   #endif
 
@@ -212,12 +232,12 @@ void setup() {
   lcd.print(versionSWString);  
   lcd.print(" ");
   lcd.print (versionSW);
-  delay (3000);
+  delay (2000);
   lcd.clear();
   
   dsInit();
-  lastDisplayTempTime = millis();
-  dsSensors.requestTemperatures(); 
+
+  lcd.clear();
 
   /*lcd.setCursor(0,0);
   lcd.print("1:");
@@ -229,12 +249,11 @@ void setup() {
   lcd.print("4:");
   */
   
-  lcd.clear();
-
   pinMode(RELAY1PIN, OUTPUT);
   //pinMode(RELAY2PIN, OUTPUT);
   
   digitalWrite(RELAY1PIN, relay1);
+  lastOn=millis();
   //digitalWrite(RELAY2PIN, relay2);
   //displayRelayStatus();
 }
@@ -244,10 +263,12 @@ void loop() {
     //start sampling
     dsMeasStarted=true;
     dsSensors.requestTemperatures(); 
+    digitalWrite(13,HIGH);
     lastDsMeasStartTime = millis();
   }
   else if (dsMeasStarted && (millis() - lastDsMeasStartTime>dsMeassureInterval)) {
     dsMeasStarted=false;
+    digitalWrite(13,LOW);
     //saving temperatures into variables
     for (byte i=0;i<numberOfDevices; i++) {
       float tempTemp=-126;
@@ -259,34 +280,37 @@ void loop() {
         }
       }
       sensor[i] = tempTemp;
+      /*Serial.print("S");
+      Serial.print(i);
+      Serial.print(":");*/
       Serial.println(sensor[i]);
+      //Serial.print(" C ");
     } 
+    Serial.println();
 
 
     //show temperatures on display (first row)
-    lcd.setCursor(0,0);
+    lcd.setCursor(TEMP1X,TEMP1Y);
     lcd.print((int)sensor[0]);
     lcd.print(".");
     lcd.print(abs((int)(sensor[0]*10)%10));
 
-    //lcd.setCursor(TEMP2X,TEMP2Y);
-    lcd.print(" ");
+    lcd.setCursor(TEMP2X,TEMP2Y);
     lcd.print((int)sensor[1]);
     lcd.print(".");
     lcd.print(abs((int)(sensor[1]*10)%10));
 
-    //lcd.setCursor(TEMP3X,TEMP3Y);
-    lcd.print(" ");
+    lcd.setCursor(TEMP3X,TEMP3Y);
     lcd.print((int)sensor[2]);
     lcd.print(".");
     lcd.print(abs((int)(sensor[2]*10)%10));
-
-    lcd.print("    "); //smaze znaky za teplotami
-    
+   
     
     if (relay1==LOW) {  //relay is ON
       msDayON+=(millis()-lastOn);
-      energy+=(((millis()-lastOn)/1000)*energyKoef*(sensor[0]-sensor[1])); //in Ws
+      power = energyKoef*(sensor[0]-sensor[1]); //in W
+      //power = energyKoef*2.51; //in W
+      energy+=((float)(millis()-lastOn)*power/1000.f); //in Ws
       lastOn = millis();
     }
 
@@ -295,16 +319,26 @@ void loop() {
     //zobrazeni poctu minut behu cerpadla za aktualni den
     //0123456789012345
     // 636 0.1234 720T
-    lcd.setCursor(0,1);
+    lcd.setCursor(POWERX,POWERY);
     lcd.print((int)power);
    
-    lcd.setCursor(5,1);
-    lcd.print(energy/1000/3600); //Wh -> kWh (show it in kWh)
+    lcd.setCursor(ENERGYX,ENERGYY);
+    lcd.print(energy/1000.f/3600.f); //Wh -> kWh (show it in kWh)
     
-    lcd.setCursor(12,1);
-    lcd.print((int)msDayON/1000/60); //ms->min (show it in minutes)
+    lcd.setCursor(TIMEX,TIMEY);
+    lcd.print((int)(msDayON/1000/60)); //ms->min (show it in minutes)
     
-    
+    #ifdef verbose
+    Serial.print("Power:");
+    Serial.print(power);
+    Serial.println("[W]");
+    Serial.print("Energy:");
+    Serial.print(energy/1000.f/3600.f);
+    Serial.println("[kWh]");
+    Serial.print("Pump ON:");
+    Serial.print((int)(msDayON/1000));
+    Serial.println("[s]");
+    #endif
     //change relay 1 status
     if (relay1==HIGH) { //switch OFF->ON
       if (sensor[0] - sensor[2] >= tempDiffON) {
@@ -372,8 +406,13 @@ void dsInit(void) {
     lcd.print(" sensor found");
   else
     lcd.print(" sensors found");
-    
+  delay(2000);
   
+  #ifdef verbose
+  Serial.print("Sensor(s):");
+  Serial.println(numberOfDevices);
+  #endif
+
   // Loop through each device, print out address
   for (byte i=0;i<numberOfDevices; i++) {
       // Search the wire for address
@@ -381,6 +420,11 @@ void dsInit(void) {
       memcpy(tempDeviceAddresses[i],tempDeviceAddress,8);
     }
   }
+  #ifndef dallasMinimal
+  dsSensors.setResolution(12);
+  dsSensors.setWaitForConversion(false);
+  #endif
+
 }
 
 //show relay's status in column 15
@@ -390,6 +434,14 @@ void displayRelayStatus(void) {
     lcd.print("T");
   else
     lcd.print("N");
+    
+  #ifdef verbose
+  Serial.print("R1:");
+  if (relay1==LOW)
+    Serial.println("ON");
+  else
+    Serial.println("OFF");
+  #endif
 /*  lcd.setCursor(RELAY2X,RELAY2Y);
   if (relay2==LOW)
     lcd.print("T");
@@ -401,7 +453,9 @@ void displayRelayStatus(void) {
 #ifdef ethernet
 void sendData() {
 
-  //Serial.println("sending data");
+  #ifdef verbose
+  Serial.println("sending data");
+  #endif
   
   //prepare data to send
   #ifdef stringdef
@@ -438,7 +492,9 @@ void sendData() {
 
   // if there's a successful connection:
   if (client.connect(server, 80)) {
+    #ifdef verbose
     Serial.println("connected");
+    #endif
     // send the HTTP PUT request:
     client.print("PUT /v2/feeds/");
     client.print(FEEDID);
@@ -461,10 +517,14 @@ void sendData() {
   } 
   else {
     // if you couldn't make a connection:
+    #ifdef verbose
     Serial.println("failed");
+    #endif
     client.stop();
   }
  
+  #ifdef verbose
   Serial.println(dataString);
+  #endif
 }
 #endif //ethernet
