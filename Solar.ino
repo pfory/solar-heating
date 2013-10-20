@@ -51,21 +51,53 @@ char a[0]; //do not delete this dummy variable
 #endif
 
 
-#define verbose
+//#define verbose
 
-//#define ethernet
-// #ifdef ethernet
-// #include <Ethernet.h>
-// byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x70};
-// EthernetClient client;
-// char server[] = "api.cosm.com";   // name address for cosm API COSM
-// #define APIKEY         "" // your cosm api key
-// #define FEEDID         0 // your feed ID
-// #define USERAGENT      "Solar Arduino" // user agent is the project name
-// char dataString[280];
+#define ethernet
+#ifdef ethernet
+#include <SPI.h>
+#include <Ethernet.h>
+#include <HttpClient.h>
+#include <Xively.h>
 
-// unsigned long lastSendTime;
-// #endif
+byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x6E};
+
+// Your Xively key to let you upload data
+char xivelyKey[] = "azCLxsU4vKepKymGFFWVnXCvTQ6Ilze3euIsNrRKRRXuSPO8";
+//your xively feed ID
+#define xivelyFeed 538561447
+//datastreams
+char VersionSolarID[] = "V";
+char StatusSolarID[] = "S";
+char TempOUTID[] = "OUT";
+char TempINID[] = "IN";
+char TempROOMID[] = "ROOM";
+char TempDiffONID[] = "DiffON";
+char TempDiffOFFID[] = "DiffOFF";
+char StatusID[] = "Status";
+
+bool status=0;
+
+//TODO add all streams
+// Define the strings for our datastream IDs
+XivelyDatastream datastreams[] = {
+XivelyDatastream(VersionSolarID, strlen(VersionSolarID), DATASTREAM_FLOAT),
+XivelyDatastream(StatusSolarID, strlen(StatusSolarID), DATASTREAM_INT),
+XivelyDatastream(TempOUTID, strlen(TempOUTID), DATASTREAM_FLOAT),
+XivelyDatastream(TempINID, strlen(TempINID), DATASTREAM_FLOAT),
+XivelyDatastream(TempROOMID, strlen(TempROOMID), DATASTREAM_FLOAT),
+XivelyDatastream(TempDiffONID, strlen(TempDiffONID), DATASTREAM_FLOAT),
+XivelyDatastream(TempDiffOFFID, strlen(TempDiffOFFID), DATASTREAM_FLOAT),
+XivelyDatastream(StatusID, strlen(StatusID), DATASTREAM_INT),
+};
+// Finally, wrap the datastreams into a feed
+XivelyFeed feed(xivelyFeed, datastreams, 8 /* number of datastreams */);
+
+EthernetClient client;
+XivelyClient xivelyclient(client);
+#endif
+
+unsigned long lastSendTime;
 
 
 //LiquidCrystal_I2C lcd(0x20);  // Set the LCD I2C address
@@ -141,9 +173,9 @@ float energyKoef = 283.5; //Ws
 //#define TEMP4Y 1
 #define POWERX 0
 #define POWERY 1
-#define ENERGYX 5
+#define ENERGYX 7
 #define ENERGYY 1
-#define TIMEX 10
+#define TIMEX 12
 #define TIMEY 1
 
 
@@ -157,9 +189,11 @@ float energyKoef = 283.5; //Ws
 //#define RELAY2PIN A2
 
 //HIGH - relay OFF, LOW - relay ON
-bool relay1=LOW; 
+bool relay1=HIGH; 
 bool relay2=HIGH;
 
+//#define keypad
+#ifdef keypad
 #include <Keypad.h>
 const byte ROWS = 4; //four rows
 const byte COLS = 4; //four columns
@@ -175,8 +209,9 @@ byte colPins[COLS] = {9,8,7,6}; //connect to the column pinouts of the keypad
 
 //initialize an instance of class NewKeypad
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
+#endif
 
-char versionSW[]="0.3";
+float versionSW=0.41;
 char versionSWString[] = "Solar v"; //SW name & version
 
 void dsInit(void);
@@ -188,14 +223,38 @@ void setup() {
   Serial.println(versionSW);
   #endif
 
+  // Switch on the backlight
+  pinMode ( BACKLIGHT_PIN, OUTPUT );
+  digitalWrite ( BACKLIGHT_PIN, HIGH );
+  
+  lcd.begin(16,2);               // initialize the lcd 
+
+   // for ( int i = 0; i < charBitmapSize; i++ )
+   // {
+      // lcd.createChar ( i, (uint8_t *)charBitmap[i] );
+   // }
+
+  lcd.home ();                   // go home
+  lcd.print(versionSWString);  
+  lcd.print(" ");
+  lcd.print (versionSW);
+  delay(1000);
+  lcd.clear();
+
+  dsInit();
+
+
   //  Serial.print("waiting for net connection...");
   #ifdef ethernet
-  if (Ethernet.begin(mac) == 0) {
-    #ifdef verbose
-    Serial.println("Failed using DHCP");
-    #endif
-    // DHCP failed, so use a fixed IP address:
+  while (Ethernet.begin(mac) != 1)
+  {
+    Serial.println("Error getting IP address via DHCP, trying again...");
+    delay(2000);
   }
+
+  lcd.setCursor(0,1);
+  lcd.print(Ethernet.localIP());
+  delay(1000);
 
   #ifdef verbose
   Serial.println("EthOK");
@@ -215,29 +274,8 @@ void setup() {
   #endif
 
   
-  //int charBitmapSize = (sizeof(charBitmap ) / sizeof (charBitmap[0]));
-
-  // Switch on the backlight
-  pinMode ( BACKLIGHT_PIN, OUTPUT );
-  digitalWrite ( BACKLIGHT_PIN, HIGH );
-  
-  lcd.begin(16,2);               // initialize the lcd 
-
-   // for ( int i = 0; i < charBitmapSize; i++ )
-   // {
-      // lcd.createChar ( i, (uint8_t *)charBitmap[i] );
-   // }
-
-  lcd.home ();                   // go home
-  lcd.print(versionSWString);  
-  lcd.print(" ");
-  lcd.print (versionSW);
-  delay (2000);
   lcd.clear();
   
-  dsInit();
-
-  lcd.clear();
 
   /*lcd.setCursor(0,0);
   lcd.print("1:");
@@ -263,12 +301,12 @@ void loop() {
     //start sampling
     dsMeasStarted=true;
     dsSensors.requestTemperatures(); 
-    digitalWrite(13,HIGH);
+    //digitalWrite(13,HIGH);
     lastDsMeasStartTime = millis();
   }
   else if (dsMeasStarted && (millis() - lastDsMeasStartTime>dsMeassureInterval)) {
     dsMeasStarted=false;
-    digitalWrite(13,LOW);
+    //digitalWrite(13,LOW);
     //saving temperatures into variables
     for (byte i=0;i<numberOfDevices; i++) {
       float tempTemp=-126;
@@ -289,30 +327,21 @@ void loop() {
     Serial.println();
 
 
-    //show temperatures on display (first row)
-    lcd.setCursor(TEMP1X,TEMP1Y);
-    lcd.print((int)sensor[0]);
-    lcd.print(".");
-    lcd.print(abs((int)(sensor[0]*10)%10));
-
-    lcd.setCursor(TEMP2X,TEMP2Y);
-    lcd.print((int)sensor[1]);
-    lcd.print(".");
-    lcd.print(abs((int)(sensor[1]*10)%10));
-
-    lcd.setCursor(TEMP3X,TEMP3Y);
-    lcd.print((int)sensor[2]);
-    lcd.print(".");
-    lcd.print(abs((int)(sensor[2]*10)%10));
-   
-    
+		displayTemp(TEMP1X,TEMP1Y, sensor[0]);
+    displayTemp(TEMP2X,TEMP2Y, sensor[1]);
+    displayTemp(TEMP3X,TEMP3Y, sensor[2]);
+		
     if (relay1==LOW) {  //relay is ON
-      msDayON+=(millis()-lastOn);
-      power = energyKoef*(sensor[0]-sensor[1]); //in W
-      //power = energyKoef*2.51; //in W
-      energy+=((float)(millis()-lastOn)*power/1000.f); //in Ws
+			if (sensor[0]>sensor[1]) {
+				msDayON+=(millis()-lastOn);
+				power = energyKoef*(sensor[0]-sensor[1]); //in W
+				energy+=((float)(millis()-lastOn)*power/1000.f); //in Ws
+			}
       lastOn = millis();
     }
+		else {
+			power=0;
+		}
 
     //zobrazeni okamziteho vykonu ve W
     //zobrazeni celkoveho vykonu za den v kWh
@@ -320,13 +349,21 @@ void loop() {
     //0123456789012345
     // 636 0.1234 720T
     lcd.setCursor(POWERX,POWERY);
-    lcd.print((int)power);
+		unsigned int p=(int)power;
+		if (p<10000) lcd.print(" ");
+		if (p<1000) lcd.print(" ");
+		if (p<100) lcd.print(" ");
+		if (p<10) lcd.print(" ");
+    lcd.print(p);
    
     lcd.setCursor(ENERGYX,ENERGYY);
     lcd.print(energy/1000.f/3600.f); //Wh -> kWh (show it in kWh)
     
     lcd.setCursor(TIMEX,TIMEY);
-    lcd.print((int)(msDayON/1000/60)); //ms->min (show it in minutes)
+    p=(int)(msDayON/1000/60);
+		if (p<100) lcd.print(" ");
+		if (p<10) lcd.print(" ");
+		lcd.print(p); //ms->min (show it in minutes)
     
     #ifdef verbose
     Serial.print("Power:");
@@ -339,9 +376,18 @@ void loop() {
     Serial.print((int)(msDayON/1000));
     Serial.println("[s]");
     #endif
+ 
     //change relay 1 status
+   if (relay1==LOW) { //switch ON->OFF
+      if ((sensor[0] - sensor[2]) < tempDiffOFF) {
+        relay1=HIGH; ///relay OFF
+        digitalWrite(RELAY1PIN, relay1);
+        lastOff=millis();
+      }
+    }
+	
     if (relay1==HIGH) { //switch OFF->ON
-      if (sensor[0] - sensor[2] >= tempDiffON) {
+      if (((sensor[0] - sensor[2]) >= tempDiffON) | ((sensor[1] - sensor[2]) >= tempDiffON)) {
         relay1=LOW; //relay ON
         digitalWrite(RELAY1PIN, relay1);
         lastOn = millis();
@@ -351,13 +397,7 @@ void loop() {
         }
       }
     }
-    if (relay1==LOW) { //switch ON->OFF
-      if (sensor[0] - sensor[2] < tempDiffOFF) {
-        relay1=HIGH; ///relay OFF
-        digitalWrite(RELAY1PIN, relay1);
-        lastOff=millis();
-      }
-    }
+ 
     displayRelayStatus();
     
     if (lastOff > 0 && (millis() - lastOff>dayInterval)) {
@@ -367,32 +407,35 @@ void loop() {
 
 
   #ifdef ethernet
-  if (sample==2) {
-    client.stop();
-  }
-
-  if (sample==5 && checkConfigFlag == false) {
-    //checkConfig();
-  }
-
-  if (sample==8) {
-    checkConfigFlag = false;
-  }
-
   if(!client.connected() && (millis() - lastSendTime > sendTimeDelay)) {
     lastSendTime = millis();
-    //digitalWrite(ledPin, HIGH);
     sendData();
-    //digitalWrite(ledPin, LOW);
-    sample=0;
   }
   #endif
  
+  #ifdef keypad
   char customKey = customKeypad.getKey();
   if (customKey){
     lcd.setCursor(0,0);
     lcd.print(customKey);
   }
+  #endif
+}
+
+
+void displayTemp(int x, int y, float value) {
+	lcd.setCursor(x,y);
+  int cela=(int)value;
+	if (cela<10 & cela>=0) {
+		lcd.print(" ");
+	}
+	if (cela>100) {
+		cela=cela-100;
+	}
+	int desetina=abs((int)(value*10)%10);
+  lcd.print(cela);
+  lcd.print(".");
+  lcd.print(desetina);
 }
 
 void dsInit(void) {
@@ -452,79 +495,45 @@ void displayRelayStatus(void) {
 
 #ifdef ethernet
 void sendData() {
+  if (status==0) status=1; else status=0;
+  datastreams[0].setFloat(versionSW);
+  datastreams[1].setInt(status);  
+  datastreams[2].setFloat(sensor[0]);
+  datastreams[3].setFloat(sensor[1]);  
+  datastreams[4].setFloat(sensor[2]);  
 
-  #ifdef verbose
-  Serial.println("sending data");
-  #endif
-  
-  //prepare data to send
-  #ifdef stringdef
-  dataString1="";
-  char buffer[3];
-  #endif
-
-  //temperature from DALLAS
-  //00 01 02 03 04 05 06 07
-  //-----------------------
-  //28 C9 B8 41 04 00 00 97
-
-  
-  int n; //data length
-  sprintf(dataString,"V,%s\n",versionSW);
-  
-  for(byte i=0;i<numberOfDevices; i++) {
-    sprintf(dataString,"%sT",dataString);
-    
-    for (byte j=0; j<8; j++) {
-      if (tempDeviceAddresses[i][j]<16) {
-        sprintf(dataString,"%s0",dataString);
-      }
-    }
-
-    int t = (int)(sensor[i]*10);
-    sprintf(dataString,"%s,",dataString);
-
-    if (t<0&&t>-10) {
-      sprintf(dataString,"%s-",dataString);
-    }
-    sprintf(dataString,"%s%d.%u\n",dataString,t/10,abs(t%10));
-  }
-
-  // if there's a successful connection:
-  if (client.connect(server, 80)) {
-    #ifdef verbose
-    Serial.println("connected");
-    #endif
-    // send the HTTP PUT request:
-    client.print("PUT /v2/feeds/");
-    client.print(FEEDID);
-    client.println(".csv HTTP/1.1");
-    client.println("Host: api.cosm.com");
-    client.print("X-ApiKey: ");
-    client.println(APIKEY);
-    client.print("User-Agent: ");
-    client.println(USERAGENT);
-    client.print("Content-Length: ");
-    client.println(n);
-
-    // last pieces of the HTTP PUT request:
-    client.println("Content-Type: text/csv");
-    client.println("Connection: close");
-    client.println();
-
-    // here's the actual content of the PUT request:
-    client.print(dataString);
-  } 
-  else {
-    // if you couldn't make a connection:
-    #ifdef verbose
-    Serial.println("failed");
-    #endif
-    client.stop();
-  }
+  datastreams[5].setFloat(tempDiffON);  
+  datastreams[6].setFloat(tempDiffOFF);  
  
+  if (relay1==LOW)
+    datastreams[7].setInt(1);  
+  else
+    datastreams[7].setInt(0);  
+
   #ifdef verbose
-  Serial.println(dataString);
+  Serial.println("Uploading it to Xively");
   #endif
+  int ret = xivelyclient.put(feed, xivelyKey);
+  #ifdef verbose
+  Serial.print("xivelyclient.put returned ");
+  Serial.println(ret);
+  #endif
+
+  /*ret = xivelyclient.get(feed, xivelyKey);
+  //Serial.print("xivelyclient.get returned ");
+  //Serial.println(ret);
+
+  if (ret > 0)
+  {
+	tempDiffON=datastreams[5].getFloat();
+	tempDiffOFF=datastreams[6].getFloat();
+    //Serial.println("Datastream is...");
+    //Serial.println(feed[0]);
+
+    //Serial.print("Temperature is: ");
+    //Serial.println(feed[0].getFloat());
+  }
+  */
+	
 }
 #endif //ethernet
