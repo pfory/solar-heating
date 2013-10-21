@@ -1,7 +1,3 @@
-//sensors 0.solar OUT temperature
-//        1.solar IN temperature
-//        2.room temperature
-
 //HW
 //Arduino 2009
 //Ethernet shield
@@ -33,14 +29,11 @@
 
 
 
-//spina rele pro cerpadlo v zavislosti na rozdilu teplot z cidla 0 a 2. 
+//spina rele pro cerpadlo v zavislosti na rozdilu teplot z cidla 0,1 a 2. 
 
 //TODO
-//umazat znaky za teplotami
 //Rozdil teplot lze nastavit v konfiguraci pres internet
-//posila teploty ze vsech 3 cidel na cosm.com
 //spina ventil(y) pro rizeni natapeni bojleru nebo radiatoru v zavislosti na konfiguraci zjistene pres internet
-//cidlo 2 slouzi k zjistovani vykonu podle rozdilu teplot
 
 #include <limits.h>
 #include <LiquidCrystal_I2C.h>
@@ -148,7 +141,7 @@ unsigned int sample=0;
 bool checkConfigFlag = false;
 unsigned int const sendTimeDelay=5000; //to send to cosm.com
 float tempDiffON = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
-float tempDiffOFF = 20.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
+float tempDiffOFF = 15.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
 int sensorReading = INT_MIN;
 unsigned int const dsMeassureInterval=750; //inteval between meassurements
 unsigned long lastMeasTime=0;
@@ -159,6 +152,9 @@ unsigned long const dayInterval=1000*60*60*12; //
 float power = 0; //actual power in W
 float energy = 0.0; //energy a day in kWh
 float energyKoef = 283.5; //Ws
+float *tIn;
+float *tOut;
+float *tRoom;
 
 //0123456789012345
 //15.6 15.8 15.8 V
@@ -324,17 +320,20 @@ void loop() {
       Serial.println(sensor[i]);
       //Serial.print(" C ");
     } 
+    tIn = &sensor[0];
+    tOut = &*tOut;
+    tRoom = &*tRoom;
     Serial.println();
 
 
-		displayTemp(TEMP1X,TEMP1Y, sensor[0]);
-    displayTemp(TEMP2X,TEMP2Y, sensor[1]);
-    displayTemp(TEMP3X,TEMP3Y, sensor[2]);
+		displayTemp(TEMP1X,TEMP1Y, *tIn);
+    displayTemp(TEMP2X,TEMP2Y, *tOut);
+    displayTemp(TEMP3X,TEMP3Y, *tRoom);
 		
     if (relay1==LOW) {  //relay is ON
-			if (sensor[0]>sensor[1]) {
+			if (*tIn>*tOut) {
 				msDayON+=(millis()-lastOn);
-				power = energyKoef*(sensor[0]-sensor[1]); //in W
+				power = energyKoef*(*tIn-*tOut); //in W
 				energy+=((float)(millis()-lastOn)*power/1000.f); //in Ws
 			}
       lastOn = millis();
@@ -379,7 +378,7 @@ void loop() {
  
     //change relay 1 status
    if (relay1==LOW) { //switch ON->OFF
-      if ((sensor[0] - sensor[2]) < tempDiffOFF) {
+      if ((*tOut - *tRoom) < tempDiffOFF) {
         relay1=HIGH; ///relay OFF
         digitalWrite(RELAY1PIN, relay1);
         lastOff=millis();
@@ -387,7 +386,7 @@ void loop() {
     }
 	
     if (relay1==HIGH) { //switch OFF->ON
-      if (((sensor[0] - sensor[2]) >= tempDiffON) | ((sensor[1] - sensor[2]) >= tempDiffON)) {
+      if (((*tOut - *tRoom) >= tempDiffON) | ((*tIn - *tRoom) >= tempDiffON)) {
         relay1=LOW; //relay ON
         digitalWrite(RELAY1PIN, relay1);
         lastOn = millis();
@@ -498,9 +497,9 @@ void sendData() {
   if (status==0) status=1; else status=0;
   datastreams[0].setFloat(versionSW);
   datastreams[1].setInt(status);  
-  datastreams[2].setFloat(sensor[0]);
-  datastreams[3].setFloat(sensor[1]);  
-  datastreams[4].setFloat(sensor[2]);  
+  datastreams[2].setFloat(*tIn);
+  datastreams[3].setFloat(*tOut);  
+  datastreams[4].setFloat(*tRoom);  
 
   datastreams[5].setFloat(tempDiffON);  
   datastreams[6].setFloat(tempDiffOFF);  
