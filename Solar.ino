@@ -392,7 +392,7 @@ void loop() {
  
     //change relay 1 status
    if (relay1==LOW) { //switch ON->OFF
-      if (millis - lastOn4Delay() >= delayON) {
+      if (millis() - lastOn4Delay >= delayON) {
         if ((*tOut - *tRoom) < tempDiffOFF) {
           relay1=HIGH; ///relay OFF
           digitalWrite(RELAY1PIN, relay1);
@@ -406,7 +406,7 @@ void loop() {
         relay1=LOW; //relay ON
         digitalWrite(RELAY1PIN, relay1);
         lastOn = millis();
-        lastOn4Delay = lastON;
+        lastOn4Delay = lastOn;
         if (lastOff==0) { //first ON in actual day
           energy=0.0;
           msDayON=0;
