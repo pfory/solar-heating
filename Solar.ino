@@ -43,8 +43,16 @@
 char a[0]; //do not delete this dummy variable
 #endif
 
-
 //#define verbose
+#define serial
+
+#ifdef verbose
+#define serial
+#endif
+
+#ifdef serial
+int incomingByte = 0;   // for incoming serial data
+#endif
 
 #define ethernet
 #ifdef ethernet
@@ -71,8 +79,6 @@ char StatusID[] = "Status";
 
 bool status=0;
 
-//TODO add all streams
-// Define the strings for our datastream IDs
 XivelyDatastream datastreams[] = {
 XivelyDatastream(VersionSolarID, strlen(VersionSolarID), DATASTREAM_FLOAT),
 XivelyDatastream(StatusSolarID, strlen(StatusSolarID), DATASTREAM_INT),
@@ -83,7 +89,7 @@ XivelyDatastream(TempDiffONID, strlen(TempDiffONID), DATASTREAM_FLOAT),
 XivelyDatastream(TempDiffOFFID, strlen(TempDiffOFFID), DATASTREAM_FLOAT),
 XivelyDatastream(StatusID, strlen(StatusID), DATASTREAM_INT),
 };
-// Finally, wrap the datastreams into a feed
+
 XivelyFeed feed(xivelyFeed, datastreams, 8 /* number of datastreams */);
 
 EthernetClient client;
@@ -149,6 +155,9 @@ unsigned long msDayON = 0;  //kolik ms uz jsem za aktualni den byl ve stavu ON
 unsigned long lastOn=0;     //ms posledniho behu ve stavu ON
 unsigned long lastOff = 0;  //ms posledniho vypnuti rele
 unsigned long const dayInterval=1000*60*60*12; //
+unsigned long const delayON=1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
+unsigned long lastOn4Delay = 0;
+
 float power = 0; //actual power in W
 float energy = 0.0; //energy a day in kWh
 float energyKoef = 283.5; //Ws
@@ -207,15 +216,17 @@ byte colPins[COLS] = {9,8,7,6}; //connect to the column pinouts of the keypad
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
 #endif
 
-float versionSW=0.41;
+float versionSW=0.43;
 char versionSWString[] = "Solar v"; //SW name & version
 
 void dsInit(void);
 void displayRelayStatus(void);
 
 void setup() {
+  #ifdef serial
+  Serial.begin(9600);
+  #endif
   #ifdef verbose
-  Serial.begin(115200);
   Serial.println(versionSW);
   #endif
 
@@ -239,12 +250,15 @@ void setup() {
 
   dsInit();
 
-
-  //  Serial.print("waiting for net connection...");
+  #ifdef verbose
+  Serial.print("waiting for net connection...");
+  #endif
   #ifdef ethernet
   while (Ethernet.begin(mac) != 1)
   {
+    #ifdef verbose
     Serial.println("Error getting IP address via DHCP, trying again...");
+    #endif
     delay(2000);
   }
 
@@ -323,7 +337,7 @@ void loop() {
     tIn = &sensor[0];
     tOut = &*tOut;
     tRoom = &*tRoom;
-    Serial.println();
+    //Serial.println();
 
 
 		displayTemp(TEMP1X,TEMP1Y, *tIn);
@@ -336,7 +350,7 @@ void loop() {
 				power = energyKoef*(*tIn-*tOut); //in W
 				energy+=((float)(millis()-lastOn)*power/1000.f); //in Ws
 			}
-      lastOn = millis();
+      //lastOn = millis();  ????
     }
 		else {
 			power=0;
@@ -378,10 +392,12 @@ void loop() {
  
     //change relay 1 status
    if (relay1==LOW) { //switch ON->OFF
-      if ((*tOut - *tRoom) < tempDiffOFF) {
-        relay1=HIGH; ///relay OFF
-        digitalWrite(RELAY1PIN, relay1);
-        lastOff=millis();
+      if (millis - lastOn4Delay() >= delayON) {
+        if ((*tOut - *tRoom) < tempDiffOFF) {
+          relay1=HIGH; ///relay OFF
+          digitalWrite(RELAY1PIN, relay1);
+          lastOff=millis();
+        }
       }
     }
 	
@@ -390,6 +406,7 @@ void loop() {
         relay1=LOW; //relay ON
         digitalWrite(RELAY1PIN, relay1);
         lastOn = millis();
+        lastOn4Delay = lastON;
         if (lastOff==0) { //first ON in actual day
           energy=0.0;
           msDayON=0;
@@ -503,7 +520,13 @@ void sendData() {
 
   datastreams[5].setFloat(tempDiffON);  
   datastreams[6].setFloat(tempDiffOFF);  
- 
+  
+  //read data from UART
+  if (Serial.available() > 0) {
+    incomingByte = Serial.read();
+  }
+  
+  
   if (relay1==LOW)
     datastreams[7].setInt(1);  
   else
