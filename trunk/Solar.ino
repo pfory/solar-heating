@@ -44,7 +44,7 @@ char a[0]; //do not delete this dummy variable
 #endif
 
 //#define verbose
-#define serial
+//#define serial
 
 #ifdef verbose
 #define serial
@@ -62,7 +62,10 @@ int incomingByte = 0;   // for incoming serial data
 #include <Xively.h>
 
 byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x6E};
-
+IPAddress dnServer(192, 168, 1, 1);
+IPAddress gateway(192, 168, 1, 1);
+IPAddress subnet(255, 255, 255, 0);
+IPAddress ip(192, 168, 1,89);
 // Your Xively key to let you upload data
 char xivelyKey[] = "azCLxsU4vKepKymGFFWVnXCvTQ6Ilze3euIsNrRKRRXuSPO8";
 //your xively feed ID
@@ -149,7 +152,7 @@ unsigned int const sendTimeDelay=5000; //to send to cosm.com
 float tempDiffON = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
 float tempDiffOFF = 15.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
 int sensorReading = INT_MIN;
-unsigned int const dsMeassureInterval=750; //inteval between meassurements
+unsigned long const dsMeassureInterval=750; //inteval between meassurements
 unsigned long lastMeasTime=0;
 unsigned long msDayON = 0;  //kolik ms uz jsem za aktualni den byl ve stavu ON
 unsigned long lastOn=0;     //ms posledniho behu ve stavu ON
@@ -161,9 +164,9 @@ unsigned long lastOn4Delay = 0;
 float power = 0; //actual power in W
 float energy = 0.0; //energy a day in kWh
 float energyKoef = 283.5; //Ws
-float *tIn;
-float *tOut;
-float *tRoom;
+float tIn=0;
+float tOut=0;
+float tRoom=0;
 
 //0123456789012345
 //15.6 15.8 15.8 V
@@ -216,7 +219,7 @@ byte colPins[COLS] = {9,8,7,6}; //connect to the column pinouts of the keypad
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
 #endif
 
-float versionSW=0.43;
+float versionSW=0.46;
 char versionSWString[] = "Solar v"; //SW name & version
 
 void dsInit(void);
@@ -254,13 +257,14 @@ void setup() {
   Serial.print("waiting for net connection...");
   #endif
   #ifdef ethernet
-  while (Ethernet.begin(mac) != 1)
+	Ethernet.begin(mac, ip, dnServer, gateway, subnet);
+  /*while (Ethernet.begin(mac) != 1)
   {
     #ifdef verbose
     Serial.println("Error getting IP address via DHCP, trying again...");
     #endif
     delay(2000);
-  }
+  }*/
 
   lcd.setCursor(0,1);
   lcd.print(Ethernet.localIP());
@@ -333,24 +337,24 @@ void loop() {
       Serial.print(":");*/
       Serial.println(sensor[i]);
       //Serial.print(" C ");
+			tOut 	= sensor[0];
+			tIn	 	= sensor[1];
+			tRoom = sensor[2];
     } 
-    tIn = &sensor[0];
-    tOut = &*tOut;
-    tRoom = &*tRoom;
     //Serial.println();
 
-
-		displayTemp(TEMP1X,TEMP1Y, *tIn);
-    displayTemp(TEMP2X,TEMP2Y, *tOut);
-    displayTemp(TEMP3X,TEMP3Y, *tRoom);
+		//display OUT  IN  ROOM
+		displayTemp(TEMP1X,TEMP1Y, tOut);
+    displayTemp(TEMP2X,TEMP2Y, tIn);
+    displayTemp(TEMP3X,TEMP3Y, tRoom);
 		
     if (relay1==LOW) {  //relay is ON
-			if (*tIn>*tOut) {
+			if (tIn<tOut) {
 				msDayON+=(millis()-lastOn);
-				power = energyKoef*(*tIn-*tOut); //in W
+				power = energyKoef*(tOut-tIn); //in W
 				energy+=((float)(millis()-lastOn)*power/1000.f); //in Ws
 			}
-      //lastOn = millis();  ????
+      lastOn = millis();
     }
 		else {
 			power=0;
@@ -392,21 +396,24 @@ void loop() {
  
     //change relay 1 status
    if (relay1==LOW) { //switch ON->OFF
-      if (millis() - lastOn4Delay >= delayON) {
-        if ((*tOut - *tRoom) < tempDiffOFF) {
+      //if (millis() - lastOn4Delay >= delayON) {
+        if ((tOut - tRoom) < tempDiffOFF) {
           relay1=HIGH; ///relay OFF
           digitalWrite(RELAY1PIN, relay1);
           lastOff=millis();
+					lastOn4Delay=0;
         }
-      }
+      //}
     }
 	
     if (relay1==HIGH) { //switch OFF->ON
-      if (((*tOut - *tRoom) >= tempDiffON) | ((*tIn - *tRoom) >= tempDiffON)) {
+      if (((tOut - tRoom) >= tempDiffON) | ((tIn - tRoom) >= tempDiffON)) {
         relay1=LOW; //relay ON
         digitalWrite(RELAY1PIN, relay1);
         lastOn = millis();
-        lastOn4Delay = lastOn;
+				if (lastOn4Delay==0) {
+					lastOn4Delay = lastOn;
+				}
         if (lastOff==0) { //first ON in actual day
           energy=0.0;
           msDayON=0;
@@ -514,17 +521,19 @@ void sendData() {
   if (status==0) status=1; else status=0;
   datastreams[0].setFloat(versionSW);
   datastreams[1].setInt(status);  
-  datastreams[2].setFloat(*tIn);
-  datastreams[3].setFloat(*tOut);  
-  datastreams[4].setFloat(*tRoom);  
+  datastreams[2].setFloat(tOut);
+  datastreams[3].setFloat(tIn);  
+  datastreams[4].setFloat(tRoom);  
 
   datastreams[5].setFloat(tempDiffON);  
   datastreams[6].setFloat(tempDiffOFF);  
   
   //read data from UART
-  if (Serial.available() > 0) {
+  #ifdef serial
+	if (Serial.available() > 0) {
     incomingByte = Serial.read();
   }
+	#endif
   
   
   if (relay1==LOW)
