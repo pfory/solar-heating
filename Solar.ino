@@ -236,28 +236,17 @@ Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS
 #endif
 
 
-float versionSW=0.49;
+float versionSW=0.50;
 char versionSWString[] = "Solar v"; //SW name & version
 
 void dsInit(void);
 void displayRelayStatus(void);
 
 void setup() {
- #ifdef ethernet
-	//Ethernet.begin(mac, ip, dnServer, gateway, subnet);
-  while (Ethernet.begin(mac) != 1)
-  {
-    #ifdef verbose
-    //Serial.println("Error getting IP address via DHCP, trying again...");
-    #endif
-    delay(2000);
-  }
-	 
-
 	lcd.begin(16,2);               // initialize the lcd 
   // Switch on the backlight
   pinMode(BACKLIGHT_PIN, OUTPUT);
-  digitalWrite(BACKLIGHT_PIN, LOW);
+  digitalWrite(BACKLIGHT_PIN, HIGH);
 
   #ifdef serial
   Serial.begin(9600);
@@ -266,26 +255,35 @@ void setup() {
   Serial.println(versionSW);
   #endif
 
-	#ifdef verbose
-  Serial.print("waiting for net connection...");
-  #endif
- 
-  digitalWrite(BACKLIGHT_PIN, HIGH);
-  
-
-   // for ( int i = 0; i < charBitmapSize; i++ )
-   // {
-      // lcd.createChar ( i, (uint8_t *)charBitmap[i] );
-   // }
-
-  lcd.home ();                   // go home
+  lcd.home();                   // go home
   lcd.print(versionSWString);  
   lcd.print(" ");
   lcd.print (versionSW);
   delay(1000);
   lcd.clear();
 
-  dsInit();
+	#ifdef verbose
+  Serial.print("waiting for net connection...");
+  #endif
+	lcd.setCursor(0,0);
+  lcd.print("waiting for net");
+
+  #ifdef ethernet
+	//Ethernet.begin(mac, ip, dnServer, gateway, subnet);
+  while (Ethernet.begin(mac) != 1)
+  {
+    #ifdef verbose
+    //Serial.println("Error getting IP address via DHCP, trying again...");
+    #endif
+    delay(2000);
+  }
+	#endif
+
+   // for ( int i = 0; i < charBitmapSize; i++ )
+   // {
+      // lcd.createChar ( i, (uint8_t *)charBitmap[i] );
+   // }
+
 
   lcd.setCursor(0,1);
 	lcd.print("IP:");
@@ -307,11 +305,11 @@ void setup() {
   #endif
   
   lastSendTime = lastUpdateTime = lastMeasTime = millis();
-  #endif
-
   
+
   lcd.clear();
   
+  dsInit();
 
   /*lcd.setCursor(0,0);
   lcd.print("1:");
@@ -337,14 +335,6 @@ void setup() {
 	lcd.print(xivelyFeedSetup);
 	readData();
 	wdt_enable(WDTO_8S);
-	lcd.clear();
-	lcd.setCursor(0,0);
-	lcd.print(" ON:");
-  lcd.print(tempDiffON);
-	lcd.setCursor(0,1);
-	lcd.print("OFF:");
-  lcd.print(tempDiffOFF);
-	delay(1000);
 	lcd.clear();
 }
 
@@ -620,6 +610,8 @@ void readData() {
     lcd.print(tempDiffON);
 		lcd.print("OFF:");
     lcd.print(tempDiffOFF);
+		delay(2000);
+		lcd.clear();
   }
 }
 #endif //ethernet
