@@ -1,5 +1,5 @@
 //HW
-//Arduino 2009 or Mega 2560
+//Arduino Mega 2560
 //Ethernet shield
 //I2C display
 //2 Relays module
@@ -38,7 +38,11 @@
 #include <limits.h>
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h> 
+
+//#define watchdog
+#ifdef watchdog
 #include <avr/wdt.h>
+#endif
 
 #ifndef dummy //this section prevent from error while program is compiling without Ethernetdef
 char a[0]; //do not delete this dummy variable
@@ -161,13 +165,10 @@ unsigned int numberOfDevices; // Number of temperature devices found
 unsigned long lastDsMeasStartTime;
 bool dsMeasStarted=false;
 float sensor[NUMBER_OF_DEVICES];
-unsigned int sample=0;
-bool checkConfigFlag = false;
 unsigned int const sendTimeDelay=5000; //to send to cosm.com
 unsigned int const updateTimeDelay=60000; //to send to cosm.com
 float tempDiffON = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
 float tempDiffOFF = 15.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
-int sensorReading = INT_MIN;
 unsigned long const dsMeassureInterval=750; //inteval between meassurements
 unsigned long lastMeasTime=0;
 unsigned long msDayON = 0;  //kolik ms uz jsem za aktualni den byl ve stavu ON
@@ -236,7 +237,7 @@ Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS
 #endif
 
 
-float versionSW=0.50;
+float versionSW=0.51;
 char versionSWString[] = "Solar v"; //SW name & version
 
 void dsInit(void);
@@ -248,13 +249,16 @@ void setup() {
   pinMode(BACKLIGHT_PIN, OUTPUT);
   digitalWrite(BACKLIGHT_PIN, HIGH);
 
-  #ifdef serial
+#ifdef serial
   Serial.begin(9600);
-  #endif
-  #ifdef verbose
+#endif
+#ifdef verbose
+	Serial.print("Solar v.");
   Serial.println(versionSW);
-  #endif
-
+#endif
+#ifdef ethernet
+  datastreams[0].setFloat(versionSW);
+#endif
   lcd.home();                   // go home
   lcd.print(versionSWString);  
   lcd.print(" ");
@@ -262,22 +266,24 @@ void setup() {
   delay(1000);
   lcd.clear();
 
-	#ifdef verbose
-  Serial.print("waiting for net connection...");
-  #endif
+  dsInit();
+
+#ifdef verbose
+  Serial.println("waiting for net connection...");
+#endif
 	lcd.setCursor(0,0);
   lcd.print("waiting for net");
 
-  #ifdef ethernet
+#ifdef ethernet
 	//Ethernet.begin(mac, ip, dnServer, gateway, subnet);
   while (Ethernet.begin(mac) != 1)
   {
-    #ifdef verbose
-    //Serial.println("Error getting IP address via DHCP, trying again...");
-    #endif
+#ifdef verbose
+    Serial.println("Error getting IP address via DHCP, trying again...");
+#endif
     delay(2000);
   }
-	#endif
+#endif
 
    // for ( int i = 0; i < charBitmapSize; i++ )
    // {
@@ -285,14 +291,16 @@ void setup() {
    // }
 
 
+#ifdef ethernet
   lcd.setCursor(0,1);
 	lcd.print("IP:");
   lcd.print(Ethernet.localIP());
+#endif
   delay(1000);
 
-  #ifdef verbose
+#ifdef ethernet	
+#ifdef verbose
   Serial.println("EthOK");
- 
   Serial.print("\nIP:");
   Serial.println(Ethernet.localIP());
   Serial.print("Mask:");
@@ -302,44 +310,37 @@ void setup() {
   Serial.print("DNS:");
   Serial.println(Ethernet.dnsServerIP());
   Serial.println();
-  #endif
+#endif
+#endif
   
   lastSendTime = lastUpdateTime = lastMeasTime = millis();
-  
-
   lcd.clear();
   
-  dsInit();
-
-  /*lcd.setCursor(0,0);
-  lcd.print("1:");
-  lcd.setCursor(8,0);
-  lcd.print("2:");
-  lcd.setCursor(0,1);
-  lcd.print("3:");
-  lcd.setCursor(8,1);
-  lcd.print("4:");
-  */
-  
   pinMode(RELAY1PIN, OUTPUT);
-  //pinMode(RELAY2PIN, OUTPUT);
   
   digitalWrite(RELAY1PIN, relay1);
   lastOn=millis();
-  //digitalWrite(RELAY2PIN, relay2);
-  //displayRelayStatus();
+#ifdef ethernet	
 	lcd.setCursor(0,0);
   lcd.print("reading Xively");
 	lcd.setCursor(0,1);
   lcd.print("feed:");
 	lcd.print(xivelyFeedSetup);
 	readData();
+#endif
+#ifdef watchdog
 	wdt_enable(WDTO_8S);
+#endif
 	lcd.clear();
 }
 
 void loop() {
+#ifdef serial
+	checkSerial();
+#endif
+#ifdef watchdog
 	wdt_reset();
+#endif
   if (!dsMeasStarted) {
     //start sampling
     dsMeasStarted=true;
@@ -360,6 +361,7 @@ void loop() {
           break;
         }
       }
+
       sensor[i] = tempTemp;
       /*Serial.print("S");
       Serial.print(i);
@@ -370,7 +372,20 @@ void loop() {
 			tIn	 	= sensor[1];
 			tRoom = sensor[2];
     } 
-    //Serial.println();
+		//obcas se vyskytne chyba a vsechna cidla prestanou merit
+		//zkusim restartovat sbernici
+		bool reset=true;
+		for (byte i=0; i<numberOfDevices; i++) {
+			if (sensor[i]!=0.0) {
+				reset=false;
+			}
+		}
+		if (reset) {
+#ifdef ethernet	
+			status=2;
+#endif
+			dsInit();
+		}
 
 		//display OUT  IN  ROOM
 		displayTemp(TEMP1X,TEMP1Y, tOut);
@@ -411,7 +426,7 @@ void loop() {
 		if (p<10) lcd.print(" ");
 		lcd.print(p); //ms->min (show it in minutes)
     
-    #ifdef verbose
+#ifdef verbose
     Serial.print("Power:");
     Serial.print(power);
     Serial.println("[W]");
@@ -421,7 +436,7 @@ void loop() {
     Serial.print("Pump ON:");
     Serial.print((int)(msDayON/1000));
     Serial.println("[s]");
-    #endif
+#endif
  
     //change relay 1 status
    if (relay1==LOW) { //switch ON->OFF
@@ -458,7 +473,7 @@ void loop() {
   }
 
 
-  #ifdef ethernet
+#ifdef ethernet
   if(!client.connected() && (millis() - lastSendTime > sendTimeDelay)) {
     lastSendTime = millis();
 		readDataUART();
@@ -468,16 +483,15 @@ void loop() {
     lastUpdateTime = millis();
     readData();
   }
-
-  #endif
+#endif
  
-  #ifdef keypad
+#ifdef keypad
   char customKey = customKeypad.getKey();
   if (customKey){
     lcd.setCursor(0,0);
     lcd.print(customKey);
   }
-  #endif
+#endif
 }
 
 
@@ -507,12 +521,12 @@ void dsInit(void) {
     lcd.print(" sensor found");
   else
     lcd.print(" sensors found");
-  delay(2000);
+  delay(1000);
   
-  #ifdef verbose
+#ifdef verbose
   Serial.print("Sensor(s):");
   Serial.println(numberOfDevices);
-  #endif
+#endif
 
   // Loop through each device, print out address
   for (byte i=0;i<numberOfDevices; i++) {
@@ -521,10 +535,10 @@ void dsInit(void) {
       memcpy(tempDeviceAddresses[i],tempDeviceAddress,8);
     }
   }
-  #ifndef dallasMinimal
+#ifndef dallasMinimal
   dsSensors.setResolution(12);
   dsSensors.setWaitForConversion(false);
-  #endif
+#endif
 
 }
 
@@ -536,13 +550,13 @@ void displayRelayStatus(void) {
   else
     lcd.print("N");
     
-  #ifdef verbose
+#ifdef verbose
   Serial.print("R1:");
   if (relay1==LOW)
     Serial.println("ON");
   else
     Serial.println("OFF");
-  #endif
+#endif
 /*  lcd.setCursor(RELAY2X,RELAY2Y);
   if (relay2==LOW)
     lcd.print("T");
@@ -564,9 +578,8 @@ void readDataUART() {
 
 #ifdef ethernet
 void sendData() {
-  if (status==0) status=1; else status=0;
-  datastreams[0].setFloat(versionSW);
   datastreams[1].setInt(status);  
+  if (status==0) status=1; else status=0;
   datastreams[2].setFloat(tOut);
   datastreams[3].setFloat(tIn);  
   datastreams[4].setFloat(tRoom);  
@@ -578,40 +591,83 @@ void sendData() {
   else
     datastreams[7].setInt(0);  
 
-  #ifdef verbose
+#ifdef verbose
   Serial.println("Uploading it to Xively");
-  #endif
+#endif
+#ifdef watchdog
+	wdt_disable();
+#endif
+
   int ret = xivelyclient.put(feed, xivelyKey);
-  #ifdef verbose
+	
+#ifdef watchdog
+	wdt_enable(WDTO_8S);
+#endif
+
+#ifdef verbose
   Serial.print("xivelyclient.put returned ");
   Serial.println(ret);
-  #endif
+#endif
 }
 
 
 void readData() {
+#ifdef watchdog
+	wdt_disable();
+#endif
+
 	int ret = xivelyclientSetup.get(feedSetup, xivelyKeySetup);
-  #ifdef verbose
+
+#ifdef watchdog
+	wdt_enable(WDTO_8S);
+#endif
+
+#ifdef verbose
   Serial.print("xivelyclient.get returned ");
   Serial.println(ret);
-	#endif
+#endif
   if (ret > 0)
   {
+		float _tempDiffON = tempDiffON;
+		float _tempDiffOFF = tempDiffOFF;
 		tempDiffON=datastreamsSetup[0].getFloat();
 		tempDiffOFF=datastreamsSetup[1].getFloat();
-    #ifdef verbose
-		Serial.println("ON is...");
-    Serial.println(tempDiffON);
-    Serial.print("OFF is... ");
-    Serial.println(tempDiffOFF);
-		#endif	
-		lcd.setCursor(0,1);
-		lcd.print("ON:");
-    lcd.print(tempDiffON);
-		lcd.print("OFF:");
-    lcd.print(tempDiffOFF);
-		delay(2000);
-		lcd.clear();
+#ifdef verbose
+		if (tempDiffOFF!=_tempDiffOFF || tempDiffON!=_tempDiffON) {
+			lcd.clear();
+			lcd.setCursor(0,0);
+			lcd.print("Change settings");
+			Serial.println("ON is...");
+			Serial.println(tempDiffON);
+			Serial.print("OFF is... ");
+			Serial.println(tempDiffOFF);
+	#endif	
+			lcd.setCursor(0,1);
+			lcd.print("Z:");
+			lcd.print(tempDiffON);
+			lcd.print(" V:");
+			lcd.print(tempDiffOFF);
+			delay(2000);
+			lcd.clear();
+		}
   }
 }
-#endif //ethernet
+#endif
+
+#ifdef serial
+void checkSerial() {
+	if (Serial.available() > 0) {
+		incomingByte = Serial.read();
+		Serial.print("I received: ");
+		Serial.println(incomingByte, DEC);
+#ifdef watchdog
+		if (incomingByte=='R') {
+			Serial.println("\n\nRESET signal present, RESET will be in 2 second.");
+			wdt_enable(WDTO_2S);
+			wdt_reset();
+			for (;;) {}
+		}
+#endif
+	}
+}
+#endif
