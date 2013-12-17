@@ -23,10 +23,10 @@
 // D7 						- keyboard
 // D8 						- keyboard
 // D9 						- keyboard
-// D10 						- Ethernet shield
-// D11 						- Ethernet shield
-// D12 						- Ethernet shield
-// D13 						- Ethernet shield
+// D10 						- Ethernet shield (MEGA), RX (Pro Mini)
+// D11 						- Ethernet shield (MEGA), TX (Pro Mini)
+// D12 						- Ethernet shield (MEGA)
+// D13 						- Ethernet shield (MEGA)
 
 //spina rele pro čerpadlo v zavislosti na rozdilu teplot z cidla 0,1 a 2. 
 
@@ -51,10 +51,6 @@ char a[0]; //do not delete this dummy variable
 
 #ifdef verbose
 #define serial
-#endif
-
-#ifdef serial
-int incomingByte = 0;   // for incoming serial data
 #endif
 
 
@@ -115,6 +111,30 @@ XivelyFeed feedSetup(xivelyFeedSetup, 	datastreamsSetup, 2 /* number of datastre
 EthernetClient client;
 XivelyClient xivelyclient(client);
 XivelyClient xivelyclientSetup(client);
+#else
+#define serial
+#include <avr/pgmspace.h>
+unsigned long crc;
+static PROGMEM prog_uint32_t crc_table[16] = {
+    0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac,
+    0x76dc4190, 0x6b6b51f4, 0x4db26158, 0x5005713c,
+    0xedb88320, 0xf00f9344, 0xd6d6a3e8, 0xcb61b38c,
+    0x9b64c2b0, 0x86d3d2d4, 0xa00ae278, 0xbdbdf21c
+};
+
+#define START_BLOCK send('#');
+#define DELIMITER send(';');
+#define END_BLOCK send('$');
+
+#define LEDPIN 13
+
+#include <SoftwareSerial.h>
+SoftwareSerial mySerial(10, 11); // RX, TX
+
+#endif
+
+#ifdef serial
+int incomingByte = 0;   // for incoming serial data
 #endif
 
 unsigned long lastSendTime;
@@ -290,6 +310,8 @@ void setup() {
 #endif
     delay(2000);
   }
+#else
+	mySerial.begin(9600);
 #endif
 
    // for ( int i = 0; i < charBitmapSize; i++ )
@@ -508,7 +530,14 @@ void loop() {
   }
 #else
   //if data requested, send data to comunication unit with ethernet shield
-  
+  char req=dataRequested();
+	if (req=='R') { //send data to master
+		sendDataSerial();
+		mySerial.flush();
+	}
+	if (req=='S') { //setup
+		readDataSerial();
+	}
 #endif
  
 #ifdef keypad
@@ -744,5 +773,163 @@ void checkSerial() {
 		}
 #endif
 	}
+}
+#endif
+
+#ifndef ethernet
+void sendDataSerial() {
+	//data sended:
+	//#0;25.31#1;25.19#2;5.19#N;25.00#F;15.00#R;1#S;0$3600177622*
+	crc = ~0L;
+  for (byte i=0;i<numberOfDevices; i++) {
+		START_BLOCK
+		send(i);
+		DELIMITER
+		send(sensor[i]);
+	}
+	START_BLOCK
+	send('N');
+	DELIMITER
+	send(tempDiffON);
+
+	START_BLOCK
+	send('F');
+	DELIMITER
+	send(tempDiffOFF);
+
+	START_BLOCK
+	send('R');
+	DELIMITER
+	if (relay1==LOW)
+		send('1');
+  else
+		send('0');
+
+	START_BLOCK
+	send('S');
+	DELIMITER
+	if (relay2==LOW)
+		send('1');
+  else
+		send('0');
+	
+	END_BLOCK
+#ifdef debug
+	Serial.print(crc);
+	Serial.print("*");
+#endif	
+	mySerial.print(crc);
+	mySerial.print("*");
+}
+
+void readDataSerial() {
+	float setOn;
+	float setOff;
+	unsigned long timeOut = millis();
+	char b[4+1];
+	//Serial.println("Data req.");
+	//#ON (4digits) OFF (2digits) $CRC
+	//#25.115.5$541458114*
+	do {
+//		if (Serial1.available() > 0) {
+		incomingByte = mySerial.read();
+		if (incomingByte=='#') {
+			//ON
+			mySerial.readBytes(b,4);
+			b[4]='\0';
+			setOn=atof(b);
+			Serial.print("ON=");
+			Serial.println(setOn);
+
+			mySerial.readBytes(b,4);
+			b[4]='\0';
+			setOff=atof(b);
+			Serial.print("OFF=");
+			Serial.println(setOff);
+		}
+		//TODO validation with CRC
+		tempDiffON=setOn;
+		tempDiffOFF=setOff;
+	} while ((char)incomingByte!='*' && millis() < (timeOut + 2000));
+	//Serial.println("Data end");
+
+}
+
+void send(char s) {
+	send(s, ' ');
+}
+
+
+void send(char s, char type) {
+	if (type=='X') {
+#ifdef debug
+		Serial.print(s, HEX);
+#endif
+		mySerial.print(s, HEX);
+	}
+	else {
+#ifdef debug
+		Serial.print(s);
+#endif
+		mySerial.print(s);
+	}
+	crc_string(byte(s));
+}
+
+void send(byte s) {
+	send(s, ' ');
+}
+
+void send(byte s, char type) {
+	if (type=='X') {
+#ifdef debug
+		Serial.print(s, HEX);
+#endif
+		mySerial.print(s, HEX);
+	}
+	else {
+#ifdef debug
+		Serial.print(s);
+#endif
+		mySerial.print(s);
+	}
+	crc_string(s);
+}
+
+void send(float s) {
+	char tBuffer[8];
+	dtostrf(s,0,2,tBuffer);
+	for (byte i=0; i<8; i++) {
+		if (tBuffer[i]==0) break;
+		send(tBuffer[i]);
+	}
+}
+
+char dataRequested() {
+	char incomingByte=0;
+	if (mySerial.available() > 0) {
+    incomingByte = (char)mySerial.read();
+#ifdef debug
+		Serial.print("Data req-");
+		Serial.println(incomingByte);
+#endif
+  }
+	return incomingByte;
+}
+
+unsigned long crc_update(unsigned long crc, byte data)
+{
+    byte tbl_idx;
+    tbl_idx = crc ^ (data >> (0 * 4));
+    crc = pgm_read_dword_near(crc_table + (tbl_idx & 0x0f)) ^ (crc >> 4);
+    tbl_idx = crc ^ (data >> (1 * 4));
+    crc = pgm_read_dword_near(crc_table + (tbl_idx & 0x0f)) ^ (crc >> 4);
+    return crc;
+}
+
+void crc_string(byte s)
+{
+  crc = crc_update(crc, s);
+  crc = ~crc;
 }
 #endif
