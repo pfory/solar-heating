@@ -111,6 +111,10 @@ XivelyFeed feedSetup(xivelyFeedSetup, 	datastreamsSetup, 2 /* number of datastre
 EthernetClient client;
 XivelyClient xivelyclient(client);
 XivelyClient xivelyclientSetup(client);
+
+unsigned long lastSendTime;
+unsigned long lastUpdateTime;
+
 #else
 #define serial
 #include <avr/pgmspace.h>
@@ -137,8 +141,6 @@ SoftwareSerial mySerial(10, 11); // RX, TX
 int incomingByte = 0;   // for incoming serial data
 #endif
 
-unsigned long lastSendTime;
-unsigned long lastUpdateTime;
 
 //LiquidCrystal_I2C lcd(0x20);  // Set the LCD I2C address
 //LiquidCrystal_I2C lcd(0x20,6,5,4);  // set the LCD address to 0x20 for a 16 chars and 2 line display
@@ -312,15 +314,7 @@ void setup() {
   }
 #else
 	mySerial.begin(9600);
-#endif
 
-   // for ( int i = 0; i < charBitmapSize; i++ )
-   // {
-      // lcd.createChar ( i, (uint8_t *)charBitmap[i] );
-   // }
-
-
-#ifdef ethernet
   lcd.setCursor(0,1);
   if (ethOK) {
     lcd.print("IP:");
@@ -330,9 +324,7 @@ void setup() {
     lcd.print("No internet!!!");
   }
   delay(1000);
-#endif
 
-#ifdef ethernet	
 #ifdef verbose
   if (ethOK) {
     Serial.println("EthOK");
@@ -351,16 +343,7 @@ void setup() {
     Serial.println("No internet!!!");
   }
 #endif
-#endif
-  
-  lastSendTime = lastUpdateTime = lastMeasTime = millis();
-  lcd.clear();
-  
-  pinMode(RELAY1PIN, OUTPUT);
-  
-  digitalWrite(RELAY1PIN, relay1);
-  lastOn=millis();
-#ifdef ethernet	
+
   if (ethOK) {
     lcd.setCursor(0,0);
     lcd.print("reading Xively");
@@ -369,7 +352,16 @@ void setup() {
     lcd.print(xivelyFeedSetup);
     readData();
   }
+  lastSendTime = lastUpdateTime = lastMeasTime = millis();
 #endif
+
+  lcd.clear();
+  
+  pinMode(RELAY1PIN, OUTPUT);
+  
+  digitalWrite(RELAY1PIN, relay1);
+  lastOn=millis();
+
 #ifdef watchdog
 	wdt_enable(WDTO_8S);
 #endif
@@ -508,6 +500,10 @@ void loop() {
     }
  
     displayRelayStatus();
+		Serial.print("tempDiffON=");
+		Serial.println(tempDiffON);
+		Serial.print("tempDiffOFF=");
+		Serial.println(tempDiffOFF);
     
     if (lastOff > 0 && (millis() - lastOff>dayInterval)) {
         lastOff = 0;
