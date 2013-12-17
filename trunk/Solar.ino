@@ -28,12 +28,9 @@
 // D12 						- Ethernet shield
 // D13 						- Ethernet shield
 
-
-
 //spina rele pro čerpadlo v zavislosti na rozdilu teplot z cidla 0,1 a 2. 
 
 //TODO
-//Rozdil teplot lze nastavit v konfiguraci pres internet
 //spina ventil(y) pro rizeni natapeni bojleru nebo radiatoru v zavislosti na konfiguraci zjistene pres internet
 
 #include <limits.h>
@@ -239,6 +236,8 @@ Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS
 #endif
 
 
+//#define serialMonitor
+
 float versionSW=0.52;
 char versionSWString[] = "Solar v"; //SW name & version
 
@@ -253,6 +252,9 @@ void setup() {
 
 #ifdef serial
   Serial.begin(9600);
+#ifdef serialMonitor	
+	Serial1.begin(9600);
+#endif
 #endif
 #ifdef verbose
 	Serial.print("Solar v.");
@@ -490,12 +492,13 @@ void loop() {
     }
   }
 
-
 #ifdef ethernet
   if (ethOK) {
     if(!client.connected() && (millis() - lastSendTime > sendTimeDelay)) {
       lastSendTime = millis();
+#ifdef serialMonitor		
       readDataUART();
+#endif
       sendData();
     }
     if(!client.connected() && (millis() - lastUpdateTime > updateTimeDelay)) {
@@ -588,16 +591,65 @@ void displayRelayStatus(void) {
 */
 }
 
+#ifdef serialMonitor
 void readDataUART() {
   //read data from UART
-/*  #ifdef serial
-	if (Serial.available() > 0) {
-    incomingByte = Serial.read();
-  }
-	#endif
-  */
-}
+	byte flag=0;
+	char[2+1] tempNo;
+	char[8+1] sensorId;
+	char[6+1] tempValue;
+	byte p=0;
+	bool resetP=false;
+	unsigned long timeOut = millis();
+	Serial1.flush();
+	Serial1.println("R");
+	Serial.println("Data req.");
+	//#0;28422E8104000097;21.44;#1;28EA676B05000089;21.38;$541458114*
+	do {
+//		if (Serial1.available() > 0) {
+			incomingByte = Serial1.read();
+			if (incomingByte=='#') {
+				flag=1;
+				resetP=true;
+			} else if (incomingByte==';') {
+				flag=++;
+				resetP=true;
+			}
+			else {
+				if (flag==1) { //read temp #
+					if (resetP) p=0;
+					tempNo[p++]=incomingByte;
+				}
+				else if (flag==2) { //read sensor id
+					if (resetP) {
+						tempNo[p]=0;
+						p=0;
+					}
+					sensorId[p++]=incomingByte;
+				}
+				else if (flag==3) { //read temp value
+					if (resetP) {
+						sensorId[p]=0;
+						p=0;
+					}
+					tempValue[p++]=incomingByte;
+				}
+				else if (flag==4) {
+					if (resetP) {
+						tempValue[p]=0;
+						p=0;
+					}
+				}
+			}
 
+			if (incomingByte > 0) {
+				Serial.print((char)incomingByte);
+			}
+	} while ((char)incomingByte!='*' && millis() < (
+	timeOut + 2000));
+	Serial.println("\nData end");
+}
+#endif
 
 #ifdef ethernet
 void sendData() {
@@ -660,7 +712,7 @@ void readData() {
 			lcd.clear();
 			lcd.setCursor(0,0);
 			lcd.print("Change settings");
-			Serial.println("ON is...");
+			Serial.print("ON is...");
 			Serial.println(tempDiffON);
 			Serial.print("OFF is... ");
 			Serial.println(tempDiffOFF);
