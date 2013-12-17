@@ -1,5 +1,6 @@
 //HW
-//Arduino Mega 2560
+//Arduino Mega 2560, 2009
+//Pro Mini 168/328 without Ethenet, only controler for Solar, data are sent via serial line to comunication unit
 //Ethernet shield
 //I2C display
 //2 Relays module
@@ -60,13 +61,14 @@ int incomingByte = 0;   // for incoming serial data
 #endif
 
 
-#define ethernet
+//#define ethernet
 #ifdef ethernet
 //#include <SPI.h>
 #include <Ethernet.h>
 #include <HttpClient.h>
 #include <Xively.h>
 
+int ethOK=false;
 byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x6E};
 //IPAddress dnServer(192, 168, 1, 1);
 //IPAddress gateway(192, 168, 1, 1);
@@ -237,7 +239,7 @@ Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS
 #endif
 
 
-float versionSW=0.51;
+float versionSW=0.52;
 char versionSWString[] = "Solar v"; //SW name & version
 
 void dsInit(void);
@@ -268,16 +270,19 @@ void setup() {
 
   dsInit();
 
+#ifdef ethernet
 #ifdef verbose
   Serial.println("waiting for net connection...");
 #endif
 	lcd.setCursor(0,0);
   lcd.print("waiting for net");
-
-#ifdef ethernet
 	//Ethernet.begin(mac, ip, dnServer, gateway, subnet);
-  while (Ethernet.begin(mac) != 1)
+  byte cyklus=0;
+  while (ethOK==false && cyklus++<10)
   {
+    if (Ethernet.begin(mac) == 1) {
+      ethOK = true;
+    }
 #ifdef verbose
     Serial.println("Error getting IP address via DHCP, trying again...");
 #endif
@@ -293,23 +298,34 @@ void setup() {
 
 #ifdef ethernet
   lcd.setCursor(0,1);
-	lcd.print("IP:");
-  lcd.print(Ethernet.localIP());
-#endif
+  if (ethOK) {
+    lcd.print("IP:");
+    lcd.print(Ethernet.localIP());
+  }
+  else {
+    lcd.print("No internet!!!");
+  }
   delay(1000);
+#endif
 
 #ifdef ethernet	
 #ifdef verbose
-  Serial.println("EthOK");
-  Serial.print("\nIP:");
-  Serial.println(Ethernet.localIP());
-  Serial.print("Mask:");
-  Serial.println(Ethernet.subnetMask());
-  Serial.print("Gateway:");
-  Serial.println(Ethernet.gatewayIP());
-  Serial.print("DNS:");
-  Serial.println(Ethernet.dnsServerIP());
-  Serial.println();
+  if (ethOK) {
+    Serial.println("EthOK");
+    Serial.print("\nIP:");
+    Serial.println(Ethernet.localIP());
+    Serial.print("Mask:");
+    Serial.println(Ethernet.subnetMask());
+    Serial.print("Gateway:");
+    Serial.println(Ethernet.gatewayIP());
+    Serial.print("DNS:");
+    Serial.println(Ethernet.dnsServerIP());
+    Serial.println();
+  }
+  else
+  {
+    Serial.println("No internet!!!");
+  }
 #endif
 #endif
   
@@ -321,12 +337,14 @@ void setup() {
   digitalWrite(RELAY1PIN, relay1);
   lastOn=millis();
 #ifdef ethernet	
-	lcd.setCursor(0,0);
-  lcd.print("reading Xively");
-	lcd.setCursor(0,1);
-  lcd.print("feed:");
-	lcd.print(xivelyFeedSetup);
-	readData();
+  if (ethOK) {
+    lcd.setCursor(0,0);
+    lcd.print("reading Xively");
+    lcd.setCursor(0,1);
+    lcd.print("feed:");
+    lcd.print(xivelyFeedSetup);
+    readData();
+  }
 #endif
 #ifdef watchdog
 	wdt_enable(WDTO_8S);
@@ -474,14 +492,16 @@ void loop() {
 
 
 #ifdef ethernet
-  if(!client.connected() && (millis() - lastSendTime > sendTimeDelay)) {
-    lastSendTime = millis();
-		readDataUART();
-    sendData();
-  }
-  if(!client.connected() && (millis() - lastUpdateTime > updateTimeDelay)) {
-    lastUpdateTime = millis();
-    readData();
+  if (ethOK) {
+    if(!client.connected() && (millis() - lastSendTime > sendTimeDelay)) {
+      lastSendTime = millis();
+      readDataUART();
+      sendData();
+    }
+    if(!client.connected() && (millis() - lastUpdateTime > updateTimeDelay)) {
+      lastUpdateTime = millis();
+      readData();
+    }
   }
 #endif
  
