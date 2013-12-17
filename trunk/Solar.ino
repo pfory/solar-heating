@@ -503,6 +503,9 @@ void loop() {
       readData();
     }
   }
+#else
+  //if data requested, send data to comunication unit with ethernet shield
+  
 #endif
  
 #ifdef keypad
