@@ -1,7 +1,5 @@
 //HW
-//Arduino Mega 2560, 2009
-//Pro Mini 168/328 without Ethenet, only controler for Solar, data are sent via serial line to comunication unit
-//Ethernet shield
+//Pro Mini 168/328 data are sent via serial line to comunication unit
 //I2C display
 //2 Relays module
 //DALLAS
@@ -17,16 +15,16 @@
 // D1 						- Tx
 // D2 						- keyboard
 // D3 						- keyboard
-// D4 						- SD card on Ethernet shield
+// D4 						- 
 // D5 						- keyboard
 // D6 						- keyboard
 // D7 						- keyboard
 // D8 						- keyboard
 // D9 						- keyboard
-// D10 						- Ethernet shield (MEGA), RX (Pro Mini)
-// D11 						- Ethernet shield (MEGA), TX (Pro Mini)
-// D12 						- Ethernet shield (MEGA)
-// D13 						- Ethernet shield (MEGA)
+// D10 						- 
+// D11 						- 
+// D12 						- 
+// D13 						- 
 
 //spina rele pro čerpadlo v zavislosti na rozdilu teplot z cidla 0,1 a 2. 
 
@@ -42,81 +40,8 @@
 #include <avr/wdt.h>
 #endif
 
-#ifndef dummy //this section prevent from error while program is compiling without Ethernetdef
-char a[0]; //do not delete this dummy variable
-#endif
-
-#define verbose
 #define serial
 
-#ifdef verbose
-#define serial
-#endif
-
-
-//#define ethernet
-#ifdef ethernet
-//#include <SPI.h>
-#include <Ethernet.h>
-#include <HttpClient.h>
-#include <Xively.h>
-
-int ethOK=false;
-byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x6E};
-//IPAddress dnServer(192, 168, 1, 1);
-//IPAddress gateway(192, 168, 1, 1);
-//IPAddress subnet(255, 255, 255, 0);
-//IPAddress ip(192, 168, 1,89);
-// Your Xively key to let you upload data
-char xivelyKey[] = 			"azCLxsU4vKepKymGFFWVnXCvTQ6Ilze3euIsNrRKRRXuSPO8";
-char xivelyKeySetup[] = "xabE5tkgkDbMBSn6k60NUqCP4WGpVvp2AMqsL36rWSx6y3Bv";
-//your xively feed ID
-#define xivelyFeed 				538561447
-#define xivelyFeedSetup 	2020049288
-//data feed
-char VersionSolarID[] = "V";
-char StatusSolarID[] = "S";
-char TempOUTID[] = "OUT";
-char TempINID[] = "IN";
-char TempROOMID[] = "ROOM";
-char TempDiffONID[] = "DiffON";
-char TempDiffOFFID[] = "DiffOFF";
-char StatusID[] = "Status";
-
-//setup feed
-char setTempDiffONID[] = "setDiffON";
-char setTempDiffOFFID[] = "setDiffOFF";
-
-bool status=0;
-
-XivelyDatastream datastreams[] = {
-XivelyDatastream(VersionSolarID, 		strlen(VersionSolarID), 	DATASTREAM_FLOAT),
-XivelyDatastream(StatusSolarID, 		strlen(StatusSolarID), 		DATASTREAM_INT),
-XivelyDatastream(TempOUTID, 				strlen(TempOUTID), 				DATASTREAM_FLOAT),
-XivelyDatastream(TempINID, 					strlen(TempINID), 				DATASTREAM_FLOAT),
-XivelyDatastream(TempROOMID, 				strlen(TempROOMID), 			DATASTREAM_FLOAT),
-XivelyDatastream(TempDiffONID, 			strlen(TempDiffONID), 		DATASTREAM_FLOAT),
-XivelyDatastream(TempDiffOFFID, 		strlen(TempDiffOFFID), 		DATASTREAM_FLOAT),
-XivelyDatastream(StatusID, 					strlen(StatusID), 				DATASTREAM_INT)
-};
-
-XivelyDatastream datastreamsSetup[] = {
-XivelyDatastream(setTempDiffONID, 	strlen(setTempDiffONID), 	DATASTREAM_FLOAT),
-XivelyDatastream(setTempDiffOFFID, 	strlen(setTempDiffOFFID), DATASTREAM_FLOAT)
-};
-
-XivelyFeed feed(xivelyFeed, 						datastreams, 			8 /* number of datastreams */);
-XivelyFeed feedSetup(xivelyFeedSetup, 	datastreamsSetup, 2 /* number of datastreams */);
-
-EthernetClient client;
-XivelyClient xivelyclient(client);
-XivelyClient xivelyclientSetup(client);
-
-unsigned long lastSendTime;
-unsigned long lastUpdateTime;
-
-#else
-#define serial
 #include <avr/pgmspace.h>
 unsigned long crc;
 static PROGMEM prog_uint32_t crc_table[16] = {
@@ -134,13 +59,7 @@ static PROGMEM prog_uint32_t crc_table[16] = {
 
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(10, 11); // RX, TX
-
-#endif
-
-#ifdef serial
 int incomingByte = 0;   // for incoming serial data
-#endif
-
 
 //LiquidCrystal_I2C lcd(0x20);  // Set the LCD I2C address
 //LiquidCrystal_I2C lcd(0x20,6,5,4);  // set the LCD address to 0x20 for a 16 chars and 2 line display
@@ -186,8 +105,6 @@ unsigned int numberOfDevices; // Number of temperature devices found
 unsigned long lastDsMeasStartTime;
 bool dsMeasStarted=false;
 float sensor[NUMBER_OF_DEVICES];
-unsigned int const sendTimeDelay=5000; //to send to cosm.com
-unsigned int const updateTimeDelay=60000; //to send to cosm.com
 float tempDiffON = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
 float tempDiffOFF = 15.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
 unsigned long const dsMeassureInterval=750; //inteval between meassurements
@@ -257,9 +174,6 @@ byte colPins[COLS] = {9,8,7,6}; //connect to the column pinouts of the keypad
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
 #endif
 
-
-//#define serialMonitor
-
 float versionSW=0.52;
 char versionSWString[] = "Solar v"; //SW name & version
 
@@ -271,19 +185,12 @@ void setup() {
   // Switch on the backlight
   pinMode(BACKLIGHT_PIN, OUTPUT);
   digitalWrite(BACKLIGHT_PIN, HIGH);
-
+	mySerial.begin(9600);
+	
 #ifdef serial
   Serial.begin(9600);
-#ifdef serialMonitor	
-	Serial1.begin(9600);
-#endif
-#endif
-#ifdef verbose
 	Serial.print("Solar v.");
   Serial.println(versionSW);
-#endif
-#ifdef ethernet
-  datastreams[0].setFloat(versionSW);
 #endif
   lcd.home();                   // go home
   lcd.print(versionSWString);  
@@ -294,69 +201,6 @@ void setup() {
 
   dsInit();
 
-#ifdef ethernet
-#ifdef verbose
-  Serial.println("waiting for net connection...");
-#endif
-	lcd.setCursor(0,0);
-  lcd.print("waiting for net");
-	//Ethernet.begin(mac, ip, dnServer, gateway, subnet);
-  byte cyklus=0;
-  while (ethOK==false && cyklus++<10)
-  {
-    if (Ethernet.begin(mac) == 1) {
-      ethOK = true;
-    }
-#ifdef verbose
-    Serial.println("Error getting IP address via DHCP, trying again...");
-#endif
-    delay(2000);
-  }
-#else
-	mySerial.begin(9600);
-
-  lcd.setCursor(0,1);
-  if (ethOK) {
-    lcd.print("IP:");
-    lcd.print(Ethernet.localIP());
-  }
-  else {
-    lcd.print("No internet!!!");
-  }
-  delay(1000);
-
-#ifdef verbose
-  if (ethOK) {
-    Serial.println("EthOK");
-    Serial.print("\nIP:");
-    Serial.println(Ethernet.localIP());
-    Serial.print("Mask:");
-    Serial.println(Ethernet.subnetMask());
-    Serial.print("Gateway:");
-    Serial.println(Ethernet.gatewayIP());
-    Serial.print("DNS:");
-    Serial.println(Ethernet.dnsServerIP());
-    Serial.println();
-  }
-  else
-  {
-    Serial.println("No internet!!!");
-  }
-#endif
-
-  if (ethOK) {
-    lcd.setCursor(0,0);
-    lcd.print("reading Xively");
-    lcd.setCursor(0,1);
-    lcd.print("feed:");
-    lcd.print(xivelyFeedSetup);
-    readData();
-  }
-  lastSendTime = lastUpdateTime = lastMeasTime = millis();
-#endif
-
-  lcd.clear();
-  
   pinMode(RELAY1PIN, OUTPUT);
   
   digitalWrite(RELAY1PIN, relay1);
@@ -365,13 +209,9 @@ void setup() {
 #ifdef watchdog
 	wdt_enable(WDTO_8S);
 #endif
-	lcd.clear();
 }
 
 void loop() {
-#ifdef serial
-	checkSerial();
-#endif
 #ifdef watchdog
 	wdt_reset();
 #endif
@@ -400,7 +240,9 @@ void loop() {
       /*Serial.print("S");
       Serial.print(i);
       Serial.print(":");*/
+#ifdef serial
       Serial.println(sensor[i]);
+#endif
       //Serial.print(" C ");
 			tOut 	= sensor[0];
 			tIn	 	= sensor[1];
@@ -415,9 +257,6 @@ void loop() {
 			}
 		}
 		if (reset) {
-#ifdef ethernet	
-			status=2;
-#endif
 			dsInit();
 		}
 
@@ -460,7 +299,7 @@ void loop() {
 		if (p<10) lcd.print(" ");
 		lcd.print(p); //ms->min (show it in minutes)
     
-#ifdef verbose
+#ifdef serial
     Serial.print("Power:");
     Serial.print(power);
     Serial.println("[W]");
@@ -500,31 +339,18 @@ void loop() {
     }
  
     displayRelayStatus();
+#ifdef serial		
 		Serial.print("tempDiffON=");
 		Serial.println(tempDiffON);
 		Serial.print("tempDiffOFF=");
 		Serial.println(tempDiffOFF);
+#endif
     
     if (lastOff > 0 && (millis() - lastOff>dayInterval)) {
         lastOff = 0;
     }
   }
 
-#ifdef ethernet
-  if (ethOK) {
-    if(!client.connected() && (millis() - lastSendTime > sendTimeDelay)) {
-      lastSendTime = millis();
-#ifdef serialMonitor		
-      readDataUART();
-#endif
-      sendData();
-    }
-    if(!client.connected() && (millis() - lastUpdateTime > updateTimeDelay)) {
-      lastUpdateTime = millis();
-      readData();
-    }
-  }
-#else
   //if data requested, send data to comunication unit with ethernet shield
   char req=dataRequested();
 	if (req=='R') { //send data to master
@@ -534,7 +360,6 @@ void loop() {
 	if (req=='S') { //setup
 		readDataSerial();
 	}
-#endif
  
 #ifdef keypad
   char customKey = customKeypad.getKey();
@@ -574,7 +399,7 @@ void dsInit(void) {
     lcd.print(" sensors found");
   delay(1000);
   
-#ifdef verbose
+#ifdef serial
   Serial.print("Sensor(s):");
   Serial.println(numberOfDevices);
 #endif
@@ -601,7 +426,7 @@ void displayRelayStatus(void) {
   else
     lcd.print("N");
     
-#ifdef verbose
+#ifdef serial
   Serial.print("R1:");
   if (relay1==LOW)
     Serial.println("ON");
@@ -616,163 +441,6 @@ void displayRelayStatus(void) {
 */
 }
 
-#ifdef serialMonitor
-void readDataUART() {
-  //read data from UART
-	byte flag=0;
-	char[2+1] tempNo;
-	char[8+1] sensorId;
-	char[6+1] tempValue;
-	byte p=0;
-	bool resetP=false;
-	unsigned long timeOut = millis();
-	Serial1.flush();
-	Serial1.println("R");
-	Serial.println("Data req.");
-	//#0;28422E8104000097;21.44;#1;28EA676B05000089;21.38;$541458114*
-	do {
-//		if (Serial1.available() > 0) {
-			incomingByte = Serial1.read();
-			if (incomingByte=='#') {
-				flag=1;
-				resetP=true;
-			} else if (incomingByte==';') {
-				flag=++;
-				resetP=true;
-			}
-			else {
-				if (flag==1) { //read temp #
-					if (resetP) p=0;
-					tempNo[p++]=incomingByte;
-				}
-				else if (flag==2) { //read sensor id
-					if (resetP) {
-						tempNo[p]=0;
-						p=0;
-					}
-					sensorId[p++]=incomingByte;
-				}
-				else if (flag==3) { //read temp value
-					if (resetP) {
-						sensorId[p]=0;
-						p=0;
-					}
-					tempValue[p++]=incomingByte;
-				}
-				else if (flag==4) {
-					if (resetP) {
-						tempValue[p]=0;
-						p=0;
-					}
-				}
-			}
-
-			if (incomingByte > 0) {
-				Serial.print((char)incomingByte);
-			}
-	} while ((char)incomingByte!='*' && millis() < (
-	timeOut + 2000));
-	Serial.println("\nData end");
-}
-#endif
-
-#ifdef ethernet
-void sendData() {
-  datastreams[1].setInt(status);  
-  if (status==0) status=1; else status=0;
-  datastreams[2].setFloat(tOut);
-  datastreams[3].setFloat(tIn);  
-  datastreams[4].setFloat(tRoom);  
-  datastreams[5].setFloat(tempDiffON);  
-  datastreams[6].setFloat(tempDiffOFF);  
-  
-  if (relay1==LOW)
-    datastreams[7].setInt(1);  
-  else
-    datastreams[7].setInt(0);  
-
-#ifdef verbose
-  Serial.println("Uploading it to Xively");
-#endif
-#ifdef watchdog
-	wdt_disable();
-#endif
-
-  int ret = xivelyclient.put(feed, xivelyKey);
-	
-#ifdef watchdog
-	wdt_enable(WDTO_8S);
-#endif
-
-#ifdef verbose
-  Serial.print("xivelyclient.put returned ");
-  Serial.println(ret);
-#endif
-}
-
-
-void readData() {
-#ifdef watchdog
-	wdt_disable();
-#endif
-
-	int ret = xivelyclientSetup.get(feedSetup, xivelyKeySetup);
-
-#ifdef watchdog
-	wdt_enable(WDTO_8S);
-#endif
-
-#ifdef verbose
-  Serial.print("xivelyclient.get returned ");
-  Serial.println(ret);
-#endif
-  if (ret > 0)
-  {
-		float _tempDiffON = tempDiffON;
-		float _tempDiffOFF = tempDiffOFF;
-		tempDiffON=datastreamsSetup[0].getFloat();
-		tempDiffOFF=datastreamsSetup[1].getFloat();
-#ifdef verbose
-		if (tempDiffOFF!=_tempDiffOFF || tempDiffON!=_tempDiffON) {
-			lcd.clear();
-			lcd.setCursor(0,0);
-			lcd.print("Change settings");
-			Serial.print("ON is...");
-			Serial.println(tempDiffON);
-			Serial.print("OFF is... ");
-			Serial.println(tempDiffOFF);
-	#endif	
-			lcd.setCursor(0,1);
-			lcd.print("Z:");
-			lcd.print(tempDiffON);
-			lcd.print(" V:");
-			lcd.print(tempDiffOFF);
-			delay(2000);
-			lcd.clear();
-		}
-  }
-}
-#endif
-
-#ifdef serial
-void checkSerial() {
-	if (Serial.available() > 0) {
-		incomingByte = Serial.read();
-		Serial.print("I received: ");
-		Serial.println(incomingByte, DEC);
-#ifdef watchdog
-		if (incomingByte=='R') {
-			Serial.println("\n\nRESET signal present, RESET will be in 2 second.");
-			wdt_enable(WDTO_2S);
-			wdt_reset();
-			for (;;) {}
-		}
-#endif
-	}
-}
-#endif
-
-#ifndef ethernet
 void sendDataSerial() {
 	//data sended:
 	//#0;25.31#1;25.19#2;5.19#N;25.00#F;15.00#R;1#S;0$3600177622*
@@ -810,7 +478,7 @@ void sendDataSerial() {
 		send('0');
 	
 	END_BLOCK
-#ifdef debug
+#ifdef serial
 	Serial.print(crc);
 	Serial.print("*");
 #endif	
@@ -834,14 +502,17 @@ void readDataSerial() {
 			mySerial.readBytes(b,4);
 			b[4]='\0';
 			setOn=atof(b);
+#ifdef serial
 			Serial.print("ON=");
 			Serial.println(setOn);
-
+#endif
 			mySerial.readBytes(b,4);
 			b[4]='\0';
 			setOff=atof(b);
+#ifdef serial
 			Serial.print("OFF=");
 			Serial.println(setOff);
+#endif
 		}
 		//TODO validation with CRC
 		tempDiffON=setOn;
@@ -858,13 +529,13 @@ void send(char s) {
 
 void send(char s, char type) {
 	if (type=='X') {
-#ifdef debug
+#ifdef serial
 		Serial.print(s, HEX);
 #endif
 		mySerial.print(s, HEX);
 	}
 	else {
-#ifdef debug
+#ifdef serial
 		Serial.print(s);
 #endif
 		mySerial.print(s);
@@ -878,13 +549,13 @@ void send(byte s) {
 
 void send(byte s, char type) {
 	if (type=='X') {
-#ifdef debug
+#ifdef serial
 		Serial.print(s, HEX);
 #endif
 		mySerial.print(s, HEX);
 	}
 	else {
-#ifdef debug
+#ifdef serial
 		Serial.print(s);
 #endif
 		mySerial.print(s);
@@ -905,7 +576,7 @@ char dataRequested() {
 	char incomingByte=0;
 	if (mySerial.available() > 0) {
     incomingByte = (char)mySerial.read();
-#ifdef debug
+#ifdef serial
 		Serial.print("Data req-");
 		Serial.println(incomingByte);
 #endif
@@ -928,4 +599,3 @@ void crc_string(byte s)
   crc = crc_update(crc, s);
   crc = ~crc;
 }
-#endif
