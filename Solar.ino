@@ -151,7 +151,7 @@ float tRoom=0;
 */
 
 #define RELAY1PIN A1
-//#define RELAY2PIN A2
+#define RELAY2PIN A2
 
 //HIGH - relay OFF, LOW - relay ON
 bool relay1=HIGH; 
@@ -183,11 +183,8 @@ byte const tempDiffONEEPROMAdrL=1;
 byte const tempDiffOFFEEPROMAdrH=2;
 byte const tempDiffOFFEEPROMAdrL=3;
 
-float const   versionSW=0.53;
+float const   versionSW=0.54;
 char  const   versionSWString[] = "Solar v"; //SW name & version
-
-void dsInit(void);
-void displayRelayStatus(void);
 
 void setup() {
 	lcd.begin(16,2);               // initialize the lcd 
@@ -195,6 +192,7 @@ void setup() {
   pinMode(BACKLIGHT_PIN, OUTPUT);
   digitalWrite(BACKLIGHT_PIN, HIGH);
 	mySerial.begin(SERIAL_SPEED);
+	pinMode(LEDPIN,OUTPUT);
 	
 #ifdef serial
   Serial.begin(SERIAL_SPEED);
@@ -219,31 +217,21 @@ void setup() {
 	wdt_enable(WDTO_8S);
 #endif
 
-  //25.05 -> 25 5
-  //25.50 -> 25 50
+  //25.5 -> 25 5
   int valueIH = EEPROM.read(tempDiffONEEPROMAdrH);
   int valueIL = EEPROM.read(tempDiffONEEPROMAdrL);
-  float valueF = (float)valueIH + (float)(valueIL / 100);
-  #warning Check default value!
-#ifdef serial		
-  Serial.print("Readed value tempDiffON from EEPROM:");
-  Serial.println(valueF);
-#endif
-  if (valueF!=0) {
-    //tempDiffON = valueF;
+  float valueF = (float)valueIH + (float)valueIL / 10;
+  if (valueF<200) {
+    tempDiffON = valueF;
   }
   else {} //use default value=25.0 see variable initialization
   valueIH = EEPROM.read(tempDiffOFFEEPROMAdrH);
   valueIL = EEPROM.read(tempDiffOFFEEPROMAdrL);
-  valueF = (float)valueIH + (float)(valueIL / 100);
-  if (valueF!=0) {
-    //tempDiffOFF = valueF;
+  valueF = (float)valueIH + (float)valueIL / 10;
+  if (valueF<200) {
+    tempDiffOFF = valueF;
   }
   else {} //use default value=15.0 see variable initialization
-#ifdef serial		
-  Serial.print("Readed value tempDiffOFF from EEPROM:");
-  Serial.println(valueF);
-#endif
 }
 
 void loop() {
@@ -272,17 +260,18 @@ void loop() {
       }
 
       sensor[i] = tempTemp;
-      /*Serial.print("S");
-      Serial.print(i);
-      Serial.print(":");*/
-#ifdef serial
-      Serial.println(sensor[i]);
-#endif
-      //Serial.print(" C ");
-			tOut 	= sensor[0];
-			tIn	 	= sensor[1];
-			tRoom = sensor[2];
     } 
+		tOut 	= sensor[0];
+		tIn	 	= sensor[1];
+		tRoom = sensor[2];
+#ifdef serial
+		Serial.print("tOut:");
+    Serial.print(tOut);
+		Serial.print(" tIn:");
+    Serial.print(tIn);
+		Serial.print(" tRoom:");
+    Serial.println(tRoom);
+#endif
 		//obcas se vyskytne chyba a vsechna cidla prestanou merit
 		//zkusim restartovat sbernici
 		bool reset=true;
@@ -390,7 +379,6 @@ void loop() {
   char req=dataRequested();
 	if (req=='R') { //send data
 		sendDataSerial();
-		mySerial.flush();
 	}
 	if (req=='S') { //setup
 		readDataSerial();
@@ -478,7 +466,8 @@ void displayRelayStatus(void) {
 
 void sendDataSerial() {
 	//data sended:
-	//#0;25.31#1;25.19#2;5.19#N;25.00#F;15.00#R;1#S;0$3600177622*
+	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0$3600177622*
+	digitalWrite(LEDPIN,HIGH);
 	crc = ~0L;
   for (byte i=0;i<numberOfDevices; i++) {
 		START_BLOCK
@@ -515,10 +504,12 @@ void sendDataSerial() {
 	END_BLOCK
 #ifdef serial
 	Serial.print(crc);
-	Serial.print("*");
+	Serial.println("*");
 #endif	
 	mySerial.print(crc);
 	mySerial.print("*");
+	mySerial.flush();
+	digitalWrite(LEDPIN,LOW);
 }
 
 void readDataSerial() {
@@ -527,9 +518,10 @@ void readDataSerial() {
 	unsigned long timeOut = millis();
 	char b[4+1];
 	//Serial.println("Data req.");
-	//#ON (4digits) OFF (2digits) $CRC
+	//#ON (4digits, only >=0) OFF (4digits, only >=0) $CRC
 	//#25.115.5$541458114*
   char incomingByte;
+	digitalWrite(LEDPIN,HIGH);
 	do {
 //		if (Serial1.available() > 0) {
 		incomingByte = mySerial.read();
@@ -555,22 +547,25 @@ void readDataSerial() {
     //if any change -> save setup to EEPROM
     if (tempDiffON!=setOn) {
       tempDiffON=setOn;
+#ifdef serial
       Serial.print("The new value of tempDiffON was written to EEPROM:");
       Serial.println(tempDiffON);
-      EEPROM.write(tempDiffONEEPROMAdrH, (byte)tempDiffON);
-      EEPROM.write(tempDiffONEEPROMAdrL, (byte)(tempDiffON * 100) % 100);
+#endif
+      EEPROM.write(tempDiffONEEPROMAdrH, (char)tempDiffON);
+      EEPROM.write(tempDiffONEEPROMAdrL, (int)(tempDiffON * 10) % 10);
     }
     if (tempDiffOFF!=setOff) {
       tempDiffOFF=setOff;
+#ifdef serial
       Serial.print("The new value of tempDiffOFF was written to EEPROM:");
       Serial.println(tempDiffOFF);
-      EEPROM.write(tempDiffOFFEEPROMAdrH, (byte)tempDiffOFF);
-      EEPROM.write(tempDiffOFFEEPROMAdrL, (byte)(tempDiffOFF * 100) % 100);
+#endif
+      EEPROM.write(tempDiffOFFEEPROMAdrH, (char)tempDiffOFF);
+      EEPROM.write(tempDiffOFFEEPROMAdrL, (int)(tempDiffOFF * 10) % 10);
     }
     
 	} while ((char)incomingByte!='*' && millis() < (timeOut + serialTimeout));
-	//Serial.println("Data end");
-
+	digitalWrite(LEDPIN,LOW);
 }
 
 void send(char s) {

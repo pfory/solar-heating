@@ -44,6 +44,9 @@
 // D22-D53        - reserved for Alarm sensors
 
 
+//TODO
+//support for data storage on SD card
+
 //Solar system variables
 #ifndef NUMBER_OF_DEVICES
 #define NUMBER_OF_DEVICES 3
@@ -67,13 +70,22 @@ float tIn   =0;
 float tOut  =0;
 float tRoom =0;
 
+unsigned int const SERIAL_SPEED=9600;
 
+#define testOnProMini
+#ifdef testOnProMini
+#include <SoftwareSerial.h>
+SoftwareSerial mySerial(10, 11); // RX, TX
+#endif
+
+int ethOK=false;
+
+#ifndef testOnProMini
 //Ethernet
 #include <Ethernet.h>
 #include <HttpClient.h>
 #include <Xively.h>
 
-int ethOK=false;
 byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x6E};
 //IPAddress dnServer(192, 168, 1, 1);
 //IPAddress gateway(192, 168, 1, 1);
@@ -125,7 +137,7 @@ XivelyFeed feedSetup(xivelyFeedSetupSolar, 	datastreamsSolarSetup, 2 /* number o
 EthernetClient client;
 XivelyClient xivelyclient(client);
 XivelyClient xivelyclientSetup(client);
-
+#endif
 
 #include <avr/pgmspace.h>
 unsigned long crc;
@@ -141,10 +153,15 @@ char versionSWString[] = "CentralUnit v"; //SW name & version
 
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(SERIAL_SPEED);
 	Serial.println("CentralUnit START");
-	Serial1.begin(9600);
+#ifdef testOnProMini
+	mySerial.begin(SERIAL_SPEED);
+#else
+	Serial1.begin(SERIAL_SPEED);
+#endif
 	
+#ifndef testOnProMini
 #ifdef verbose
   Serial.println("waiting for net connection...");
 #endif
@@ -171,7 +188,7 @@ void setup() {
     //lcd.print("No internet!!!");
   }
   //delay(1000);
-
+	
 #ifdef verbose
   if (ethOK) {
     Serial.println("EthOK");
@@ -204,6 +221,7 @@ void setup() {
 	lastSendSolarTime = lastUpdateSolarTime = lastReadSolarTime = millis();
 
   datastreamsSolar[0].setFloat(versionSW);
+#endif
 }
 
 void loop() {
@@ -211,6 +229,7 @@ void loop() {
     lastReadSolarTime = millis();
     readDataSolar(); //read data from solar
   }   
+#ifndef testOnProMini	
   if (ethOK) {
     if(!client.connected() && (millis() - lastSendSolarTime > sendTimeSolarDelay)) {
       lastSendSolarTime = millis();
@@ -223,12 +242,13 @@ void loop() {
       }
     }
   }
-	delay(5000);
+#endif
 }
 
 void sendDataSolar() {
 }
 
+#ifndef testOnProMini
 //send data to xively
 void sendDataSolarXively() {
   datastreamsSolar[1].setInt(status);  
@@ -262,24 +282,33 @@ void sendDataSolarXively() {
   Serial.println(ret);
 #endif
 }
-
+#endif
 
 void readDataSolar() {
   //read data from UART
 	unsigned long timeOut = millis();
+#ifdef testOnProMini
+	mySerial.flush();
+	mySerial.println("R");
+#else	
 	Serial1.flush();
 	Serial1.println("R");
+#endif
 	Serial.println("Data req.");
 	char b[10];
 	byte i=0;
 	char flag=' ';
 	byte status=0;
 	//#0;25.31#1;25.19#2;5.19#N;25.00#F;15.00#R;1#S;0$3600177622*
-	int incomingByte = 0;   // for incoming serial data
+	char incomingByte = 0;   // for incoming serial data
 	do {
+#ifdef testOnProMini
+		incomingByte = mySerial.read();
+#else
 		incomingByte = Serial1.read();
+#endif
 		if (incomingByte > 0) {
-			//Serial.print(incomingByte);
+			Serial.print(incomingByte);
 			if (status==1) {
 				flag=incomingByte;
 				status++; //2
@@ -329,15 +358,16 @@ void readDataSolar() {
 		}
 	} while ((char)incomingByte!='*' && millis() < (timeOut + 2000));
 
-	Serial.print("TOut=");
+	Serial.println("\nDATA:");
+	Serial.print("tOut=");
 	Serial.println(sensor[0]);
-	Serial.print("TIn=");
+	Serial.print("tIn=");
 	Serial.println(sensor[1]);
-	Serial.print("TRoom=");
+	Serial.print("tRoom=");
 	Serial.println(sensor[2]);
-	Serial.print("TON=");
+	Serial.print("tON=");
 	Serial.println(tempDiffON);
-	Serial.print("TOFF=");
+	Serial.print("tOFF=");
 	Serial.println(tempDiffOFF);
 	Serial.print("R1=");
 	Serial.println(relay1);
@@ -362,6 +392,7 @@ void crc_string(byte s) {
   crc = ~crc;
 }
 
+#ifndef testOnProMini
 bool readDataXivelySolar() {
   bool change=false;
 #ifdef watchdog
@@ -406,6 +437,7 @@ bool readDataXivelySolar() {
   }
   return change;
 }
+#endif
 
 /* not implemented yet
 #ifdef serialMonitor
