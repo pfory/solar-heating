@@ -1,5 +1,5 @@
 //HW
-//Pro Mini 168/328 data are sent via serial line to comunication unit
+//Pro Mini 328 data are sent via serial line to comunication unit
 //I2C display
 //2 Relays module
 //DALLAS
@@ -7,15 +7,15 @@
 
 // A0 						- DALLAS temperature sensors
 // A1 						- relay 1
-// A2 - relay 2
-// A3 - keyboard
+// A2             - relay 2
+// A3             - 
 // A4 (D20 MEGA) 	- I2C display SDA
 // A5 (D21 MEGA) 	- I2C display SCL
 // D0 						- Rx
 // D1 						- Tx
 // D2 						- keyboard
 // D3 						- keyboard
-// D4 						- 
+// D4 						- keyboard
 // D5 						- keyboard
 // D6 						- keyboard
 // D7 						- keyboard
@@ -31,7 +31,7 @@
 //TODO
 //spina ventil(y) pro rizeni natapeni bojleru nebo radiatoru v zavislosti na konfiguraci zjistene pres internet
 
-#include <limits.h>
+//#include <limits.h>
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h> 
 
@@ -40,7 +40,8 @@
 #include <avr/wdt.h>
 #endif
 
-#define serial
+#define serial //serial monitor
+unsigned int const SERIAL_SPEED=9600;
 
 #include <avr/pgmspace.h>
 unsigned long crc;
@@ -59,7 +60,8 @@ static PROGMEM prog_uint32_t crc_table[16] = {
 
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(10, 11); // RX, TX
-int incomingByte = 0;   // for incoming serial data
+
+const unsigned int serialTimeout=2000;
 
 //LiquidCrystal_I2C lcd(0x20);  // Set the LCD I2C address
 //LiquidCrystal_I2C lcd(0x20,6,5,4);  // set the LCD address to 0x20 for a 16 chars and 2 line display
@@ -112,13 +114,13 @@ unsigned long lastMeasTime=0;
 unsigned long msDayON = 0;  //kolik ms uz jsem za aktualni den byl ve stavu ON
 unsigned long lastOn=0;     //ms posledniho behu ve stavu ON
 unsigned long lastOff = 0;  //ms posledniho vypnuti rele
-unsigned long const dayInterval=1000*60*60*12; //
-unsigned long const delayON=1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
+unsigned long const dayInterval=43200000; //1000*60*60*12; //
+unsigned long const delayON=120000; //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
 unsigned long lastOn4Delay = 0;
 
 float power = 0; //actual power in W
 float energy = 0.0; //energy a day in kWh
-float energyKoef = 283.5; //Ws
+float const energyKoef = 283.5; //Ws
 float tIn=0;
 float tOut=0;
 float tRoom=0;
@@ -167,15 +169,22 @@ char hexaKeys[ROWS][COLS] = {
   {'B','6','5','4'},
   {'A','3','2','1'}
 };
-byte rowPins[ROWS] = {5,A3,3,2}; //connect to the row pinouts of the keypad
+byte rowPins[ROWS] = {5,4,3,2}; //connect to the row pinouts of the keypad
 byte colPins[COLS] = {9,8,7,6}; //connect to the column pinouts of the keypad
 
 //initialize an instance of class NewKeypad
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
 #endif
 
-float versionSW=0.52;
-char versionSWString[] = "Solar v"; //SW name & version
+//EEPROM
+#include <EEPROM.h>
+byte const tempDiffONEEPROMAdrH=0;
+byte const tempDiffONEEPROMAdrL=1;
+byte const tempDiffOFFEEPROMAdrH=2;
+byte const tempDiffOFFEEPROMAdrL=3;
+
+float const   versionSW=0.53;
+char  const   versionSWString[] = "Solar v"; //SW name & version
 
 void dsInit(void);
 void displayRelayStatus(void);
@@ -185,10 +194,10 @@ void setup() {
   // Switch on the backlight
   pinMode(BACKLIGHT_PIN, OUTPUT);
   digitalWrite(BACKLIGHT_PIN, HIGH);
-	mySerial.begin(9600);
+	mySerial.begin(SERIAL_SPEED);
 	
 #ifdef serial
-  Serial.begin(9600);
+  Serial.begin(SERIAL_SPEED);
 	Serial.print("Solar v.");
   Serial.println(versionSW);
 #endif
@@ -208,6 +217,32 @@ void setup() {
 
 #ifdef watchdog
 	wdt_enable(WDTO_8S);
+#endif
+
+  //25.05 -> 25 5
+  //25.50 -> 25 50
+  int valueIH = EEPROM.read(tempDiffONEEPROMAdrH);
+  int valueIL = EEPROM.read(tempDiffONEEPROMAdrL);
+  float valueF = (float)valueIH + (float)(valueIL / 100);
+  #warning Check default value!
+#ifdef serial		
+  Serial.print("Readed value tempDiffON from EEPROM:");
+  Serial.println(valueF);
+#endif
+  if (valueF!=0) {
+    //tempDiffON = valueF;
+  }
+  else {} //use default value=25.0 see variable initialization
+  valueIH = EEPROM.read(tempDiffOFFEEPROMAdrH);
+  valueIL = EEPROM.read(tempDiffOFFEEPROMAdrL);
+  valueF = (float)valueIH + (float)(valueIL / 100);
+  if (valueF!=0) {
+    //tempDiffOFF = valueF;
+  }
+  else {} //use default value=15.0 see variable initialization
+#ifdef serial		
+  Serial.print("Readed value tempDiffOFF from EEPROM:");
+  Serial.println(valueF);
 #endif
 }
 
@@ -351,9 +386,9 @@ void loop() {
     }
   }
 
-  //if data requested, send data to comunication unit with ethernet shield
+  //if data requested from central unit, send data
   char req=dataRequested();
-	if (req=='R') { //send data to master
+	if (req=='R') { //send data
 		sendDataSerial();
 		mySerial.flush();
 	}
@@ -374,7 +409,7 @@ void loop() {
 void displayTemp(int x, int y, float value) {
 	lcd.setCursor(x,y);
   int cela=(int)value;
-	if (cela<10 & cela>=0) {
+	if (cela<10 && cela>=0) {
 		lcd.print(" ");
 	}
 	if (cela>100) {
@@ -487,13 +522,14 @@ void sendDataSerial() {
 }
 
 void readDataSerial() {
-	float setOn;
-	float setOff;
+	float setOn=tempDiffON;
+	float setOff=tempDiffOFF;
 	unsigned long timeOut = millis();
 	char b[4+1];
 	//Serial.println("Data req.");
 	//#ON (4digits) OFF (2digits) $CRC
 	//#25.115.5$541458114*
+  char incomingByte;
 	do {
 //		if (Serial1.available() > 0) {
 		incomingByte = mySerial.read();
@@ -515,9 +551,24 @@ void readDataSerial() {
 #endif
 		}
 		//TODO validation with CRC
-		tempDiffON=setOn;
-		tempDiffOFF=setOff;
-	} while ((char)incomingByte!='*' && millis() < (timeOut + 2000));
+    
+    //if any change -> save setup to EEPROM
+    if (tempDiffON!=setOn) {
+      tempDiffON=setOn;
+      Serial.print("The new value of tempDiffON was written to EEPROM:");
+      Serial.println(tempDiffON);
+      EEPROM.write(tempDiffONEEPROMAdrH, (byte)tempDiffON);
+      EEPROM.write(tempDiffONEEPROMAdrL, (byte)(tempDiffON * 100) % 100);
+    }
+    if (tempDiffOFF!=setOff) {
+      tempDiffOFF=setOff;
+      Serial.print("The new value of tempDiffOFF was written to EEPROM:");
+      Serial.println(tempDiffOFF);
+      EEPROM.write(tempDiffOFFEEPROMAdrH, (byte)tempDiffOFF);
+      EEPROM.write(tempDiffOFFEEPROMAdrL, (byte)(tempDiffOFF * 100) % 100);
+    }
+    
+	} while ((char)incomingByte!='*' && millis() < (timeOut + serialTimeout));
 	//Serial.println("Data end");
 
 }

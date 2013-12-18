@@ -1,16 +1,26 @@
 //HW
 //Arduino Mega 2560
 //Ethernet shield
-//I2C display
 
-// A0 						- 
+
+// A0 						- 230V present
 // A1 						- 
 // A2 						- 
 // A3 						- 
-// A4 (D20 MEGA) 	- I2C display SDA
-// A5 (D21 MEGA) 	- I2C display SCL
-// D0 						- Rx
-// D1 						- Tx
+// A4            	- 
+// A5           	- 
+// A6           	- 
+// A7           	- 
+// A8           	- 
+// A9           	- 
+// A10           	- 
+// A11           	- 
+// A12           	- 
+// A13           	- 
+// A14           	- 
+// A15           	- 
+// D0 						- Serial monitor (Serial 0 Rx)
+// D1 						- Serial monitor (Serial 0 Tx)
 // D2 						- 
 // D3 						- 
 // D4 						- SD card on Ethernet shield
@@ -23,7 +33,18 @@
 // D11 						- Ethernet shield
 // D12 						- Ethernet shield
 // D13 						- Ethernet shield
+// D14            - Alarm (Serial 3 Tx)
+// D15            - Alarm (Serial 3 Rx)
+// D16            - Temperature (Serial 2 Tx)
+// D17            - Temperature (Serial 2 Rx)
+// D18            - Solar (Serial 1 Tx)
+// D19            - Solar (Serial 1 Rx)
+// D20            - (SDA)
+// D21            - (SCL)
+// D22-D53        - reserved for Alarm sensors
 
+
+//Solar system variables
 #ifndef NUMBER_OF_DEVICES
 #define NUMBER_OF_DEVICES 3
 #endif
@@ -35,7 +56,19 @@ float tempDiffOFF = 15.0; //difference between room temperature and solar OUT (s
 bool relay1=HIGH; 
 bool relay2=HIGH; 
 
-//#include <SPI.h>
+unsigned long       lastReadSolarTime;
+unsigned long       lastSendSolarTime;
+unsigned long       lastUpdateSolarTime;
+unsigned int const  readDataSolarDelay          =5000; //read data from solar unit
+unsigned int const  sendTimeSolarDelay          =5000; //to send to cosm.com
+unsigned int const  updateTimeSolarDelay        =60000; //to send to cosm.com
+
+float tIn   =0;
+float tOut  =0;
+float tRoom =0;
+
+
+//Ethernet
 #include <Ethernet.h>
 #include <HttpClient.h>
 #include <Xively.h>
@@ -46,12 +79,14 @@ byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x6E};
 //IPAddress gateway(192, 168, 1, 1);
 //IPAddress subnet(255, 255, 255, 0);
 //IPAddress ip(192, 168, 1,89);
+
+//XIVELY
 // Your Xively key to let you upload data
-char xivelyKey[] = 			"azCLxsU4vKepKymGFFWVnXCvTQ6Ilze3euIsNrRKRRXuSPO8";
-char xivelyKeySetup[] = "xabE5tkgkDbMBSn6k60NUqCP4WGpVvp2AMqsL36rWSx6y3Bv";
+char xivelyKeySolar[] = 			"azCLxsU4vKepKymGFFWVnXCvTQ6Ilze3euIsNrRKRRXuSPO8";
+char xivelyKeySetupSolar[] = "xabE5tkgkDbMBSn6k60NUqCP4WGpVvp2AMqsL36rWSx6y3Bv";
 //your xively feed ID
-#define xivelyFeed 				538561447
-#define xivelyFeedSetup 	2020049288
+#define xivelyFeedSolar 				538561447
+#define xivelyFeedSetupSolar 	2020049288
 //data feed
 char VersionSolarID[] = "V";
 char StatusSolarID[] = "S";
@@ -68,7 +103,7 @@ char setTempDiffOFFID[] = "setDiffOFF";
 
 bool status=0;
 
-XivelyDatastream datastreams[] = {
+XivelyDatastream datastreamsSolar[] = {
 XivelyDatastream(VersionSolarID, 		strlen(VersionSolarID), 	DATASTREAM_FLOAT),
 XivelyDatastream(StatusSolarID, 		strlen(StatusSolarID), 		DATASTREAM_INT),
 XivelyDatastream(TempOUTID, 				strlen(TempOUTID), 				DATASTREAM_FLOAT),
@@ -79,26 +114,17 @@ XivelyDatastream(TempDiffOFFID, 		strlen(TempDiffOFFID), 		DATASTREAM_FLOAT),
 XivelyDatastream(StatusID, 					strlen(StatusID), 				DATASTREAM_INT)
 };
 
-XivelyDatastream datastreamsSetup[] = {
+XivelyDatastream datastreamsSolarSetup[] = {
 XivelyDatastream(setTempDiffONID, 	strlen(setTempDiffONID), 	DATASTREAM_FLOAT),
 XivelyDatastream(setTempDiffOFFID, 	strlen(setTempDiffOFFID), DATASTREAM_FLOAT)
 };
 
-XivelyFeed feed(xivelyFeed, 						datastreams, 			8 /* number of datastreams */);
-XivelyFeed feedSetup(xivelyFeedSetup, 	datastreamsSetup, 2 /* number of datastreams */);
+XivelyFeed feed(xivelyFeedSolar, 						datastreamsSolar, 			8 /* number of datastreamsSolar */);
+XivelyFeed feedSetup(xivelyFeedSetupSolar, 	datastreamsSolarSetup, 2 /* number of datastreamsSolarSolar */);
 
 EthernetClient client;
 XivelyClient xivelyclient(client);
 XivelyClient xivelyclientSetup(client);
-
-unsigned long lastSendTime;
-unsigned long lastUpdateTime;
-unsigned int const sendTimeDelay=5000; //to send to cosm.com
-unsigned int const updateTimeDelay=60000; //to send to cosm.com
-
-float tIn=0;
-float tOut=0;
-float tRoom=0;
 
 
 #include <avr/pgmspace.h>
@@ -110,9 +136,6 @@ static PROGMEM prog_uint32_t crc_table[16] = {
     0x9b64c2b0, 0x86d3d2d4, 0xa00ae278, 0xbdbdf21c
 };
 
-#include <SoftwareSerial.h>
-SoftwareSerial mySerial(10, 11); // RX, TX
-
 float versionSW=0.01;
 char versionSWString[] = "CentralUnit v"; //SW name & version
 
@@ -120,7 +143,7 @@ char versionSWString[] = "CentralUnit v"; //SW name & version
 void setup() {
   Serial.begin(9600);
 	Serial.println("CentralUnit START");
-	mySerial.begin(9600);
+	Serial1.begin(9600);
 	
 #ifdef verbose
   Serial.println("waiting for net connection...");
@@ -147,7 +170,7 @@ void setup() {
   else {
     //lcd.print("No internet!!!");
   }
-  delay(1000);
+  //delay(1000);
 
 #ifdef verbose
   if (ethOK) {
@@ -173,43 +196,53 @@ void setup() {
 		lcd.setCursor(0,1);
 		lcd.print("feed:");
 		lcd.print(xivelyFeedSetup);*/
-		readData();
+		if (readDataXivelySolar()) {  //read setup from xively for Solar
+      sendDataSolar(); //send setup data to Solar unit
+    }
 	}
 
-	lastSendTime = lastUpdateTime = millis();
+	lastSendSolarTime = lastUpdateSolarTime = lastReadSolarTime = millis();
 
-  datastreams[0].setFloat(versionSW);
+  datastreamsSolar[0].setFloat(versionSW);
 }
 
 void loop() {
-	readDataSolar(); //read data from solar
+  if(millis() - lastReadSolarTime > readDataSolarDelay) {
+    lastReadSolarTime = millis();
+    readDataSolar(); //read data from solar
+  }   
   if (ethOK) {
-    if(!client.connected() && (millis() - lastSendTime > sendTimeDelay)) {
-      lastSendTime = millis();
-      sendData();
+    if(!client.connected() && (millis() - lastSendSolarTime > sendTimeSolarDelay)) {
+      lastSendSolarTime = millis();
+      sendDataSolarXively();
     }
-    if(!client.connected() && (millis() - lastUpdateTime > updateTimeDelay)) {
-      lastUpdateTime = millis();
-      readData();
+    if(!client.connected() && (millis() - lastUpdateSolarTime > updateTimeSolarDelay)) {
+      lastUpdateSolarTime = millis();
+      if (readDataXivelySolar()) {
+        sendDataSolar(); //send setup data to Solar unit
+      }
     }
   }
 	delay(5000);
 }
 
+void sendDataSolar() {
+}
+
 //send data to xively
-void sendData() {
-  datastreams[1].setInt(status);  
+void sendDataSolarXively() {
+  datastreamsSolar[1].setInt(status);  
   if (status==0) status=1; else status=0;
-  datastreams[2].setFloat(tOut);
-  datastreams[3].setFloat(tIn);  
-  datastreams[4].setFloat(tRoom);  
-  datastreams[5].setFloat(tempDiffON);  
-  datastreams[6].setFloat(tempDiffOFF);  
+  datastreamsSolar[2].setFloat(tOut);
+  datastreamsSolar[3].setFloat(tIn);  
+  datastreamsSolar[4].setFloat(tRoom);  
+  datastreamsSolar[5].setFloat(tempDiffON);  
+  datastreamsSolar[6].setFloat(tempDiffOFF);  
   
   if (relay1==LOW)
-    datastreams[7].setInt(1);  
+    datastreamsSolar[7].setInt(1);  
   else
-    datastreams[7].setInt(0);  
+    datastreamsSolar[7].setInt(0);  
 
 #ifdef verbose
   Serial.println("Uploading it to Xively");
@@ -218,7 +251,7 @@ void sendData() {
 	wdt_disable();
 #endif
 
-  int ret = xivelyclient.put(feed, xivelyKey);
+  int ret = xivelyclient.put(feed, xivelyKeySolar);
 	
 #ifdef watchdog
 	wdt_enable(WDTO_8S);
@@ -234,8 +267,8 @@ void sendData() {
 void readDataSolar() {
   //read data from UART
 	unsigned long timeOut = millis();
-	mySerial.flush();
-	mySerial.println("R");
+	Serial1.flush();
+	Serial1.println("R");
 	Serial.println("Data req.");
 	char b[10];
 	byte i=0;
@@ -244,7 +277,7 @@ void readDataSolar() {
 	//#0;25.31#1;25.19#2;5.19#N;25.00#F;15.00#R;1#S;0$3600177622*
 	int incomingByte = 0;   // for incoming serial data
 	do {
-		incomingByte = mySerial.read();
+		incomingByte = Serial1.read();
 		if (incomingByte > 0) {
 			//Serial.print(incomingByte);
 			if (status==1) {
@@ -329,12 +362,13 @@ void crc_string(byte s) {
   crc = ~crc;
 }
 
-void readData() {
+bool readDataXivelySolar() {
+  bool change=false;
 #ifdef watchdog
 	wdt_disable();
 #endif
 
-	int ret = xivelyclientSetup.get(feedSetup, xivelyKeySetup);
+	int ret = xivelyclientSetup.get(feedSetup, xivelyKeySetupSolar);
 
 #ifdef watchdog
 	wdt_enable(WDTO_8S);
@@ -347,10 +381,11 @@ void readData() {
   if (ret > 0) {
 		float _tempDiffON = tempDiffON;
 		float _tempDiffOFF = tempDiffOFF;
-		tempDiffON=datastreamsSetup[0].getFloat();
-		tempDiffOFF=datastreamsSetup[1].getFloat();
+		tempDiffON=datastreamsSolarSetup[0].getFloat();
+		tempDiffOFF=datastreamsSolarSetup[1].getFloat();
 #ifdef verbose
 		if (tempDiffOFF!=_tempDiffOFF || tempDiffON!=_tempDiffON) {
+      change = true;
 			/*lcd.clear();
 			lcd.setCursor(0,0);
 			lcd.print("Change settings");
@@ -369,8 +404,10 @@ void readData() {
 			lcd.clear();*/
 		}
   }
+  return change;
 }
 
+/* not implemented yet
 #ifdef serialMonitor
 void readDataUART() {
   //read data from UART
@@ -448,3 +485,4 @@ void checkSerial() {
 	}
 }
 #endif
+*/
