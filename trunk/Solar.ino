@@ -107,8 +107,14 @@ unsigned int numberOfDevices; // Number of temperature devices found
 unsigned long lastDsMeasStartTime;
 bool dsMeasStarted=false;
 float sensor[NUMBER_OF_DEVICES];
-float tempDiffON = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
-float tempDiffOFF = 15.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
+float tempDiffON            = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
+float tempDiffOF            = 15.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
+//diferences in normal mode (power for pump is ready)
+float tempDiffONNormal      = tempDiffON;
+float tempDiffOFFNormal     = tempDiffOF;
+//diferences in power save mode (power for pump is OFF)
+float tempDiffONPowerSave   = 90.0; 
+float tempDiffOFFPowerSave  = 50.0; 
 unsigned long const dsMeassureInterval=750; //inteval between meassurements
 unsigned long lastMeasTime=0;
 unsigned long msDayON = 0;  //kolik ms uz jsem za aktualni den byl ve stavu ON
@@ -117,6 +123,9 @@ unsigned long lastOff = 0;  //ms posledniho vypnuti rele
 unsigned long const dayInterval=43200000; //1000*60*60*12; //
 unsigned long const delayON=120000; //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
 unsigned long lastOn4Delay = 0;
+
+enum mode {NORMAL, POWERSAVE};
+mode powerMode=NORMAL;
 
 float power = 0; //actual power in W
 float energy = 0.0; //energy a day in kWh
@@ -379,10 +388,19 @@ void loop() {
   char req=dataRequested();
 	if (req=='R') { //send data
 		sendDataSerial();
-	}
-	if (req=='S') { //setup
+	} else if (req=='S') { //setup
 		readDataSerial();
-	}
+	} else if (req=='P') { //power down, power save mode set
+    powerMode=POWERSAVE;
+    tempDiffONNormal   = tempDiffON;
+    tempDiffOFFNormal  = tempDiffOFF;
+    tempDiffON         = tempDiffONPowerSave;
+    tempDiffOFF        = tempDiffOFFPowerSave;
+  } else if (req=='N') { //power up, normal mode 
+    powerMode=NORMAL;
+    tempDiffON      = tempDiffONNormal;
+    tempDiffOFF     = tempDiffOFFNormal;
+ }
  
 #ifdef keypad
   char customKey = customKeypad.getKey();
