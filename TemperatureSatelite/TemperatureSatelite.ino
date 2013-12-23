@@ -27,6 +27,7 @@ unsigned long const dayInterval=1000*60*60*12; //
 unsigned long const delayON=1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
 unsigned long lastOn4Delay = 0;
 
+
 #include <avr/pgmspace.h>
 unsigned long crc;
 static PROGMEM prog_uint32_t crc_table[16] = {
@@ -112,14 +113,12 @@ if (!dsMeasStarted) {
 		if (req=='R') {
 			sendData();
 			mySerial.flush();
-		}
-		else if (req=='W') {
+		}	else if (req=='W') {
 #ifdef debug
 			Serial.println("WATCHDOG");
 #endif
 			WDTCSR = _BV(WDE);
 			while (1); // 16 ms
-		}
 	}
 }
 
