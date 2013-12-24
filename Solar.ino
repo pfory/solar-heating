@@ -108,10 +108,10 @@ unsigned long lastDsMeasStartTime;
 bool dsMeasStarted=false;
 float sensor[NUMBER_OF_DEVICES];
 float tempDiffON            = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
-float tempDiffOF            = 15.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
+float tempDiffOFF           = 15.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
 //diferences in normal mode (power for pump is ready)
 float tempDiffONNormal      = tempDiffON;
-float tempDiffOFFNormal     = tempDiffOF;
+float tempDiffOFFNormal     = tempDiffOFF;
 //diferences in power save mode (power for pump is OFF)
 float tempDiffONPowerSave   = 90.0; 
 float tempDiffOFFPowerSave  = 50.0; 
@@ -192,7 +192,7 @@ byte const tempDiffONEEPROMAdrL=1;
 byte const tempDiffOFFEEPROMAdrH=2;
 byte const tempDiffOFFEEPROMAdrL=3;
 
-float const   versionSW=0.54;
+float const   versionSW=0.55;
 char  const   versionSWString[] = "Solar v"; //SW name & version
 
 void setup() {
@@ -391,15 +391,19 @@ void loop() {
 	} else if (req=='S') { //setup
 		readDataSerial();
 	} else if (req=='P') { //power down, power save mode set
-    powerMode=POWERSAVE;
-    tempDiffONNormal   = tempDiffON;
-    tempDiffOFFNormal  = tempDiffOFF;
-    tempDiffON         = tempDiffONPowerSave;
-    tempDiffOFF        = tempDiffOFFPowerSave;
+		if (powerMode!=POWERSAVE) {
+			tempDiffONNormal   = tempDiffON;
+			tempDiffOFFNormal  = tempDiffOFF;
+			tempDiffON         = tempDiffONPowerSave;
+			tempDiffOFF        = tempDiffOFFPowerSave;
+			powerMode=POWERSAVE;
+		}
+		mySerial.print("OK");
   } else if (req=='N') { //power up, normal mode 
     powerMode=NORMAL;
     tempDiffON      = tempDiffONNormal;
     tempDiffOFF     = tempDiffOFFNormal;
+		mySerial.print("OK");
  }
  
 #ifdef keypad
