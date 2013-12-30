@@ -52,9 +52,10 @@ static PROGMEM prog_uint32_t crc_table[16] = {
     0x9b64c2b0, 0x86d3d2d4, 0xa00ae278, 0xbdbdf21c
 };
 
-#define START_BLOCK send('#');
-#define DELIMITER send(';');
-#define END_BLOCK send('$');
+#define START_BLOCK 			'#'
+#define DELIMITER 				';'
+#define END_BLOCK 				'$'
+#define END_TRANSMITION 	'*'
 
 #define LEDPIN 13
 
@@ -192,7 +193,7 @@ byte const tempDiffONEEPROMAdrL=1;
 byte const tempDiffOFFEEPROMAdrH=2;
 byte const tempDiffOFFEEPROMAdrL=3;
 
-float const   versionSW=0.55;
+float const   versionSW=0.57;
 char  const   versionSWString[] = "Solar v"; //SW name & version
 
 void setup() {
@@ -216,6 +217,8 @@ void setup() {
   lcd.clear();
 
   dsInit();
+
+	lcd.clear();
 
   pinMode(RELAY1PIN, OUTPUT);
   
@@ -492,44 +495,44 @@ void sendDataSerial() {
 	digitalWrite(LEDPIN,HIGH);
 	crc = ~0L;
   for (byte i=0;i<numberOfDevices; i++) {
-		START_BLOCK
+		send(START_BLOCK);
 		send(i);
-		DELIMITER
+		send(DELIMITER);
 		send(sensor[i]);
 	}
-	START_BLOCK
+	send(START_BLOCK);
 	send('N');
-	DELIMITER
+	send(DELIMITER);
 	send(tempDiffON);
 
-	START_BLOCK
+	send(START_BLOCK);
 	send('F');
-	DELIMITER
+	send(DELIMITER);
 	send(tempDiffOFF);
 
-	START_BLOCK
+	send(START_BLOCK);
 	send('R');
-	DELIMITER
+	send(DELIMITER);
 	if (relay1==LOW)
 		send('1');
   else
 		send('0');
 
-	START_BLOCK
+	send(START_BLOCK);
 	send('S');
-	DELIMITER
+	send(DELIMITER);
 	if (relay2==LOW)
 		send('1');
   else
 		send('0');
 	
-	END_BLOCK
+	send(END_BLOCK);
 #ifdef serial
 	Serial.print(crc);
-	Serial.println("*");
+	Serial.println(END_TRANSMITION);
 #endif	
 	mySerial.print(crc);
-	mySerial.print("*");
+	mySerial.print(END_TRANSMITION);
 	mySerial.flush();
 	digitalWrite(LEDPIN,LOW);
 }
