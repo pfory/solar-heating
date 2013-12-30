@@ -193,7 +193,7 @@ byte const tempDiffONEEPROMAdrL=1;
 byte const tempDiffOFFEEPROMAdrH=2;
 byte const tempDiffOFFEEPROMAdrL=3;
 
-float const   versionSW=0.57;
+float const   versionSW=0.58;
 char  const   versionSWString[] = "Solar v"; //SW name & version
 
 void setup() {
@@ -301,7 +301,7 @@ void loop() {
     displayTemp(TEMP2X,TEMP2Y, tIn);
     displayTemp(TEMP3X,TEMP3Y, tRoom);
 		
-    if (relay1==LOW) {  //relay is ON
+    if (relay1==LOW) {  //pump is ON
 			if (tIn<tOut) {
 				msDayON+=(millis()-lastOn);
 				power = energyKoef*(tOut-tIn); //in W
@@ -348,9 +348,9 @@ void loop() {
 #endif
  
     //change relay 1 status
-   if (relay1==LOW) { //switch ON->OFF
+   if (relay1==LOW) { //switch pump ON->OFF
       //if (millis() - lastOn4Delay >= delayON) {
-        if ((tOut - tRoom) < tempDiffOFF) {
+        if (((tOut - tRoom) < tempDiffOFF) || power < 200) {
           relay1=HIGH; ///relay OFF
           digitalWrite(RELAY1PIN, relay1);
           lastOff=millis();
@@ -359,7 +359,7 @@ void loop() {
       //}
     }
 	
-    if (relay1==HIGH) { //switch OFF->ON
+    if (relay1==HIGH) { //switch pump OFF->ON
       if (((tOut - tRoom) >= tempDiffON) | ((tIn - tRoom) >= tempDiffON)) {
         relay1=LOW; //relay ON
         digitalWrite(RELAY1PIN, relay1);
