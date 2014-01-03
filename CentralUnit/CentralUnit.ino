@@ -338,8 +338,8 @@ void sendDataSolarXively() {
 void sendDataHouseXively() {
   datastreamsHouse[1].setInt(statusHouse);  
   if (statusHouse==0) statusHouse=1; else statusHouse=0;
-  datastreamsHouse[2].setFloat(tBedRoomOld);
-  datastreamsHouse[3].setFloat(tBedRoomNew);  
+  datastreamsHouse[2].setFloat(tBedRoomNew);  
+  datastreamsHouse[3].setFloat(tBedRoomOld);
   datastreamsHouse[4].setFloat(tBojler);  
   datastreamsHouse[5].setFloat(tCorridor);  
   datastreamsHouse[6].setFloat(tHall);  
