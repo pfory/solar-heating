@@ -1,5 +1,7 @@
 #include <avr/wdt.h>
 
+#define debug
+
 #include <OneWire.h>
 #define ONE_WIRE_BUS A0
 OneWire onewire(ONE_WIRE_BUS); // pin for onewire DALLAS bus
@@ -47,12 +49,17 @@ int incomingByte;
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(10, 11); // RX, TX
 
+float versionSW=0.02;
+char versionSWString[] = "Temerature satelite v"; //SW name & version
+
 //#define debug
 
 void setup() {
 	pinMode(LEDPIN, OUTPUT);
 	#ifdef debug
 	Serial.begin(9600);
+	Serial.print(versionSWString);
+	Serial.println(versionSW);
 	#endif
 	mySerial.begin(9600);
 	dsInit();
@@ -63,17 +70,17 @@ void setup() {
 
 
 void loop() {
-
-if (!dsMeasStarted) {
-    //start sampling
-    dsMeasStarted=true;
-    dsSensors.requestTemperatures(); 
-    //digitalWrite(13,HIGH);
-    lastDsMeasStartTime = millis();
-  }
+	if (!dsMeasStarted) {
+			//start sampling
+			dsMeasStarted=true;
+			dsSensors.requestTemperatures(); 
+			//digitalWrite(13,HIGH);
+			lastDsMeasStartTime = millis();
+	}
   else if (dsMeasStarted && (millis() - lastDsMeasStartTime>dsMeassureInterval)) {
 		digitalWrite(LEDPIN,HIGH);
     dsMeasStarted=false;
+    Serial.println();
     //digitalWrite(13,LOW);
     //saving temperatures into variables
     for (byte i=0;i<numberOfDevices; i++) {
@@ -87,11 +94,11 @@ if (!dsMeasStarted) {
       }
 
       sensor[i] = tempTemp;
-      /*Serial.print("S");
+      Serial.print("S");
       Serial.print(i);
-      Serial.print(":");*/
-      //Serial.println(sensor[i]);
-      //Serial.print(" C ");
+      Serial.print(":");
+      Serial.print(sensor[i]);
+      Serial.println(" C ");
     } 
 		//obcas se vyskytne chyba a vsechna cidla prestanou merit
 		//zkusim restartovat sbernici
@@ -101,7 +108,6 @@ if (!dsMeasStarted) {
 				if (sensor[i]!=0.0) {
 					reset=false;
 				}
-				Serial.println(sensor[i]);
 			}
 			if (reset) {
 				dsInit();
@@ -111,7 +117,7 @@ if (!dsMeasStarted) {
 
 		char req=dataRequested();
 		if (req=='R') {
-			sendData();
+			sendDataSerial();
 			mySerial.flush();
 		}	else if (req=='W') {
 #ifdef debug
@@ -119,23 +125,26 @@ if (!dsMeasStarted) {
 #endif
 			WDTCSR = _BV(WDE);
 			while (1); // 16 ms
+		}
+		//sendDataSerial();
 	}
 }
 
-void sendData() {
+
+void sendDataSerial() {
+	//#0;25.31#1;25.19#2;5.19$3600177622*
 	crc = ~0L;
   for (byte i=0;i<numberOfDevices; i++) {
 		START_BLOCK
 		send(i);
 		DELIMITER
 		for (byte j=0; j<8; j++) {
-			if (tempDeviceAddresses[i][j]<9)
-				send('0');
+			if (tempDeviceAddresses[i][j]<9) send('0');
 			send(tempDeviceAddresses[i][j], 'X');
 		}
 		DELIMITER
 		send(sensor[i]);
-		DELIMITER
+		//DELIMITER
 	}
 	END_BLOCK
 #ifdef debug
