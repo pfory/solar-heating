@@ -491,19 +491,22 @@ void readDataTemperature() {
 			}
 			else if ((incomingByte==START_BLOCK || incomingByte==END_BLOCK) && status==4) {
 				b[i]='\0';
-				if (flag=='0') { //tBedRoomOld
+				if (flag=='0') { //tBedRoomNew
+					tBedRoomNew=atof(b);
+				}
+				if (flag=='1') { //tBedRoomOld
 					tBedRoomOld=atof(b);
 				}
-				if (flag=='1') { //tLivingRoom
+				if (flag=='2') { //tLivingRoom
 					tLivingRoom=atof(b);
 				}
-				if (flag=='2') { //tWorkRoom
+				if (flag=='3') { //tWorkRoom
 					tWorkRoom=atof(b);
 				}
-				if (flag=='3') { //tCorridor
+				if (flag=='4') { //tCorridor
 					tCorridor=atof(b);
 				}
-				if (flag=='4') { //tBojler
+				if (flag=='5') { //tBojler
 					tBojler=atof(b);
 				}
 				status=1;
@@ -515,6 +518,8 @@ void readDataTemperature() {
 	} while ((char)incomingByte!='*' && millis() < (timeOut + 2000));
 
 	Serial.println("\nDATA:");
+	Serial.print("tBedRoomNew=");
+	Serial.println(tBedRoomNew);
 	Serial.print("tBedRoomOld=");
 	Serial.println(tBedRoomOld);
 	Serial.print("tLivingRoom=");
