@@ -525,6 +525,17 @@ void sendDataSerial() {
 		send('1');
   else
 		send('0');
+
+	//Power
+	send(START_BLOCK);
+	send('P');
+	send(DELIMITER);
+	send(power);
+	
+	send(START_BLOCK);
+	send('E');
+	send(DELIMITER);
+	send(energy/1000.f/3600.f);
 	
 	send(END_BLOCK);
 #ifdef serial
