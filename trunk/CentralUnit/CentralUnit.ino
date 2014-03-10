@@ -58,6 +58,8 @@ float tempDiffON = 25.0; //difference between room temperature and solar OUT (se
 float tempDiffOFF = 15.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
 bool relay1=HIGH; 
 bool relay2=HIGH; 
+float power = 0.0;
+float energy = 0.0;
 
 unsigned long       lastReadSolarTime;
 unsigned long       lastSendSolarTime;
@@ -126,6 +128,8 @@ char TempROOMID[] 			= "ROOM";
 char TempDiffONID[] 		= "DiffON";
 char TempDiffOFFID[] 		= "DiffOFF";
 char StatusID[] 				= "Status";
+char PowerID[] 				= "Power";
+char EnergyID[] 				= "Energy";
 
 //setup feed
 char setTempDiffONID[] = "setDiffON";
@@ -142,7 +146,9 @@ XivelyDatastream datastreamsSolar[] = {
 	XivelyDatastream(TempROOMID, 				strlen(TempROOMID), 			DATASTREAM_FLOAT),
 	XivelyDatastream(TempDiffONID, 			strlen(TempDiffONID), 		DATASTREAM_FLOAT),
 	XivelyDatastream(TempDiffOFFID, 		strlen(TempDiffOFFID), 		DATASTREAM_FLOAT),
-	XivelyDatastream(StatusID, 					strlen(StatusID), 				DATASTREAM_INT)
+	XivelyDatastream(StatusID, 					strlen(StatusID), 				DATASTREAM_INT),
+	XivelyDatastream(PowerID, 					strlen(PowerID), 				DATASTREAM_FLOAT),
+	XivelyDatastream(EnergyID, 					strlen(EnergyID), 				DATASTREAM_FLOAT)
 };
 
 XivelyDatastream datastreamsSolarSetup[] = {
@@ -150,7 +156,7 @@ XivelyDatastream datastreamsSolarSetup[] = {
 	XivelyDatastream(setTempDiffOFFID, 	strlen(setTempDiffOFFID), DATASTREAM_FLOAT)
 };
 
-XivelyFeed feedSolar(xivelyFeedSolar, 			datastreamsSolar, 			8);
+XivelyFeed feedSolar(xivelyFeedSolar, 			datastreamsSolar, 			10);
 XivelyFeed feedSetup(xivelyFeedSetupSolar, 	datastreamsSolarSetup, 	2);
 
 EthernetClient client;
@@ -309,6 +315,8 @@ void sendDataSolarXively() {
   datastreamsSolar[4].setFloat(tRoom);  
   datastreamsSolar[5].setFloat(tempDiffON);  
   datastreamsSolar[6].setFloat(tempDiffOFF);  
+  datastreamsSolar[7].setFloat(power);  
+  datastreamsSolar[8].setFloat(energy);  
   
   if (relay1==LOW)
     datastreamsSolar[7].setInt(1);  
@@ -426,6 +434,12 @@ void readDataSolar() {
 					else
 						relay2=LOW; 
 				}
+				if (flag=='P') { //Power
+					power=atof(b);
+				}
+				if (flag=='E') { //Energy a day
+					energy=atof(b);
+				}
 				status=1;
 			}
 			else {
@@ -434,17 +448,17 @@ void readDataSolar() {
 		}
 	} while ((char)incomingByte!='*' && millis() < (timeOut + 2000));
 
-	Serial.println("\nDATA:");
+	/*Serial.println("\nDATA:");
 	Serial.print("tOut=");
-	Serial.println(sensor[0]);
+	Serial.println(sensor[0]);*/
 	tOut=sensor[0];
-	Serial.print("tIn=");
-	Serial.println(sensor[1]);
+	/*Serial.print("tIn=");
+	Serial.println(sensor[1]);*/
 	tIn=sensor[1];
-	Serial.print("tRoom=");
-	Serial.println(sensor[2]);
+	/*Serial.print("tRoom=");
+	Serial.println(sensor[2]);*/
 	tRoom=sensor[2];
-	Serial.print("tON=");
+	/*Serial.print("tON=");
 	Serial.println(tempDiffON);
 	Serial.print("tOFF=");
 	Serial.println(tempDiffOFF);
@@ -452,8 +466,8 @@ void readDataSolar() {
 	Serial.println(relay1);
 	Serial.print("R2=");
 	Serial.println(relay2);
-	
 	Serial.println("Data end");
+	*/
 }
 
 void readDataTemperature() {
