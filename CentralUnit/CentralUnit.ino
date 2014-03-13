@@ -3,45 +3,46 @@
 //Ethernet shield
 
 
-// A0 						- 230V present
-// A1 						- 
-// A2 						- 
-// A3 						- 
-// A4            	- 
-// A5           	- 
-// A6           	- 
-// A7           	- 
-// A8           	- 
-// A9           	- 
-// A10           	- 
-// A11           	- 
-// A12           	- 
-// A13           	- 
-// A14           	- 
-// A15           	- 
-// D0 						- Serial monitor (Serial 0 Rx)
-// D1 						- Serial monitor (Serial 0 Tx)
-// D2 						- 
-// D3 						- 
-// D4 						- SD card on Ethernet shield
-// D5 						- 
-// D6 						- 
-// D7 						- 
-// D8 						- 
-// D9 						- 
-// D10 						- Ethernet shield
-// D11 						- Ethernet shield
-// D12 						- Ethernet shield
-// D13 						- Ethernet shield
-// D14            - Alarm (Serial 3 Tx)
-// D15            - Alarm (Serial 3 Rx)
-// D16            - Temperature (Serial 2 Tx)
-// D17            - Temperature (Serial 2 Rx)
-// D18            - Solar (Serial 1 Tx)
-// D19            - Solar (Serial 1 Rx)
-// D20            - (SDA)
-// D21            - (SCL)
-// D22-D53        - reserved for Alarm sensors
+// A0 			- 230V present
+// A1 			- 
+// A2 			- 
+// A3 			- 
+// A4         	- 
+// A5        	- 
+// A6        	- 
+// A7        	- 
+// A8        	- 
+// A9        	- 
+// A10        	- 
+// A11        	- 
+// A12        	- 
+// A13        	- 
+// A14        	- 
+// A15        	- 
+// D0 			- Serial monitor (Serial 0 Rx)
+// D1 			- Serial monitor (Serial 0 Tx)
+// D2 			- 
+// D3 			- 
+// D4 			- 
+// D5 			- 
+// D6 			- 
+// D7 			- 
+// D8 			- 
+// D9 			- 
+// D10 			- Ethernet shield
+// D11 			- Ethernet shield
+// D12 			- Ethernet shield
+// D13 			- Ethernet shield
+// D14          - Alarm (Serial 3 Tx)
+// D15          - Alarm (Serial 3 Rx)
+// D16          - Temperature (Serial 2 Tx)
+// D17          - Temperature (Serial 2 Rx)
+// D18          - Solar (Serial 1 Tx)
+// D19          - Solar (Serial 1 Rx)
+// D20          - (SDA)
+// D21          - (SCL)
+// D22-D52      - reserved for Alarm sensors
+// D53			- SD card on Ethernet shield
 
 
 //TODO
@@ -52,6 +53,7 @@
 #define NUMBER_OF_DEVICES 3
 #endif
 #define verbose
+#define SDdef
 
 float sensor[NUMBER_OF_DEVICES];
 float tempDiffON = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
@@ -64,8 +66,8 @@ float energy = 0.0;
 unsigned long       lastReadSolarTime;
 unsigned long       lastSendSolarTime;
 unsigned long       lastUpdateSolarTime;
-unsigned long 			lastReadTemperatureTime;
-unsigned long				lastSendHouseTime;
+unsigned long 		lastReadTemperatureTime;
+unsigned long		lastSendHouseTime;
 unsigned int const  readDataSolarDelay          = 5000; //read data from solar unit
 unsigned int const  sendTimeSolarDelay          = 5000; //to send to xively.com
 unsigned int const  updateTimeSolarDelay        = 60000; //to send to xively.com
@@ -103,6 +105,7 @@ int ethOK=false;
 #define eth
 #ifdef eth
 //Ethernet
+#define UDPdef
 #include <Ethernet.h>
 #include <HttpClient.h>
 #include <Xively.h>
@@ -193,6 +196,20 @@ XivelyFeed feedHouse(xivelyFeedHouse, 						datastreamsHouse, 			9);
 
 XivelyClient xivelyclientHouse(client);
 
+#ifdef UDPdef
+EthernetUDP Udp;
+unsigned int localPort = 8888;      // local port to listen for UDP packets
+//IPAddress timeServer(192, 43, 244, 18); // time.nist.gov NTP server
+IPAddress timeServer(130,149,17,21); // time.nist.gov NTP server
+const int NTP_PACKET_SIZE= 48; // NTP time stamp is in the first 48 bytes of the message
+byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packets 
+#include <Time.h>
+
+#define DATE_DELIMITER "."
+#define TIME_DELIMITER ":"
+#define DATE_TIME_DELIMITER " "
+
+#endif
 #endif
 
 #include <avr/pgmspace.h>
@@ -203,6 +220,18 @@ static PROGMEM prog_uint32_t crc_table[16] = {
     0xedb88320, 0xf00f9344, 0xd6d6a3e8, 0xcb61b38c,
     0x9b64c2b0, 0x86d3d2d4, 0xa00ae278, 0xbdbdf21c
 };
+
+#ifdef SDdef
+#include <SD.h>
+const int chipSelect = 4;
+File myFile;
+// set up variables using the SD utility library functions:
+Sd2Card card;
+SdVolume volume;
+SdFile root;
+bool bCardOK = false;
+unsigned long lastSaveTime;
+#endif
 
 float versionSW=0.02;
 char versionSWString[] = "CentralUnit v"; //SW name & version
@@ -258,7 +287,42 @@ void setup() {
 	}
 
 	lastSendSolarTime = lastUpdateSolarTime = lastReadSolarTime = lastReadTemperatureTime = millis();
+	
+#ifdef SDdef
+  // make sure that the default chip select pin is set to
+  // output, even if you don't use it:
+  pinMode(53, OUTPUT);
+  digitalWrite(53,HIGH);
 
+  Serial.print("Initializing SD card...");
+
+  bCardOK = true;
+  // see if the card is present and can be initialized:
+  if (!SD.begin(chipSelect)) {
+    Serial.println("card failed, or not present");
+    bCardOK = false;
+  }
+  else {
+    Serial.println("card initialized.");
+    cardInfo();
+  }
+#endif
+
+#ifdef UDPdef
+  Udp.begin(localPort);
+  Serial.print("waiting 20s for time sync...");
+  //setSyncProvider(getNtpTime);
+
+  unsigned long lastSetTime=millis();
+  //while(timeStatus()==timeNotSet && millis()<lastSetTime+20000); // wait until the time is set by the sync provider, timeout 20sec
+  Serial.println("Time sync interval is set to 3600 second.");
+  //setSyncInterval(3600); //sync each 1 hour
+  
+  Serial.print("Now is ");
+  printDateTime();
+  Serial.println(" UTC.");
+
+#endif
 }
 
 void loop() {
@@ -468,6 +532,10 @@ void readDataSolar() {
 	Serial.println(relay2);
 	Serial.println("Data end");
 	*/
+#ifdef SDdef
+    saveDataToSD('S');
+#endif
+
 }
 
 void readDataTemperature() {
@@ -545,6 +613,10 @@ void readDataTemperature() {
 	Serial.print("tBojler=");
 	Serial.println(tBojler);
 	Serial.println("Data end");
+#ifdef SDdef
+    saveDataToSD('T');
+#endif
+	
 }
 
 unsigned long crc_update(unsigned long crc, byte data) {
@@ -633,6 +705,215 @@ void send(float s) {
 		if (tBuffer[i]==0) break;
 		send(tBuffer[i]);
 	}
+}
+
+#ifdef SDdef
+void cardInfo() {
+  // we'll use the initialization code from the utility libraries
+  // since we're just testing if the card is working!
+  if (!card.init(SPI_HALF_SPEED, chipSelect)) {
+    Serial.println("initialization failed. Things to check:");
+    Serial.println("* is a card is inserted?");
+    Serial.println("* Is your wiring correct?");
+    Serial.println("* did you change the chipSelect pin to match your shield or module?");
+    return;
+  } else {
+   Serial.println("Wiring is correct and a card is present."); 
+  }
+
+  // print the type of card
+  Serial.print("\nCard type: ");
+  switch(card.type()) {
+    case SD_CARD_TYPE_SD1:
+      Serial.println("SD1");
+      break;
+    case SD_CARD_TYPE_SD2:
+      Serial.println("SD2");
+      break;
+    case SD_CARD_TYPE_SDHC:
+      Serial.println("SDHC");
+      break;
+    default:
+      Serial.println("Unknown");
+  }
+
+  // Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
+  if (!volume.init(card)) {
+    Serial.println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
+    return;
+  }
+
+
+  // print the type and size of the first FAT-type volume
+  uint32_t volumesize;
+  Serial.print("\nVolume type is FAT");
+  Serial.println(volume.fatType(), DEC);
+  Serial.println();
+  
+  volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
+  volumesize *= volume.clusterCount();       // we'll have a lot of clusters
+  volumesize *= 512;                            // SD card blocks are always 512 bytes
+  Serial.print("Volume size (bytes): ");
+  Serial.println(volumesize);
+  Serial.print("Volume size (Kbytes): ");
+  volumesize /= 1024;
+  Serial.println(volumesize);
+  Serial.print("Volume size (Mbytes): ");
+  volumesize /= 1024;
+  Serial.println(volumesize);
+
+  
+  Serial.println("\nFiles found on the card (name, date and size in bytes): ");
+  root.openRoot(volume);
+  
+  // list all files in the card with date and size
+  root.ls(LS_R | LS_DATE | LS_SIZE);
+  Serial.println();
+  Serial.println();
+}
+#endif
+
+#ifdef SDdef
+//save data to SD card
+void saveDataToSD(char rep) {
+  /* String tMonth = "";
+  String tDay = "";
+  byte temp = month();
+  if (temp<10) tMonth = "0";
+  tMonth += String(month());
+  temp = day();
+  if (temp<10) tDay = "0";
+  tDay += String(day());
+    
+  String fileName = String(year());
+  if (month()<10) fileName+="0";
+  fileName+=String(month());
+  if (day()<10) fileName+="0";
+  fileName+=String(day());
+  fileName+=".csv";
+
+  Serial.println();
+  printDateTime(0);
+  Serial.print("\nSaving data to file:");
+  Serial.print(fileName);
+  Serial.print("...");
+  
+  char cFileName[13];
+  fileName.toCharArray(cFileName, 13);    
+  File dataFile = SD.open(cFileName, FILE_WRITE);
+
+  // if the file is available, write to it:
+  if (dataFile) {
+    dataFile.print(day());
+    dataFile.print(DATE_DELIMITER);
+    dataFile.print(month());
+    dataFile.print(DATE_DELIMITER);
+    dataFile.print(year());
+    dataFile.print(DATE_TIME_DELIMITER);
+    if(hour() < 10)
+      dataFile.print('0');
+    dataFile.print(hour());
+    dataFile.print(TIME_DELIMITER);
+    if(minute() < 10)
+      dataFile.print('0');
+    dataFile.print(minute());
+    dataFile.print(TIME_DELIMITER);
+    if(second() < 10)
+      dataFile.print('0');
+    dataFile.print(second());
+
+    #ifdef DALLASdef
+    dataFile.print(";");
+    //temperature from DALLAS
+    for(byte i=0;i<numberOfDevices; i++) {
+      int t = (int)(sensor[i]*10);
+      if (t<0&&t>-10) {
+        dataFile.print("-");
+      }
+      dataFile.print(t/10);
+      dataFile.print(",");
+      dataFile.print(abs(t%10));
+      dataFile.print(";");
+    }
+    #endif
+    
+    #ifdef BMP085def
+    #ifndef DALLASdef
+    dataFile.print(";");
+    #endif
+    //Pressure
+    dataFile.print(Pressure);
+    #endif
+    
+    #ifdef DHTdef1
+    //DHT1
+    //Humidity from DHT
+    dataFile.print(";");
+    dataFile.print(humidity1);
+
+    //temperature from DHT
+    dataFile.print(";");
+    dataFile.print(tempDHT1);
+
+    dataFile.print(";");
+    int t = (int)(calcDewPoint(humidity1, tempDHT1)*10);
+    dataFile.print(t/10);
+    dataFile.print(",");
+    dataFile.print(abs(t%10));
+    #endif
+    
+    #ifdef DHTdef2
+    //DHT2
+    //Humidity from DHT
+    dataFile.print(";");
+    dataFile.print(humidity2);
+
+    //temperature from DHT
+    dataFile.print(";");
+    dataFile.print(tempDHT2);
+
+    dataFile.print(";");
+    t = (int)(calcDewPoint(humidity2, tempDHT2)*10);
+    dataFile.print(t/10);
+    dataFile.print(",");
+    dataFile.print(abs(t%10));
+    #endif
+    
+    dataFile.print("\n");
+      
+    dataFile.close();
+    Serial.println("data saved.");
+  }  
+  // if the file isn't open, pop up an error:
+  else {
+    Serial.print("error opening ");
+    Serial.println(fileName);
+    Serial.println("Try SD card reinit.");
+    SD.begin(chipSelect);
+    if (!rep) {
+      saveDataToSD(true);
+    }
+  } 
+
+  #ifdef LCDdef
+  lcd.setCursor(15, 1);
+  lcd.print(" ");
+  #endif */
+}
+#endif
+
+void printDateTime() {
+	/* Serial.print(day());
+	Serial.print(DATE_DELIMITER);
+	Serial.print(month());
+	Serial.print(DATE_DELIMITER);
+	Serial.print(year());
+	Serial.print(DATE_TIME_DELIMITER);
+	printDigits(hour(),toLCD);
+	Serial.print(TIME_DELIMITER);
+	printDigits(minute(),toLCD);
+	Serial.print(TIME_DELIMITER);
+	printDigits(second(),toLCD); */
 }
 
 
