@@ -32,7 +32,6 @@
 //spina ventil(y) pro rizeni natapeni bojleru nebo radiatoru v zavislosti na konfiguraci zjistene pres internet
 
 //#include <limits.h>
-#include <LiquidCrystal_I2C.h>
 #include <Wire.h> 
 
 //#define watchdog
@@ -64,6 +63,7 @@ SoftwareSerial mySerial(10, 11); // RX, TX
 
 const unsigned int serialTimeout=2000;
 
+#include <LiquidCrystal_I2C.h>
 //LiquidCrystal_I2C lcd(0x20);  // Set the LCD I2C address
 //LiquidCrystal_I2C lcd(0x20,6,5,4);  // set the LCD address to 0x20 for a 16 chars and 2 line display
 LiquidCrystal_I2C lcd(0x20,2,1,0,4,5,6,7,3, POSITIVE);  // set the LCD address to 0x20 for a 16 chars and 2 line display
@@ -124,13 +124,16 @@ unsigned long lastOff = 0;  //ms posledniho vypnuti rele
 unsigned long const dayInterval=43200000; //1000*60*60*12; //
 unsigned long const delayON=120000; //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
 unsigned long lastOn4Delay = 0;
+unsigned long lastWriteEEPROMDelay = 60000; //1 min
+unsigned long lastWriteEEPROM = 0;
+unsigned long totalEnergy = 0; //total enery in Ws
 
 enum mode {NORMAL, POWERSAVE};
 mode powerMode=NORMAL;
 
 float power = 0; //actual power in W
 float energy = 0.0; //energy a day in kWh
-float const energyKoef = 283.5; //Ws
+float const energyKoef = 343; //Ws TODO - read from configuration
 float tIn=0;
 float tOut=0;
 float tRoom=0;
@@ -167,7 +170,7 @@ float tRoom=0;
 bool relay1=HIGH; 
 bool relay2=HIGH;
 
-//#define keypad
+#define keypad
 #ifdef keypad
 #include <Keypad.h>
 const byte ROWS = 4; //four rows
@@ -192,8 +195,12 @@ byte const tempDiffONEEPROMAdrH=0;
 byte const tempDiffONEEPROMAdrL=1;
 byte const tempDiffOFFEEPROMAdrH=2;
 byte const tempDiffOFFEEPROMAdrL=3;
+byte const totalEnergyEEPROMAdrH=4;
+byte const totalEnergyEEPROMAdrM=5;
+byte const totalEnergyEEPROMAdrS=6;
+byte const totalEnergyEEPROMAdrL=7;
 
-float const   versionSW=0.58;
+float const   versionSW=0.60;
 char  const   versionSWString[] = "Solar v"; //SW name & version
 
 void setup() {
@@ -244,6 +251,21 @@ void setup() {
     tempDiffOFF = valueF;
   }
   else {} //use default value=15.0 see variable initialization
+
+	//read power from EEPROM
+	valueIH = EEPROM.read(totalEnergyEEPROMAdrH);
+	int valueIM = EEPROM.read(totalEnergyEEPROMAdrM);
+	int valueIS = EEPROM.read(totalEnergyEEPROMAdrS);
+	valueIL = EEPROM.read(totalEnergyEEPROMAdrL);
+	totalEnergy = (valueIH << 24) + (valueIM << 16) + (valueIS << 8) + valueIL;
+	Serial.print("Readed totalEnergy from EEPROM:");
+	Serial.print(totalEnergy);
+	if (totalEnergy = 0) {
+		totalEnergy = 81032 * 3600;
+		writeTotalEnergyEEPROM(totalEnergy);
+		Serial.print("Seted totalEnergy:");
+		Serial.print(totalEnergy);
+	}
 }
 
 void loop() {
@@ -324,17 +346,21 @@ void loop() {
 		if (p<1000) lcd.print(" ");
 		if (p<100) lcd.print(" ");
 		if (p<10) lcd.print(" ");
-    lcd.print(p);
+		if (power<=99999) {
+			lcd.print(p);
+		}
    
     lcd.setCursor(ENERGYX,ENERGYY);
-    lcd.print(energy/1000.f/3600.f); //Wh -> kWh (show it in kWh)
+    lcd.print(energy/1000.f/3600.f); //Ws -> kWh (show it in kWh)
     
     lcd.setCursor(TIMEX,TIMEY);
     p=(int)(msDayON/1000/60);
 		if (p<100) lcd.print(" ");
 		if (p<10) lcd.print(" ");
-		lcd.print(p); //ms->min (show it in minutes)
-    
+		if (p<=999) {
+			lcd.print(p); //ms->min (show it in minutes)
+		}
+		
 #ifdef serial
     Serial.print("Power:");
     Serial.print(power);
@@ -355,6 +381,11 @@ void loop() {
           digitalWrite(RELAY1PIN, relay1);
           lastOff=millis();
 					lastOn4Delay=0;
+					if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
+						lastWriteEEPROM = millis();
+						totalEnergy += energy;
+						writeTotalEnergyEEPROM(totalEnergy);
+					}
         }
       //}
     }
@@ -414,6 +445,7 @@ void loop() {
   if (customKey){
     lcd.setCursor(0,0);
     lcd.print(customKey);
+		delay(100);
   }
 #endif
 }
@@ -532,10 +564,23 @@ void sendDataSerial() {
 	send(DELIMITER);
 	send(power);
 	
+	//Energy a day
 	send(START_BLOCK);
 	send('E');
 	send(DELIMITER);
 	send(energy/1000.f/3600.f);
+	
+	//Energy Total
+	send(START_BLOCK);
+	send('T');
+	send(DELIMITER);
+	send(totalEnergy/1000.f/3600.f);
+	
+	send(START_BLOCK);
+	send('V');
+	send(DELIMITER);
+	send(versionSW);
+	
 	
 	send(END_BLOCK);
 #ifdef serial
@@ -680,4 +725,11 @@ void crc_string(byte s)
 {
   crc = crc_update(crc, s);
   crc = ~crc;
+}
+
+void writeTotalEnergyEEPROM(unsigned long totalEnergy) {
+	EEPROM.write(totalEnergyEEPROMAdrL, totalEnergy & 0xFF);
+	EEPROM.write(totalEnergyEEPROMAdrS, (totalEnergy >> 8) & 0xFF);
+	EEPROM.write(totalEnergyEEPROMAdrM, (totalEnergy >> 16) & 0xFF);
+	EEPROM.write(totalEnergyEEPROMAdrH, (totalEnergy >> 24) & 0xFF); 
 }
