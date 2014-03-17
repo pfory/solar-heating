@@ -44,6 +44,9 @@
 // D22-D52      - reserved for Alarm sensors
 // D53			- SD card on Ethernet shield
 
+#ifndef dummy //this section prevent from error while program is compiling without Ethernetdef
+char a[0]; //do not delete this dummy variable
+#endif
 
 //TODO
 //support for data storage on SD card
@@ -62,12 +65,13 @@ bool relay1=HIGH;
 bool relay2=HIGH; 
 float power = 0.0;
 float energy = 0.0;
+float energyTotal = 0.0;
 
 unsigned long       lastReadSolarTime;
 unsigned long       lastSendSolarTime;
 unsigned long       lastUpdateSolarTime;
-unsigned long 		lastReadTemperatureTime;
-unsigned long		lastSendHouseTime;
+unsigned long 			lastReadTemperatureTime;
+unsigned long				lastSendHouseTime;
 unsigned int const  readDataSolarDelay          = 5000; //read data from solar unit
 unsigned int const  sendTimeSolarDelay          = 5000; //to send to xively.com
 unsigned int const  updateTimeSolarDelay        = 60000; //to send to xively.com
@@ -85,6 +89,7 @@ float tHall   			=	0;
 float tLivingRoom   = 0;
 float tCorridor   	= 0;
 float tWorkRoom   	= 0;
+float versionSolar;
 
 
 unsigned int const SERIAL_SPEED=9600;
@@ -102,13 +107,11 @@ unsigned int const SERIAL_SPEED=9600;
 
 int ethOK=false;
 
-#define eth
-#ifdef eth
 //Ethernet
-#define UDPdef
 #include <Ethernet.h>
 #include <HttpClient.h>
-#include <Xively.h>
+#include <Time.h> 
+#include <EthernetUdp.h>
 
 byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x6E};
 //IPAddress dnServer(192, 168, 1, 1);
@@ -117,6 +120,7 @@ byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x6E};
 //IPAddress ip(192, 168, 1,89);
 
 //XIVELY
+#include <Xively.h>
 char xivelyKeySolar[] 			= "azCLxsU4vKepKymGFFWVnXCvTQ6Ilze3euIsNrRKRRXuSPO8";
 char xivelyKeySetupSolar[] 	= "xabE5tkgkDbMBSn6k60NUqCP4WGpVvp2AMqsL36rWSx6y3Bv";
 
@@ -131,8 +135,9 @@ char TempROOMID[] 			= "ROOM";
 char TempDiffONID[] 		= "DiffON";
 char TempDiffOFFID[] 		= "DiffOFF";
 char StatusID[] 				= "Status";
-char PowerID[] 				= "Power";
-char EnergyID[] 				= "Energy";
+char PowerID[] 					= "Power";
+char EnergyID[] 				= "EnergyAday";
+char EnergyTotalID[] 		= "EnergyTotal";
 
 //setup feed
 char setTempDiffONID[] = "setDiffON";
@@ -150,8 +155,9 @@ XivelyDatastream datastreamsSolar[] = {
 	XivelyDatastream(TempDiffONID, 			strlen(TempDiffONID), 		DATASTREAM_FLOAT),
 	XivelyDatastream(TempDiffOFFID, 		strlen(TempDiffOFFID), 		DATASTREAM_FLOAT),
 	XivelyDatastream(StatusID, 					strlen(StatusID), 				DATASTREAM_INT),
-	XivelyDatastream(PowerID, 					strlen(PowerID), 				DATASTREAM_FLOAT),
-	XivelyDatastream(EnergyID, 					strlen(EnergyID), 				DATASTREAM_FLOAT)
+	XivelyDatastream(PowerID, 					strlen(PowerID), 					DATASTREAM_FLOAT),
+	XivelyDatastream(EnergyID, 					strlen(EnergyID), 				DATASTREAM_FLOAT),
+	XivelyDatastream(EnergyTotalID, 		strlen(EnergyTotalID), 		DATASTREAM_FLOAT)
 };
 
 XivelyDatastream datastreamsSolarSetup[] = {
@@ -159,7 +165,7 @@ XivelyDatastream datastreamsSolarSetup[] = {
 	XivelyDatastream(setTempDiffOFFID, 	strlen(setTempDiffOFFID), DATASTREAM_FLOAT)
 };
 
-XivelyFeed feedSolar(xivelyFeedSolar, 			datastreamsSolar, 			10);
+XivelyFeed feedSolar(xivelyFeedSolar, 			datastreamsSolar, 			11);
 XivelyFeed feedSetup(xivelyFeedSetupSolar, 	datastreamsSolarSetup, 	2);
 
 EthernetClient client;
@@ -195,22 +201,21 @@ XivelyDatastream datastreamsHouse[] = {
 XivelyFeed feedHouse(xivelyFeedHouse, 						datastreamsHouse, 			9);
 
 XivelyClient xivelyclientHouse(client);
-
-#ifdef UDPdef
+ 
+IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
+// IPAddress timeServer(132, 163, 4, 102); // time-b.timefreq.bldrdoc.gov
+// IPAddress timeServer(132, 163, 4, 103); // time-c.timefreq.bldrdoc.gov
+const int timeZone = 1;     // Central European Time
+//const int timeZone = -5;  // Eastern Standard Time (USA)
+//const int timeZone = -4;  // Eastern Daylight Time (USA)
+//const int timeZone = -8;  // Pacific Standard Time (USA)
+//const int timeZone = -7;  // Pacific Daylight Time (USA)
 EthernetUDP Udp;
-unsigned int localPort = 8888;      // local port to listen for UDP packets
-//IPAddress timeServer(192, 43, 244, 18); // time.nist.gov NTP server
-IPAddress timeServer(130,149,17,21); // time.nist.gov NTP server
-const int NTP_PACKET_SIZE= 48; // NTP time stamp is in the first 48 bytes of the message
-byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packets 
-#include <Time.h>
+unsigned int localPort = 8888;  // local port to listen for UDP packets
 
 #define DATE_DELIMITER "."
 #define TIME_DELIMITER ":"
 #define DATE_TIME_DELIMITER " "
-
-#endif
-#endif
 
 #include <avr/pgmspace.h>
 unsigned long crc;
@@ -233,7 +238,10 @@ bool bCardOK = false;
 unsigned long lastSaveTime;
 #endif
 
-float versionSW=0.02;
+unsigned long getNtpTime();
+void sendNTPpacket(IPAddress &address);
+
+float versionSW=0.03;
 char versionSWString[] = "CentralUnit v"; //SW name & version
 
 
@@ -243,7 +251,6 @@ void setup() {
 	Serial1.begin(SERIAL_SPEED);
 	Serial2.begin(SERIAL_SPEED);
 	
-	datastreamsSolar[0].setFloat(0.58);
 	datastreamsHouse[0].setFloat(0.02);
 	
 #ifdef verbose
@@ -308,21 +315,19 @@ void setup() {
   }
 #endif
 
-#ifdef UDPdef
   Udp.begin(localPort);
   Serial.print("waiting 20s for time sync...");
-  //setSyncProvider(getNtpTime);
+  setSyncProvider(getNtpTime);
 
   unsigned long lastSetTime=millis();
-  //while(timeStatus()==timeNotSet && millis()<lastSetTime+20000); // wait until the time is set by the sync provider, timeout 20sec
+  while(timeStatus()==timeNotSet && millis()<lastSetTime+20000); // wait until the time is set by the sync provider, timeout 20sec
   Serial.println("Time sync interval is set to 3600 second.");
-  //setSyncInterval(3600); //sync each 1 hour
+  setSyncInterval(3600); //sync each 1 hour
   
   Serial.print("Now is ");
   printDateTime();
   Serial.println(" UTC.");
 
-#endif
 }
 
 void loop() {
@@ -334,7 +339,6 @@ void loop() {
     lastReadTemperatureTime = millis();
     readDataTemperature(); //read data from temperature satellite
   }   
-#ifdef eth	
   if (ethOK) {
     if(!client.connected() && (millis() - lastSendSolarTime > sendTimeSolarDelay)) {
       lastSendSolarTime = millis();
@@ -352,7 +356,6 @@ void loop() {
     }
 
   }
-#endif
 }
 
 void sendDataSolar() {
@@ -369,9 +372,11 @@ void sendDataSolar() {
 	Serial1.flush();
 }
 
-#ifdef eth
 //send data to xively
 void sendDataSolarXively() {
+	if (versionSolar==0)
+		versionSolar=0.59;
+	datastreamsSolar[0].setFloat(versionSolar);
   datastreamsSolar[1].setInt(statusSolar);  
   if (statusSolar==0) statusSolar=1; else statusSolar=0;
   datastreamsSolar[2].setFloat(tOut);
@@ -379,8 +384,9 @@ void sendDataSolarXively() {
   datastreamsSolar[4].setFloat(tRoom);  
   datastreamsSolar[5].setFloat(tempDiffON);  
   datastreamsSolar[6].setFloat(tempDiffOFF);  
-  datastreamsSolar[7].setFloat(power);  
-  datastreamsSolar[8].setFloat(energy);  
+  datastreamsSolar[8].setFloat(power);  
+  datastreamsSolar[9].setFloat(energy);  
+  datastreamsSolar[10].setFloat(energyTotal);  
   
   if (relay1==LOW)
     datastreamsSolar[7].setInt(1);  
@@ -438,7 +444,6 @@ void sendDataHouseXively() {
 #endif
 
 }
-#endif
 
 void readDataSolar() {
   //read data from Solar unit UART1
@@ -473,12 +478,15 @@ void readDataSolar() {
 				b[i]='\0';
 				if (flag=='0') { //sensor0 tOut
 					sensor[0]=atof(b);
+					tOut=sensor[0];
 				}
 				if (flag=='1') { //sensor1 tOIn
 					sensor[1]=atof(b);
+					tIn=sensor[1];
 				}
 				if (flag=='2') { //sensor2 tRoom
 					sensor[2]=atof(b);
+					tRoom=sensor[2];
 				}
 				if (flag=='N') { //temperature ON
 					tempDiffON=atof(b);
@@ -504,6 +512,14 @@ void readDataSolar() {
 				if (flag=='E') { //Energy a day
 					energy=atof(b);
 				}
+				if (flag=='T') { //Total Energy
+					energyTotal=atof(b);
+					//energyTotal=82.5; 
+				}
+				if (flag=='V') { //Version
+					versionSolar=atof(b);
+				}
+
 				status=1;
 			}
 			else {
@@ -515,13 +531,10 @@ void readDataSolar() {
 	/*Serial.println("\nDATA:");
 	Serial.print("tOut=");
 	Serial.println(sensor[0]);*/
-	tOut=sensor[0];
 	/*Serial.print("tIn=");
 	Serial.println(sensor[1]);*/
-	tIn=sensor[1];
 	/*Serial.print("tRoom=");
 	Serial.println(sensor[2]);*/
-	tRoom=sensor[2];
 	/*Serial.print("tON=");
 	Serial.println(tempDiffON);
 	Serial.print("tOFF=");
@@ -633,7 +646,6 @@ void crc_string(byte s) {
   crc = ~crc;
 }
 
-#ifdef eth
 bool readDataXivelySolar() {
 	Serial.println("Read setup data from Xively...");
   bool change=false;
@@ -668,7 +680,6 @@ bool readDataXivelySolar() {
   }
   return change;
 }
-#endif
 
 void send(char s) {
 	send(s, ' ');
@@ -776,7 +787,7 @@ void cardInfo() {
 #ifdef SDdef
 //save data to SD card
 void saveDataToSD(char rep) {
-  /* String tMonth = "";
+  String tMonth = "";
   String tDay = "";
   byte temp = month();
   if (temp<10) tMonth = "0";
@@ -793,7 +804,7 @@ void saveDataToSD(char rep) {
   fileName+=".csv";
 
   Serial.println();
-  printDateTime(0);
+  printDateTime();
   Serial.print("\nSaving data to file:");
   Serial.print(fileName);
   Serial.print("...");
@@ -822,63 +833,45 @@ void saveDataToSD(char rep) {
       dataFile.print('0');
     dataFile.print(second());
 
-    #ifdef DALLASdef
     dataFile.print(";");
-    //temperature from DALLAS
-    for(byte i=0;i<numberOfDevices; i++) {
-      int t = (int)(sensor[i]*10);
-      if (t<0&&t>-10) {
-        dataFile.print("-");
-      }
-      dataFile.print(t/10);
-      dataFile.print(",");
-      dataFile.print(abs(t%10));
-      dataFile.print(";");
-    }
-    #endif
-    
-    #ifdef BMP085def
-    #ifndef DALLASdef
+    dataFile.print(tIn);
     dataFile.print(";");
-    #endif
-    //Pressure
-    dataFile.print(Pressure);
-    #endif
-    
-    #ifdef DHTdef1
-    //DHT1
-    //Humidity from DHT
+    dataFile.print(tOut);
     dataFile.print(";");
-    dataFile.print(humidity1);
+    dataFile.print(tRoom);
+    dataFile.print(";");
+		dataFile.print(tempDiffON);
+    dataFile.print(";");
+		dataFile.print(tempDiffOFF);
+    dataFile.print(";");
+		dataFile.print(relay1);
+    dataFile.print(";");
+		dataFile.print(relay2);
+    dataFile.print(";");
+		dataFile.print(power);
+    dataFile.print(";");
+		dataFile.print(energy);
+    dataFile.print(";");
+		dataFile.print(energyTotal);
+    dataFile.print(";");
+    dataFile.print(versionSolar);
+		
+    dataFile.print(tBedRoomOld);
+    dataFile.print(";");
+    dataFile.print(tBedRoomNew);
+    dataFile.print(";");
+    dataFile.print(tBojler);
+    dataFile.print(";");
+    dataFile.print(tHall);
+    dataFile.print(";");
+    dataFile.print(tLivingRoom);
+    dataFile.print(";");
+    dataFile.print(tCorridor);
+    dataFile.print(";");
+    dataFile.print(tWorkRoom);
+    dataFile.print(";");
 
-    //temperature from DHT
-    dataFile.print(";");
-    dataFile.print(tempDHT1);
-
-    dataFile.print(";");
-    int t = (int)(calcDewPoint(humidity1, tempDHT1)*10);
-    dataFile.print(t/10);
-    dataFile.print(",");
-    dataFile.print(abs(t%10));
-    #endif
-    
-    #ifdef DHTdef2
-    //DHT2
-    //Humidity from DHT
-    dataFile.print(";");
-    dataFile.print(humidity2);
-
-    //temperature from DHT
-    dataFile.print(";");
-    dataFile.print(tempDHT2);
-
-    dataFile.print(";");
-    t = (int)(calcDewPoint(humidity2, tempDHT2)*10);
-    dataFile.print(t/10);
-    dataFile.print(",");
-    dataFile.print(abs(t%10));
-    #endif
-    
+   
     dataFile.print("\n");
       
     dataFile.close();
@@ -898,22 +891,82 @@ void saveDataToSD(char rep) {
   #ifdef LCDdef
   lcd.setCursor(15, 1);
   lcd.print(" ");
-  #endif */
+  #endif 
 }
 #endif
 
 void printDateTime() {
-	/* Serial.print(day());
+	Serial.print(day());
 	Serial.print(DATE_DELIMITER);
 	Serial.print(month());
 	Serial.print(DATE_DELIMITER);
 	Serial.print(year());
 	Serial.print(DATE_TIME_DELIMITER);
-	printDigits(hour(),toLCD);
+	printDigits(hour());
 	Serial.print(TIME_DELIMITER);
-	printDigits(minute(),toLCD);
+	printDigits(minute());
 	Serial.print(TIME_DELIMITER);
-	printDigits(second(),toLCD); */
+	printDigits(second());
+}
+
+void printDigits(int digits){
+  // utility function for digital clock display: prints preceding colon and leading 0
+  if(digits < 10) {
+    Serial.print('0');
+  } else {
+    Serial.print(digits);
+  }
+}
+
+
+/*-------- NTP code ----------*/
+
+const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
+byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
+
+unsigned long getNtpTime() {
+  while (Udp.parsePacket() > 0) ; // discard any previously received packets
+  Serial.println("Transmit NTP Request");
+  sendNTPpacket(timeServer);
+  uint32_t beginWait = millis();
+  while (millis() - beginWait < 1500) {
+    int size = Udp.parsePacket();
+    if (size >= NTP_PACKET_SIZE) {
+      Serial.println("Receive NTP Response");
+      Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
+      unsigned long secsSince1900;
+      // convert four bytes starting at location 40 to a long integer
+      secsSince1900 =  (unsigned long)packetBuffer[40] << 24;
+      secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
+      secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
+      secsSince1900 |= (unsigned long)packetBuffer[43];
+      return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
+    }
+  }
+  Serial.println("No NTP Response :-(");
+  return 0; // return 0 if unable to get the time
+}
+
+// send an NTP request to the time server at the given address
+void sendNTPpacket(IPAddress &address) {
+  // set all bytes in the buffer to 0
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+  // Initialize values needed to form NTP request
+  // (see URL above for details on the packets)
+  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
+  packetBuffer[1] = 0;     // Stratum, or type of clock
+  packetBuffer[2] = 6;     // Polling Interval
+  packetBuffer[3] = 0xEC;  // Peer Clock Precision
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  packetBuffer[12]  = 49;
+  packetBuffer[13]  = 0x4E;
+  packetBuffer[14]  = 49;
+  packetBuffer[15]  = 52;
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:                 
+  Udp.beginPacket(address, 123); //NTP requests are to port 123
+  Udp.write(packetBuffer, NTP_PACKET_SIZE);
+  Udp.endPacket();
 }
 
 
