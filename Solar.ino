@@ -124,19 +124,20 @@ unsigned long lastOff = 0;  //ms posledniho vypnuti rele
 unsigned long const dayInterval=43200000; //1000*60*60*12; //
 unsigned long const delayON=120000; //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
 unsigned long lastOn4Delay = 0;
-unsigned long lastWriteEEPROMDelay = 60000; //1 min
+unsigned long lastWriteEEPROMDelay = 60*1000*24; //1 hod
 unsigned long lastWriteEEPROM = 0;
 unsigned long totalEnergy = 0; //total enery in Ws
-
-enum mode {NORMAL, POWERSAVE};
-mode powerMode=NORMAL;
-
 float power = 0; //actual power in W
-float energy = 0.0; //energy a day in kWh
+float energyADay = 0.0; //energy a day in Ws
+float energyDiff = 0.0; //difference in Ws
 float const energyKoef = 343; //Ws TODO - read from configuration
 float tIn=0;
 float tOut=0;
 float tRoom=0;
+
+enum mode {NORMAL, POWERSAVE};
+mode powerMode=NORMAL;
+
 
 //0123456789012345
 //15.6 15.8 15.8 V
@@ -177,10 +178,10 @@ const byte ROWS = 4; //four rows
 const byte COLS = 4; //four columns
 //define the symbols on the buttons of the keypads
 char hexaKeys[ROWS][COLS] = {
-  {'D','#','0','*'},
-  {'C','9','8','7'},
-  {'B','6','5','4'},
-  {'A','3','2','1'}
+  {'1','4','7','*'},
+  {'2','5','8','0'},
+  {'3','6','9','#'},
+  {'A','B','C','D'}
 };
 byte rowPins[ROWS] = {5,4,3,2}; //connect to the row pinouts of the keypad
 byte colPins[COLS] = {9,8,7,6}; //connect to the column pinouts of the keypad
@@ -200,7 +201,7 @@ byte const totalEnergyEEPROMAdrM=5;
 byte const totalEnergyEEPROMAdrS=6;
 byte const totalEnergyEEPROMAdrL=7;
 
-float const   versionSW=0.60;
+float const   versionSW=0.61;
 char  const   versionSWString[] = "Solar v"; //SW name & version
 
 void setup() {
@@ -257,6 +258,15 @@ void setup() {
 	int valueIM = EEPROM.read(totalEnergyEEPROMAdrM);
 	int valueIS = EEPROM.read(totalEnergyEEPROMAdrS);
 	valueIL = EEPROM.read(totalEnergyEEPROMAdrL);
+	Serial.print("H:");
+	Serial.println(valueIH); //18
+	Serial.print("M:");
+	Serial.println(valueIM); //252
+	Serial.print("S:");
+	Serial.println(valueIS);  //143
+	Serial.print("L:");
+	Serial.println(valueIL);  //0
+	
 	totalEnergy = (valueIH << 24) + (valueIM << 16) + (valueIS << 8) + valueIL;
 	Serial.print("Readed totalEnergy from EEPROM:");
 	Serial.print(totalEnergy);
@@ -327,7 +337,8 @@ void loop() {
 			if (tIn<tOut) {
 				msDayON+=(millis()-lastOn);
 				power = energyKoef*(tOut-tIn); //in W
-				energy+=((float)(millis()-lastOn)*power/1000.f); //in Ws
+				energyADay+=((float)(millis()-lastOn)*power/1000.f); //in Ws
+				energyDiff+=((float)(millis()-lastOn)*power/1000.f);
 			}
       lastOn = millis();
     }
@@ -351,7 +362,7 @@ void loop() {
 		}
    
     lcd.setCursor(ENERGYX,ENERGYY);
-    lcd.print(energy/1000.f/3600.f); //Ws -> kWh (show it in kWh)
+    lcd.print(energyADay/1000.f/3600.f); //Ws -> kWh (show it in kWh)
     
     lcd.setCursor(TIMEX,TIMEY);
     p=(int)(msDayON/1000/60);
@@ -366,7 +377,7 @@ void loop() {
     Serial.print(power);
     Serial.println("[W]");
     Serial.print("Energy:");
-    Serial.print(energy/1000.f/3600.f);
+    Serial.print(energyADay/1000.f/3600.f);
     Serial.println("[kWh]");
     Serial.print("Pump ON:");
     Serial.print((int)(msDayON/1000));
@@ -376,22 +387,26 @@ void loop() {
     //change relay 1 status
    if (relay1==LOW) { //switch pump ON->OFF
       //if (millis() - lastOn4Delay >= delayON) {
-        if (((tOut - tRoom) < tempDiffOFF) || power < 200) {
+        if (((tOut - tRoom) < tempDiffOFF) || (int)power < 200) {
           relay1=HIGH; ///relay OFF
           digitalWrite(RELAY1PIN, relay1);
           lastOff=millis();
 					lastOn4Delay=0;
-					if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
-						lastWriteEEPROM = millis();
-						totalEnergy += energy;
-						writeTotalEnergyEEPROM(totalEnergy);
-					}
         }
       //}
     }
 	
     if (relay1==HIGH) { //switch pump OFF->ON
-      if (((tOut - tRoom) >= tempDiffON) | ((tIn - tRoom) >= tempDiffON)) {
+			//save totalEnergy to EEPROM
+			if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
+				lastWriteEEPROM = millis();
+				totalEnergy += energyDiff;
+				energyDiff=0.0;
+				writeTotalEnergyEEPROM(totalEnergy);
+			}
+
+
+			if (((tOut - tRoom) >= tempDiffON) | ((tIn - tRoom) >= tempDiffON)) {
         relay1=LOW; //relay ON
         digitalWrite(RELAY1PIN, relay1);
         lastOn = millis();
@@ -399,8 +414,9 @@ void loop() {
 					lastOn4Delay = lastOn;
 				}
         if (lastOff==0) { //first ON in actual day
-          energy=0.0;
-          msDayON=0;
+          energyADay=0.0;
+  				energyDiff=0.0;
+					msDayON=0;
         }
       }
     }
@@ -568,7 +584,7 @@ void sendDataSerial() {
 	send(START_BLOCK);
 	send('E');
 	send(DELIMITER);
-	send(energy/1000.f/3600.f);
+	send(energyADay/1000.f/3600.f);
 	
 	//Energy Total
 	send(START_BLOCK);
