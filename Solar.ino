@@ -100,7 +100,7 @@ DallasTemperature dsSensors(&onewire);
 #endif
 DeviceAddress tempDeviceAddress;
 #ifndef NUMBER_OF_DEVICES
-#define NUMBER_OF_DEVICES 3
+#define NUMBER_OF_DEVICES 4
 #endif
 DeviceAddress tempDeviceAddresses[NUMBER_OF_DEVICES];
 //int  resolution = 12;
@@ -201,7 +201,7 @@ byte const totalEnergyEEPROMAdrM=5;
 byte const totalEnergyEEPROMAdrS=6;
 byte const totalEnergyEEPROMAdrL=7;
 
-float const   versionSW=0.61;
+float const   versionSW=0.62;
 char  const   versionSWString[] = "Solar v"; //SW name & version
 
 void setup() {
@@ -268,14 +268,14 @@ void setup() {
 	Serial.println(valueIL);  //0
 	
 	totalEnergy = (valueIH << 24) + (valueIM << 16) + (valueIS << 8) + valueIL;
-	Serial.print("Readed totalEnergy from EEPROM:");
-	Serial.print(totalEnergy);
-	if (totalEnergy = 0) {
-		totalEnergy = 81032 * 3600;
+	//Serial.print("Readed totalEnergy from EEPROM:");
+	//Serial.print(totalEnergy);
+	//if (totalEnergy = 0) {
+		totalEnergy = 90000 * 3600;
 		writeTotalEnergyEEPROM(totalEnergy);
 		Serial.print("Seted totalEnergy:");
 		Serial.print(totalEnergy);
-	}
+	//}
 }
 
 void loop() {
@@ -387,25 +387,29 @@ void loop() {
     //change relay 1 status
    if (relay1==LOW) { //switch pump ON->OFF
       //if (millis() - lastOn4Delay >= delayON) {
+				//save totalEnergy to EEPROM
+				if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
+					lastWriteEEPROM = millis();
+					totalEnergy += energyDiff;
+					energyDiff=0.0;
+					writeTotalEnergyEEPROM(totalEnergy);
+				}
         if (((tOut - tRoom) < tempDiffOFF) || (int)power < 200) {
           relay1=HIGH; ///relay OFF
           digitalWrite(RELAY1PIN, relay1);
           lastOff=millis();
 					lastOn4Delay=0;
-        }
+					//save totalEnergy to EEPROM
+					lastWriteEEPROM = millis();
+					totalEnergy += energyDiff;
+					energyDiff=0.0;
+					writeTotalEnergyEEPROM(totalEnergy);
+					
+				}
       //}
     }
 	
     if (relay1==HIGH) { //switch pump OFF->ON
-			//save totalEnergy to EEPROM
-			if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
-				lastWriteEEPROM = millis();
-				totalEnergy += energyDiff;
-				energyDiff=0.0;
-				writeTotalEnergyEEPROM(totalEnergy);
-			}
-
-
 			if (((tOut - tRoom) >= tempDiffON) | ((tIn - tRoom) >= tempDiffON)) {
         relay1=LOW; //relay ON
         digitalWrite(RELAY1PIN, relay1);
