@@ -59,19 +59,26 @@ static PROGMEM prog_uint32_t crc_table[16] = {
 #define LEDPIN 13
 
 #include <SoftwareSerial.h>
-SoftwareSerial mySerial(10, 11); // RX, TX
+#define RX 10
+#define TX 11
+SoftwareSerial mySerial(RX, TX);
 
 const unsigned int serialTimeout=2000;
 
 #include <LiquidCrystal_I2C.h>
-//LiquidCrystal_I2C lcd(0x20);  // Set the LCD I2C address
-//LiquidCrystal_I2C lcd(0x20,6,5,4);  // set the LCD address to 0x20 for a 16 chars and 2 line display
-LiquidCrystal_I2C lcd(0x20,2,1,0,4,5,6,7,3, POSITIVE);  // set the LCD address to 0x20 for a 16 chars and 2 line display
-#define BACKLIGHT_PIN     0
-
-
-//LiquidCrystal_I2C lcd(0x38, BACKLIGHT_PIN, POSITIVE);  // Set the LCD I2C address
-
+#define LCDADDRESS 0x20
+#define EN 					2
+#define RW 					1
+#define RS 					0
+#define D4 					4
+#define D5 					5
+#define D6 					6
+#define D7 					7
+#define BACKLIGHT 	3
+#define POL 				POSITIVE
+#define LCDROWS			2
+#define LCDCOLS			16
+LiquidCrystal_I2C lcd(LCDADDRESS,EN,RW,RS,D4,D5,D6,D7,BACKLIGHT, POL);  // set the LCD
 
 // Creat a set of new characters
 /*const uint8_t charBitmap[][8] = {
@@ -131,37 +138,40 @@ float power = 0; //actual power in W
 float energyADay = 0.0; //energy a day in Ws
 float energyDiff = 0.0; //difference in Ws
 float const energyKoef = 343; //Ws TODO - read from configuration
-float tIn=0;
-float tOut=0;
-float tRoom=0;
+float tIn		=0;
+float tOut	=0;
+float tRoom	=0;
+int powerOff = 200;
+int powerOn = 300;
 
 enum mode {NORMAL, POWERSAVE};
 mode powerMode=NORMAL;
 
+byte display=0;
 
 //0123456789012345
 //15.6 15.8 15.8 V
 //1234 0.12 624
-#define TEMP1X 0
-#define TEMP1Y 0
-#define TEMP2X 5
-#define TEMP2Y 0
-#define TEMP3X 10
-#define TEMP3Y 0
-//#define TEMP4X 9
-//#define TEMP4Y 1
-#define POWERX 0
-#define POWERY 1
-#define ENERGYX 7
-#define ENERGYY 1
-#define TIMEX 12
-#define TIMEY 1
+#define TEMP1X 		0
+#define TEMP1Y 		0
+#define TEMP2X 		5
+#define TEMP2Y 		0
+#define TEMP3X 		10
+#define TEMP3Y 		0
+//#define TEMP4X 	9
+//#define TEMP4Y 	1
+#define POWERX 		0
+#define POWERY 		1
+#define ENERGYX 	7
+#define ENERGYY 	1
+#define TIMEX 		12
+#define TIMEY 		1
 
 
-#define RELAY1X 15
-#define RELAY1Y 0
+#define RELAY1X 	15
+#define RELAY1Y 	0
 /*#define RELAY2X 15
-#define RELAY2Y 1
+#define RELAY2Y 	1
 */
 
 #define RELAY1PIN A1
@@ -192,23 +202,24 @@ Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS
 
 //EEPROM
 #include <EEPROM.h>
-byte const tempDiffONEEPROMAdrH=0;
-byte const tempDiffONEEPROMAdrL=1;
-byte const tempDiffOFFEEPROMAdrH=2;
-byte const tempDiffOFFEEPROMAdrL=3;
-byte const totalEnergyEEPROMAdrH=4;
-byte const totalEnergyEEPROMAdrM=5;
-byte const totalEnergyEEPROMAdrS=6;
-byte const totalEnergyEEPROMAdrL=7;
+byte const tempDiffONEEPROMAdrH		=0;
+byte const tempDiffONEEPROMAdrL		=1;
+byte const tempDiffOFFEEPROMAdrH	=2;
+byte const tempDiffOFFEEPROMAdrL	=3;
+byte const totalEnergyEEPROMAdrH	=4;
+byte const totalEnergyEEPROMAdrM	=5;
+byte const totalEnergyEEPROMAdrS	=6;
+byte const totalEnergyEEPROMAdrL	=7;
 
-float const   versionSW=0.62;
-char  const   versionSWString[] = "Solar v"; //SW name & version
+//SW name & version
+float const   versionSW=0.64;
+char  const   versionSWString[] = "Solar v"; 
 
 void setup() {
-	lcd.begin(16,2);               // initialize the lcd 
+	lcd.begin(LCDCOLS,LCDROWS);               // initialize the lcd 
   // Switch on the backlight
-  pinMode(BACKLIGHT_PIN, OUTPUT);
-  digitalWrite(BACKLIGHT_PIN, HIGH);
+  pinMode(BACKLIGHT, OUTPUT);
+  digitalWrite(BACKLIGHT, HIGH);
 	mySerial.begin(SERIAL_SPEED);
 	pinMode(LEDPIN,OUTPUT);
 	
@@ -328,50 +339,50 @@ void loop() {
 			dsInit();
 		}
 
-		//display OUT  IN  ROOM
-		displayTemp(TEMP1X,TEMP1Y, tOut);
-    displayTemp(TEMP2X,TEMP2Y, tIn);
-    displayTemp(TEMP3X,TEMP3Y, tRoom);
-		
-    if (relay1==LOW) {  //pump is ON
+		if (relay1==LOW) {  //pump is ON
 			if (tIn<tOut) {
 				msDayON+=(millis()-lastOn);
 				power = energyKoef*(tOut-tIn); //in W
 				energyADay+=((float)(millis()-lastOn)*power/1000.f); //in Ws
 				energyDiff+=((float)(millis()-lastOn)*power/1000.f);
 			}
-      lastOn = millis();
-    }
+			lastOn = millis();
+		}
 		else {
 			power=0;
 		}
 
-    //zobrazeni okamziteho vykonu ve W
-    //zobrazeni celkoveho vykonu za den v kWh
-    //zobrazeni poctu minut behu cerpadla za aktualni den
-    //0123456789012345
-    // 636 0.1234 720T
-    lcd.setCursor(POWERX,POWERY);
-		unsigned int p=(int)power;
-		if (p<10000) lcd.print(" ");
-		if (p<1000) lcd.print(" ");
-		if (p<100) lcd.print(" ");
-		if (p<10) lcd.print(" ");
-		if (power<=99999) {
-			lcd.print(p);
+		if (display==0) {
+			//display OUT  IN  ROOM
+			displayTemp(TEMP1X,TEMP1Y, tOut);
+			displayTemp(TEMP2X,TEMP2Y, tIn);
+			displayTemp(TEMP3X,TEMP3Y, tRoom);
+			//zobrazeni okamziteho vykonu ve W
+			//zobrazeni celkoveho vykonu za den v kWh
+			//zobrazeni poctu minut behu cerpadla za aktualni den
+			//0123456789012345
+			// 636 0.1234 720T
+			lcd.setCursor(POWERX,POWERY);
+			unsigned int p=(int)power;
+			if (p<10000) lcd.print(" ");
+			if (p<1000) lcd.print(" ");
+			if (p<100) lcd.print(" ");
+			if (p<10) lcd.print(" ");
+			if (power<=99999) {
+				lcd.print(p);
+			}
+			
+			lcd.setCursor(ENERGYX,ENERGYY);
+			lcd.print(energyADay/1000.f/3600.f); //Ws -> kWh (show it in kWh)
+			
+			lcd.setCursor(TIMEX,TIMEY);
+			p=(int)(msDayON/1000/60);
+			if (p<100) lcd.print(" ");
+			if (p<10) lcd.print(" ");
+			if (p<=999) {
+				lcd.print(p); //ms->min (show it in minutes)
+			}
 		}
-   
-    lcd.setCursor(ENERGYX,ENERGYY);
-    lcd.print(energyADay/1000.f/3600.f); //Ws -> kWh (show it in kWh)
-    
-    lcd.setCursor(TIMEX,TIMEY);
-    p=(int)(msDayON/1000/60);
-		if (p<100) lcd.print(" ");
-		if (p<10) lcd.print(" ");
-		if (p<=999) {
-			lcd.print(p); //ms->min (show it in minutes)
-		}
-		
 #ifdef serial
     Serial.print("Power:");
     Serial.print(power);
@@ -394,7 +405,7 @@ void loop() {
 					energyDiff=0.0;
 					writeTotalEnergyEEPROM(totalEnergy);
 				}
-        if (((tOut - tRoom) < tempDiffOFF) || (int)power < 200) {
+        if (((tOut - tRoom) < tempDiffOFF) || (int)power < powerOff) {
           relay1=HIGH; ///relay OFF
           digitalWrite(RELAY1PIN, relay1);
           lastOff=millis();
@@ -410,7 +421,7 @@ void loop() {
     }
 	
     if (relay1==HIGH) { //switch pump OFF->ON
-			if (((tOut - tRoom) >= tempDiffON) | ((tIn - tRoom) >= tempDiffON)) {
+			if ((((tOut - tRoom) >= tempDiffON) || ((tIn - tRoom) >= tempDiffON)) && (int)power >= powerOn) {
         relay1=LOW; //relay ON
         digitalWrite(RELAY1PIN, relay1);
         lastOn = millis();
@@ -463,9 +474,27 @@ void loop() {
 #ifdef keypad
   char customKey = customKeypad.getKey();
   if (customKey){
-    lcd.setCursor(0,0);
-    lcd.print(customKey);
-		delay(100);
+		/*
+		Keyboard layout
+		-----------
+		| 1 2 3 A |
+		| 4 5 6 B |
+		| 7 8 9 C |
+		| * 0 # D |
+		-----------
+		*/
+    //lcd.setCursor(0,0);
+    //lcd.print(customKey);
+		//delay(100);
+		if (customKey=='C') {
+			lcd.begin(LCDCOLS,LCDROWS);               // reinitialize the lcd 
+		}
+		else if (customKey=='B') {
+		  digitalWrite(BACKLIGHT, HIGH);
+		}
+		else if (customKey=='A') {
+		  digitalWrite(BACKLIGHT, LOW);
+		}
   }
 #endif
 }
