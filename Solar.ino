@@ -135,14 +135,16 @@ unsigned long lastWriteEEPROMDelay = 60*1000*24; //1 hod
 unsigned long lastWriteEEPROM = 0;
 unsigned long totalEnergy = 0; //total enery in Ws
 float power = 0; //actual power in W
+float maxPower = 0; //maximal power in W
 float energyADay = 0.0; //energy a day in Ws
 float energyDiff = 0.0; //difference in Ws
 float const energyKoef = 343; //Ws TODO - read from configuration
 float tIn		=0;
 float tOut	=0;
 float tRoom	=0;
-int powerOff = 200;
-int powerOn = 300;
+float tBojler	=0;
+//int powerOff = 200;     //minimalni vykon, pokud je vykon nizssi, rele vzdy vypne
+float safetyON = 80.0; //teplota, pri niz rele vzdy sepne
 
 enum mode {NORMAL, POWERSAVE};
 mode powerMode=NORMAL;
@@ -279,14 +281,14 @@ void setup() {
 	Serial.println(valueIL);  //0
 	
 	totalEnergy = (valueIH << 24) + (valueIM << 16) + (valueIS << 8) + valueIL;
-	//Serial.print("Readed totalEnergy from EEPROM:");
-	//Serial.print(totalEnergy);
-	//if (totalEnergy = 0) {
+	Serial.print("TotalEnergy from EEPROM:");
+	Serial.print(totalEnergy);
+	if (totalEnergy = 0) {
 		totalEnergy = 90000 * 3600;
 		writeTotalEnergyEEPROM(totalEnergy);
-		Serial.print("Seted totalEnergy:");
+		Serial.print("Save totalEnergy to EEPROM:");
 		Serial.print(totalEnergy);
-	//}
+	}
 }
 
 void loop() {
@@ -342,7 +344,10 @@ void loop() {
 		if (relay1==LOW) {  //pump is ON
 			if (tIn<tOut) {
 				msDayON+=(millis()-lastOn);
-				power = energyKoef*(tOut-tIn); //in W
+        power = getPower(); //in W
+        if (power > maxPower) {
+          maxPower = power;
+        }
 				energyADay+=((float)(millis()-lastOn)*power/1000.f); //in Ws
 				energyDiff+=((float)(millis()-lastOn)*power/1000.f);
 			}
@@ -352,37 +357,6 @@ void loop() {
 			power=0;
 		}
 
-		if (display==0) {
-			//display OUT  IN  ROOM
-			displayTemp(TEMP1X,TEMP1Y, tOut);
-			displayTemp(TEMP2X,TEMP2Y, tIn);
-			displayTemp(TEMP3X,TEMP3Y, tRoom);
-			//zobrazeni okamziteho vykonu ve W
-			//zobrazeni celkoveho vykonu za den v kWh
-			//zobrazeni poctu minut behu cerpadla za aktualni den
-			//0123456789012345
-			// 636 0.1234 720T
-			lcd.setCursor(POWERX,POWERY);
-			unsigned int p=(int)power;
-			if (p<10000) lcd.print(" ");
-			if (p<1000) lcd.print(" ");
-			if (p<100) lcd.print(" ");
-			if (p<10) lcd.print(" ");
-			if (power<=99999) {
-				lcd.print(p);
-			}
-			
-			lcd.setCursor(ENERGYX,ENERGYY);
-			lcd.print(energyADay/1000.f/3600.f); //Ws -> kWh (show it in kWh)
-			
-			lcd.setCursor(TIMEX,TIMEY);
-			p=(int)(msDayON/1000/60);
-			if (p<100) lcd.print(" ");
-			if (p<10) lcd.print(" ");
-			if (p<=999) {
-				lcd.print(p); //ms->min (show it in minutes)
-			}
-		}
 #ifdef serial
     Serial.print("Power:");
     Serial.print(power);
@@ -395,48 +369,48 @@ void loop() {
     Serial.println("[s]");
 #endif
  
-    //change relay 1 status
-   if (relay1==LOW) { //switch pump ON->OFF
-      //if (millis() - lastOn4Delay >= delayON) {
-				//save totalEnergy to EEPROM
-				if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
-					lastWriteEEPROM = millis();
-					totalEnergy += energyDiff;
-					energyDiff=0.0;
-					writeTotalEnergyEEPROM(totalEnergy);
-				}
-        if (((tOut - tRoom) < tempDiffOFF) || (int)power < powerOff) {
+    //safety function
+    if ((tOut || tIn) >= safetyON) {
+      relay1=LOW; //relay ON
+    } else {
+    //pump is ON
+    if (relay1==LOW) { //switch pump ON->OFF
+        //save totalEnergy to EEPROM
+        if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
+          lastWriteEEPROM = millis();
+          totalEnergy += energyDiff;
+          energyDiff=0.0;
+          writeTotalEnergyEEPROM(totalEnergy);
+        }
+        if (((tOut - tRoom) < tempDiffOFF) /*|| (int)getPower() < powerOff)*/) {
           relay1=HIGH; ///relay OFF
           digitalWrite(RELAY1PIN, relay1);
           lastOff=millis();
-					lastOn4Delay=0;
-					//save totalEnergy to EEPROM
-					lastWriteEEPROM = millis();
-					totalEnergy += energyDiff;
-					energyDiff=0.0;
-					writeTotalEnergyEEPROM(totalEnergy);
-					
-				}
-      //}
-    }
-	
-    if (relay1==HIGH) { //switch pump OFF->ON
-			if ((((tOut - tRoom) >= tempDiffON) || ((tIn - tRoom) >= tempDiffON)) && (int)power >= powerOn) {
-        relay1=LOW; //relay ON
-        digitalWrite(RELAY1PIN, relay1);
-        lastOn = millis();
-				if (lastOn4Delay==0) {
-					lastOn4Delay = lastOn;
-				}
-        if (lastOff==0) { //first ON in actual day
-          energyADay=0.0;
-  				energyDiff=0.0;
-					msDayON=0;
+          lastOn4Delay=0;
+          //save totalEnergy to EEPROM
+          lastWriteEEPROM = millis();
+          totalEnergy += energyDiff;
+          energyDiff=0.0;
+          writeTotalEnergyEEPROM(totalEnergy);
+        }
+      } else { //pump is OFF
+      //if (relay1==HIGH) { //switch pump OFF->ON
+        if ((((tOut - tRoom) >= tempDiffON) || ((tIn - tRoom) >= tempDiffON))) {
+          relay1=LOW; //relay ON
+          digitalWrite(RELAY1PIN, relay1);
+          lastOn = millis();
+          if (lastOn4Delay==0) {
+            lastOn4Delay = lastOn;
+          }
+          if (lastOff==0) { //first ON in actual day
+            energyADay=0.0;
+            energyDiff=0.0;
+            msDayON=0;
+          }
         }
       }
     }
- 
-    displayRelayStatus();
+    lcdShow();
 #ifdef serial		
 		Serial.print("tempDiffON=");
 		Serial.println(tempDiffON);
@@ -495,6 +469,34 @@ void loop() {
 		else if (customKey=='A') {
 		  digitalWrite(BACKLIGHT, LOW);
 		}
+		else if (customKey=='0') { //main display
+      display=0;
+    }
+		else if (customKey=='1') { //total energy
+      display=1;
+    }
+		else if (customKey=='2') { //TempDiffON
+      display=2;
+    }
+		else if (customKey=='3') { //TempDiffOFF
+      display=3;
+    }
+		else if (customKey=='4') { //Energy koef
+      display=4;
+    }
+		else if (customKey=='5') { //Max IN OUT temp
+      display=5;
+    }
+		else if (customKey=='6') { //Max bojler
+      display=6;
+    }
+		else if (customKey=='7') { //Max power today
+      display=7;
+    }
+		else if (customKey=='*') { //Save total energy to EEPROM
+      writeTotalEnergyEEPROM();
+      display=100 + display;
+    }
   }
 #endif
 }
@@ -776,9 +778,116 @@ void crc_string(byte s)
   crc = ~crc;
 }
 
+void writeTotalEnergyEEPROM() {
+  writeTotalEnergyEEPROM(totalEnergy);
+}
+
 void writeTotalEnergyEEPROM(unsigned long totalEnergy) {
 	EEPROM.write(totalEnergyEEPROMAdrL, totalEnergy & 0xFF);
 	EEPROM.write(totalEnergyEEPROMAdrS, (totalEnergy >> 8) & 0xFF);
 	EEPROM.write(totalEnergyEEPROMAdrM, (totalEnergy >> 16) & 0xFF);
 	EEPROM.write(totalEnergyEEPROMAdrH, (totalEnergy >> 24) & 0xFF); 
+}
+
+float getPower() {
+  return energyKoef*(tOut-tIn); //in W
+}
+
+void lcdShow() {
+		if (display==0) { //main display
+			//display OUT  IN  ROOM
+			displayTemp(TEMP1X,TEMP1Y, tOut);
+			displayTemp(TEMP2X,TEMP2Y, tIn);
+			displayTemp(TEMP3X,TEMP3Y, tRoom);
+			//zobrazeni okamziteho vykonu ve W
+			//zobrazeni celkoveho vykonu za den v kWh
+			//zobrazeni poctu minut behu cerpadla za aktualni den
+			//0123456789012345
+			// 636 0.1234 720T
+			lcd.setCursor(POWERX,POWERY);
+			unsigned int p=(int)power;
+			if (p<10000) lcd.print(" ");
+			if (p<1000) lcd.print(" ");
+			if (p<100) lcd.print(" ");
+			if (p<10) lcd.print(" ");
+			if (power<=99999) {
+				lcd.print(p);
+			}
+			
+			lcd.setCursor(ENERGYX,ENERGYY);
+			lcd.print(energyADay/1000.f/3600.f); //Ws -> kWh (show it in kWh)
+			
+			lcd.setCursor(TIMEX,TIMEY);
+			p=(int)(msDayON/1000/60);
+			if (p<100) lcd.print(" ");
+			if (p<10) lcd.print(" ");
+			if (p<=999) {
+				lcd.print(p); //ms->min (show it in minutes)
+			}
+      displayRelayStatus();
+		} else if (display==1) { //total Energy
+      lcd.clear();
+			lcd.setCursor(0,0);
+      lcd.print("Total Energy");
+			lcd.setCursor(0,1);
+      lcd.print(totalEnergy/1000.f/3600.f);
+      lcd.print(" kWh");
+    } else if (display==2) { //TempDiffON
+      lcd.clear();
+			lcd.setCursor(0,0);
+      lcd.print("TempDiffON");
+			lcd.setCursor(0,1);
+      lcd.print(tempDiffON);
+      lcd.print("");
+    } else if (display==3) { //TempDiffOFF
+      lcd.clear();
+			lcd.setCursor(0,0);
+      lcd.print("TempDiffOFF");
+			lcd.setCursor(0,1);
+      lcd.print(tempDiffOFF);
+      lcd.print("");
+    } else if (display==4) { //Energy koef
+      lcd.clear();
+			lcd.setCursor(0,0);
+      lcd.print("Energy koef.");
+			lcd.setCursor(0,1);
+      lcd.print(energyKoef);
+      lcd.print(" W/K");
+    } else if (display==5) { //Max IN OUT temp
+			lcd.setCursor(0,0);
+      lcd.clear();
+      lcd.print("Max IN:");
+      lcd.print(tIn);
+			lcd.setCursor(0,1);
+      lcd.print("Max OUT:");
+      lcd.print(tOut);
+    } else if (display==6) { //Max bojler
+			lcd.setCursor(0,0);
+      lcd.clear();
+      lcd.print("Max bojler");
+			lcd.setCursor(0,1);
+      lcd.print(tBojler);
+    } else if (display==7) { //Max power today
+			lcd.setCursor(0,0);
+      lcd.clear();
+      lcd.print("Max power today");
+			lcd.setCursor(0,1);
+      lcd.print(maxPower);
+      lcd.print(" W");
+    } else if (display>=100) { //Save energy to EEPROM
+			lcd.setCursor(0,0);
+      lcd.clear();
+      lcd.print("Energy saved!");
+			lcd.setCursor(0,1);
+      lcd.print(totalEnergy);
+      lcd.print(" Ws");
+      delay(500);
+      display = display - 100;
+    }
+    
+    
+    //1234567890123456
+    //Save Energy EEPR
+    //Yes = 1
+
 }
