@@ -214,7 +214,7 @@ byte const totalEnergyEEPROMAdrS	=6;
 byte const totalEnergyEEPROMAdrL	=7;
 
 //SW name & version
-float const   versionSW=0.64;
+float const   versionSW=0.65;
 char  const   versionSWString[] = "Solar v"; 
 
 void setup() {
@@ -460,6 +460,7 @@ void loop() {
     //lcd.setCursor(0,0);
     //lcd.print(customKey);
 		//delay(100);
+	
 		if (customKey=='C') {
 			lcd.begin(LCDCOLS,LCDROWS);               // reinitialize the lcd 
 		}
@@ -470,27 +471,35 @@ void loop() {
 		  digitalWrite(BACKLIGHT, LOW);
 		}
 		else if (customKey=='0') { //main display
-      display=0;
+      lcd.clear();
+			display=0;
     }
 		else if (customKey=='1') { //total energy
+      lcd.clear();
       display=1;
     }
 		else if (customKey=='2') { //TempDiffON
+      lcd.clear();
       display=2;
     }
 		else if (customKey=='3') { //TempDiffOFF
+      lcd.clear();
       display=3;
     }
 		else if (customKey=='4') { //Energy koef
+      lcd.clear();
       display=4;
     }
 		else if (customKey=='5') { //Max IN OUT temp
+      lcd.clear();
       display=5;
     }
 		else if (customKey=='6') { //Max bojler
+      lcd.clear();
       display=6;
     }
 		else if (customKey=='7') { //Max power today
+      lcd.clear();
       display=7;
     }
 		else if (customKey=='*') { //Save total energy to EEPROM
