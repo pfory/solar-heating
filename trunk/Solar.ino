@@ -146,7 +146,7 @@ float tRoom	  = 0; //teplota v mistnosti
 float tBojler	= 0; //teplota bojler
 float tDir    = 0; //ridici teplota
 
-byte ridiciCidlo = 2; //index cidla, podle ktereho se porovnava teplota
+byte ridiciCidlo = 0; //index cidla, podle ktereho se porovnava teplota
 
 //int powerOff = 200;     //minimalni vykon, pokud je vykon nizssi, rele vzdy vypne
 float safetyON = 80.0; //teplota, pri niz rele vzdy sepne
@@ -326,10 +326,10 @@ void loop() {
 
       sensor[i] = tempTemp;
     } 
-		tOut 	  = sensor[0];
-		tIn	 	  = sensor[1];
-		tRoom   = sensor[2];
-		tBojler = sensor[3];
+		tOut 	  = sensor[1];
+		tIn	 	  = sensor[2];
+		tRoom   = sensor[3];
+		tBojler = sensor[0];
     tDir    = sensor[ridiciCidlo];
 #ifdef serial
 		Serial.print("tOut:");
@@ -337,9 +337,11 @@ void loop() {
 		Serial.print(" tIn:");
     Serial.print(tIn);
 		Serial.print(" tRoom:");
-    Serial.println(tRoom);
+    Serial.print(tRoom);
 		Serial.print(" tBojler:");
-    Serial.println(tBojler);
+    Serial.print(tBojler);
+		Serial.print(" Ridici teplota:");
+    Serial.println(tDir);
 #endif
 		//obcas se vyskytne chyba a vsechna cidla prestanou merit
 		//zkusim restartovat sbernici
@@ -503,7 +505,7 @@ void loop() {
 		else if (customKey=='1') { //total energy or save directing sensor to EEPROM
       lcd.clear();
       if (display>=200 && display<300) {
-        ridiciCidlo=2;
+        ridiciCidlo=3; //ROOM
         EEPROM.write(ridiciCidloEEPROMAdr, ridiciCidlo);
         display=200-display;
       } else {
@@ -513,7 +515,7 @@ void loop() {
 		else if (customKey=='2') { //TempDiffON or save directing sensor to EEPROM
       lcd.clear();
       if (display>=200 && display<300) {
-        ridiciCidlo=3;
+        ridiciCidlo=0; //Bojler
         EEPROM.write(ridiciCidloEEPROMAdr, ridiciCidlo);
         display=200-display;
       } else {
@@ -948,13 +950,15 @@ void lcdShow() {
       lcd.clear();
       lcd.print("Directing sensor");
 			lcd.setCursor(0,1);
-      if (ridiciCidlo=2) {
+      if (ridiciCidlo==3) {
         lcd.print("Room");
-      } else {
+      } else if (ridiciCidlo==0) {
         lcd.print("Bojler");
-      }
+      } else {
+        lcd.print("Unknown");
+			}
       lcd.print(" [");
-      lcd.print(sensor(ridiciCidlo));
+      lcd.print(sensor[ridiciCidlo]);
       lcd.print("]");
     } else if (display>=100 && display<200) { //Save energy to EEPROM
 			lcd.setCursor(0,0);
