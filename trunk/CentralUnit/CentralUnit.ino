@@ -53,7 +53,7 @@ char a[0]; //do not delete this dummy variable
 
 //Solar system variables
 #ifndef NUMBER_OF_DEVICES
-#define NUMBER_OF_DEVICES 3
+#define NUMBER_OF_DEVICES 4
 #endif
 #define verbose
 #define SDdef
@@ -81,6 +81,7 @@ unsigned int const 	sendTimeHouseDelay					= 15000; //to send to xively.com
 float tIn   				= 0;
 float tOut  				= 0;
 float tRoom 				= 0;
+float tBojler2			= 0;
 
 float tBedRoomOld   = 0;
 float tBedRoomNew   = 0;
@@ -132,6 +133,7 @@ char StatusSolarID[]	 	= "S";
 char TempOUTID[]			 	= "OUT";
 char TempINID[] 				= "IN";
 char TempROOMID[] 			= "ROOM";
+char TempBojler2ID[] 		= "Bojler2";
 char TempDiffONID[] 		= "DiffON";
 char TempDiffOFFID[] 		= "DiffOFF";
 char StatusID[] 				= "Status";
@@ -152,6 +154,7 @@ XivelyDatastream datastreamsSolar[] = {
 	XivelyDatastream(TempOUTID, 				strlen(TempOUTID), 				DATASTREAM_FLOAT),
 	XivelyDatastream(TempINID, 					strlen(TempINID), 				DATASTREAM_FLOAT),
 	XivelyDatastream(TempROOMID, 				strlen(TempROOMID), 			DATASTREAM_FLOAT),
+	XivelyDatastream(TempBojler2ID, 		strlen(TempBojler2ID), 		DATASTREAM_FLOAT),
 	XivelyDatastream(TempDiffONID, 			strlen(TempDiffONID), 		DATASTREAM_FLOAT),
 	XivelyDatastream(TempDiffOFFID, 		strlen(TempDiffOFFID), 		DATASTREAM_FLOAT),
 	XivelyDatastream(StatusID, 					strlen(StatusID), 				DATASTREAM_INT),
@@ -165,7 +168,7 @@ XivelyDatastream datastreamsSolarSetup[] = {
 	XivelyDatastream(setTempDiffOFFID, 	strlen(setTempDiffOFFID), DATASTREAM_FLOAT)
 };
 
-XivelyFeed feedSolar(xivelyFeedSolar, 			datastreamsSolar, 			11);
+XivelyFeed feedSolar(xivelyFeedSolar, 			datastreamsSolar, 			12);
 XivelyFeed feedSetup(xivelyFeedSetupSolar, 	datastreamsSolarSetup, 	2);
 
 EthernetClient client;
@@ -241,7 +244,7 @@ unsigned long lastSaveTime;
 unsigned long getNtpTime();
 void sendNTPpacket(IPAddress &address);
 
-float versionSW=0.03;
+float versionSW=0.1;
 char versionSWString[] = "CentralUnit v"; //SW name & version
 
 
@@ -254,6 +257,7 @@ void setup() {
 	datastreamsHouse[0].setFloat(0.02);
 	
 #ifdef verbose
+	delay(5000);
   Serial.println("waiting for net connection...");
 #endif
 	//lcd.setCursor(0,0);
@@ -382,16 +386,17 @@ void sendDataSolarXively() {
   datastreamsSolar[2].setFloat(tOut);
   datastreamsSolar[3].setFloat(tIn);  
   datastreamsSolar[4].setFloat(tRoom);  
-  datastreamsSolar[5].setFloat(tempDiffON);  
-  datastreamsSolar[6].setFloat(tempDiffOFF);  
-  datastreamsSolar[8].setFloat(power);  
-  datastreamsSolar[9].setFloat(energy);  
-  datastreamsSolar[10].setFloat(energyTotal);  
+  datastreamsSolar[5].setFloat(tBojler2);  
+  datastreamsSolar[6].setFloat(tempDiffON);  
+  datastreamsSolar[7].setFloat(tempDiffOFF);  
+  datastreamsSolar[9].setFloat(power);  
+  datastreamsSolar[10].setFloat(energy);  
+  datastreamsSolar[11].setFloat(energyTotal);  
   
   if (relay1==LOW)
-    datastreamsSolar[7].setInt(1);  
+    datastreamsSolar[8].setInt(1);  
   else
-    datastreamsSolar[7].setInt(0);  
+    datastreamsSolar[8].setInt(0);  
 
 #ifdef verbose
   Serial.println("Uploading solar data to Xively");
@@ -476,17 +481,21 @@ void readDataSolar() {
 			}
 			else if ((incomingByte==START_BLOCK || incomingByte==END_BLOCK) && status==3) {
 				b[i]='\0';
-				if (flag=='0') { //sensor0 tOut
+				if (flag=='0') { //sensor0 tBojler2
 					sensor[0]=atof(b);
-					tOut=sensor[0];
+					tBojler2=sensor[0];
 				}
-				if (flag=='1') { //sensor1 tOIn
+				if (flag=='1') { //sensor1 tOut
 					sensor[1]=atof(b);
-					tIn=sensor[1];
+					tOut=sensor[1];
 				}
-				if (flag=='2') { //sensor2 tRoom
+				if (flag=='2') { //sensor2 tIn
 					sensor[2]=atof(b);
-					tRoom=sensor[2];
+					tIn=sensor[2];
+				}
+				if (flag=='3') { //sensor3 tRoom
+					sensor[3]=atof(b);
+					tRoom=sensor[3];
 				}
 				if (flag=='N') { //temperature ON
 					tempDiffON=atof(b);
@@ -647,7 +656,7 @@ void crc_string(byte s) {
 }
 
 bool readDataXivelySolar() {
-	Serial.println("Read setup data from Xively...");
+	Serial.println("I am reading setup data from Xively...");
   bool change=false;
 #ifdef watchdog
 	wdt_disable();
@@ -773,7 +782,7 @@ void cardInfo() {
   volumesize /= 1024;
   Serial.println(volumesize);
 
-  
+  /*
   Serial.println("\nFiles found on the card (name, date and size in bytes): ");
   root.openRoot(volume);
   
@@ -781,6 +790,7 @@ void cardInfo() {
   root.ls(LS_R | LS_DATE | LS_SIZE);
   Serial.println();
   Serial.println();
+	*/
 }
 #endif
 
