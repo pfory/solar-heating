@@ -146,6 +146,11 @@ float tRoom	  = 0; //teplota v mistnosti
 float tBojler	= 0; //teplota bojler
 float tDir    = 0; //ridici teplota
 
+//maximal temperatures
+float tMaxIn			= 0; //max vstupni voda do solaru
+float tMaxOut			= 0; //max vystupni voda ze solaru
+float tMaxBojler 	= 0; //max teplota bojler
+
 byte ridiciCidlo = 0; //index cidla, podle ktereho se porovnava teplota
 
 //int powerOff = 200;     //minimalni vykon, pokud je vykon nizssi, rele vzdy vypne
@@ -331,6 +336,10 @@ void loop() {
 		tRoom   = sensor[3];
 		tBojler = sensor[0];
     tDir    = sensor[ridiciCidlo];
+		
+		if (tOut>tMaxOut) 			tMaxOut 		= tOut;
+		if (tIn>tMaxIn) 				tMaxIn  		= tIn;
+		if (tBojler>tMaxBojler) tMaxBojler 	= tBojler;
 #ifdef serial
 		Serial.print("tOut:");
     Serial.print(tOut);
@@ -420,6 +429,9 @@ void loop() {
             energyADay=0.0;
             energyDiff=0.0;
             msDayON=0;
+						tMaxOut=-128.0;
+						tMaxIn=-128.0;
+						tMaxBojler=-128.0;
           }
         }
       }
@@ -928,16 +940,16 @@ void lcdShow() {
 			lcd.setCursor(0,0);
       lcd.clear();
       lcd.print("Max IN:");
-      lcd.print(tIn);
+      lcd.print(tMaxIn);
 			lcd.setCursor(0,1);
       lcd.print("Max OUT:");
-      lcd.print(tOut);
+      lcd.print(tMaxOut);
     } else if (display==6) { //Max bojler
 			lcd.setCursor(0,0);
       lcd.clear();
       lcd.print("Max bojler");
 			lcd.setCursor(0,1);
-      lcd.print(tBojler);
+      lcd.print(tMaxBojler);
     } else if (display==7) { //Max power today
 			lcd.setCursor(0,0);
       lcd.clear();
