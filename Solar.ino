@@ -405,7 +405,7 @@ void loop() {
           energyDiff=0.0;
           writeTotalEnergyEEPROM(totalEnergy);
         }
-        if (((tOut - tDir) < tempDiffOFF) /*|| (int)getPower() < powerOff)*/) {
+        if (((tOut - tDir) < tempDiffOFF && (tIn < tOut)) /*|| (int)getPower() < powerOff)*/) {
           relay1=HIGH; ///relay OFF
           digitalWrite(RELAY1PIN, relay1);
           lastOff=millis();
