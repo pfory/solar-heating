@@ -160,6 +160,7 @@ enum mode {NORMAL, POWERSAVE};
 mode powerMode=NORMAL;
 
 byte display=0;
+bool manualON = false;
 
 //0123456789012345
 //15.6 15.8 15.8 V
@@ -225,7 +226,7 @@ byte const totalEnergyEEPROMAdrL	=7;
 byte const ridiciCidloEEPROMAdr	  =8;
 
 //SW name & version
-float const   versionSW=0.66;
+float const   versionSW=0.67;
 char  const   versionSWString[] = "Solar v"; 
 
 void setup() {
@@ -395,6 +396,7 @@ void loop() {
     //safety function
     if ((tOut || tIn) >= safetyON) {
       relay1=LOW; //relay ON
+    } else if (manualON) {
     } else {
     //pump is ON
       if (relay1==LOW) { //switch pump ON->OFF
@@ -499,8 +501,16 @@ void loop() {
     * - Save total energy to EEPROM
     0 -
     # - Select directing sensor
-    D -
+    D - manual/auto
 		*/
+		if (customKey=='D') {
+			manualON = !manualON;
+      if (manualON) {
+        digitalWrite(RELAY1PIN, LOW);
+      } else {
+        digitalWrite(RELAY1PIN, HIGH);
+      }
+		}
 		if (customKey=='C') {
 			lcd.begin(LCDCOLS,LCDROWS);               // reinitialize the lcd 
 		}
@@ -635,17 +645,24 @@ void dsInit(void) {
 //show relay's status in column 15
 void displayRelayStatus(void) {
   lcd.setCursor(RELAY1X,RELAY1Y);
-  if (relay1==LOW)
-    lcd.print("T");
-  else
-    lcd.print("N");
-    
+  if (manualON) {
+    lcd.print("M");
+  } else {
+    if (relay1==LOW)
+      lcd.print("T");
+    else
+      lcd.print("N");
+  }
 #ifdef serial
   Serial.print("R1:");
-  if (relay1==LOW)
-    Serial.println("ON");
-  else
-    Serial.println("OFF");
+  if (manualON) {
+    lcd.print("M");
+  } else {
+    if (relay1==LOW)
+      Serial.println("ON");
+    else
+      Serial.println("OFF");
+    }
 #endif
 /*  lcd.setCursor(RELAY2X,RELAY2Y);
   if (relay2==LOW)
