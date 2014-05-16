@@ -1,39 +1,53 @@
-//HW
-//Pro Mini 328 data are sent via serial line to comunication unit
-//I2C display
-//2 Relays module
-//DALLAS
-//keyboard
+/*
+--------------------------------------------------------------------------------------------------------------------------
 
-// A0 						- DALLAS temperature sensors
-// A1 						- relay 1
-// A2             - relay 2
-// A3             - 
-// A4 (D20 MEGA) 	- I2C display SDA
-// A5 (D21 MEGA) 	- I2C display SCL
-// D0 						- Rx
-// D1 						- Tx
-// D2 						- keyboard
-// D3 						- keyboard
-// D4 						- keyboard
-// D5 						- keyboard
-// D6 						- keyboard
-// D7 						- keyboard
-// D8 						- keyboard
-// D9 						- keyboard
-// D10 						- 
-// D11 						- 
-// D12 						- 
-// D13 						- 
+               SOLAR - control system for solar unit
 
-//spina rele pro čerpadlo v zavislosti na rozdilu teplot z cidla 0,1 a 2. 
+Petr Fory pfory@seznam.cz
+SVN  - https://code.google.com/p/solar-heating/
 
-//TODO
-//spina ventil(y) pro rizeni natapeni bojleru nebo radiatoru v zavislosti na konfiguraci zjistene pres internet
+Version history:
+0.67 - 15.6.2014
+0.66 - 6.4.2014
+0.65 - 26.3.2014
+0.60 - 16.3.2014
+0.50 - 1.12.2013
+0.41 - 20.10.2013
 
-//#include <limits.h>
+--------------------------------------------------------------------------------------------------------------------------
+HW
+Pro Mini 328 data are sent via serial line to comunication unit
+I2C display
+2 Relays module
+DALLAS
+keyboard
+
+Pro Mini 328 Layout
+------------------------------------------
+A0 						 - DALLAS temperature sensors
+A1 						 - relay 1
+A2             - relay 2
+A3             - free
+A4 (D20 MEGA)  - I2C display SDA
+A5 (D21 MEGA)  - I2C display SCL
+D0 						 - Rx
+D1 						 - Tx
+D2 						 - keyboard
+D3 						 - keyboard
+D4 						 - keyboard
+D5 						 - keyboard
+D6 						 - keyboard
+D7 						 - keyboard
+D8 						 - keyboard
+D9 						 - keyboard
+D10 					 - free
+D11 					 - free
+D12 					 - free
+D13 					 - free
+--------------------------------------------------------------------------------------------------------------------------
+*/
+
 #include <Wire.h> 
-
 //#define watchdog
 #ifdef watchdog
 #include <avr/wdt.h>
@@ -80,7 +94,7 @@ const unsigned int serialTimeout=2000;
 #define LCDCOLS			16
 LiquidCrystal_I2C lcd(LCDADDRESS,EN,RW,RS,D4,D5,D6,D7,BACKLIGHT, POL);  // set the LCD
 
-// Creat a set of new characters
+// Create a set of new characters
 /*const uint8_t charBitmap[][8] = {
    { 0xc, 0x12, 0x12, 0xc, 0, 0, 0, 0 },
    { 0x6, 0x9, 0x9, 0x6, 0, 0, 0, 0 },
@@ -140,18 +154,18 @@ float energyADay = 0.0; //energy a day in Ws
 float energyDiff = 0.0; //difference in Ws
 float const energyKoef = 343; //Ws TODO - read from configuration
 
-float tIn		  = 0; //vstupni voda do solaru
-float tOut	  = 0; //vystupni voda ze solaru
-float tRoom	  = 0; //teplota v mistnosti
-float tBojler	= 0; //teplota bojler
-float tDir    = 0; //ridici teplota
+float tIn		  = 0; //input medium temperature to solar panel
+float tOut	  = 0; //output medium temperature to solar panel
+float tRoom	  = 0; //room temperature
+float tBojler	= 0; //boiler temperature
+float tDir    = 0; //temperature which is used as control temperature
 
 //maximal temperatures
-float tMaxIn			= 0; //max vstupni voda do solaru
-float tMaxOut			= 0; //max vystupni voda ze solaru
-float tMaxBojler 	= 0; //max teplota bojler
+float tMaxIn			= 0; //maximal input temperature (just for statistics)
+float tMaxOut			= 0; //maximal output temperature (just for statistics)
+float tMaxBojler 	= 0; //maximal boiler temperature (just for statistics)
 
-byte ridiciCidlo = 0; //index cidla, podle ktereho se porovnava teplota
+byte ridiciCidlo = 0; //sensor of directing index
 
 //int powerOff = 200;     //minimalni vykon, pokud je vykon nizssi, rele vzdy vypne
 float safetyON = 80.0; //teplota, pri niz rele vzdy sepne
@@ -229,6 +243,7 @@ byte const ridiciCidloEEPROMAdr	  =8;
 float const   versionSW=0.67;
 char  const   versionSWString[] = "Solar v"; 
 
+//--------------------------------------------------------------------------------------------------------------------------
 void setup() {
 	lcd.begin(LCDCOLS,LCDROWS);               // initialize the lcd 
   // Switch on the backlight
@@ -239,7 +254,7 @@ void setup() {
 	
 #ifdef serial
   Serial.begin(SERIAL_SPEED);
-	Serial.print("Solar v.");
+	Serial.print(versionSWString);
   Serial.println(versionSW);
 #endif
   lcd.home();                   // go home
@@ -303,8 +318,9 @@ void setup() {
 	}
   
   ridiciCidlo = EEPROM.read(ridiciCidloEEPROMAdr);
-}
+} //setup
 
+//--------------------------------------------------------------------------------------------------------------------------
 void loop() {
 #ifdef watchdog
 	wdt_reset();
@@ -447,15 +463,13 @@ void loop() {
 		Serial.print("tempDiffOFF=");
 		Serial.println(tempDiffOFF);
 #endif
-    
     if (lastOff > 0 && (millis() - lastOff>dayInterval)) {
         lastOff = 0;
     }
   }
 
-  //if data requested from central unit, send data
   char req=dataRequested();
-	if (req=='R') { //send data
+	if (req=='R') { //if data were requested from central unit then send data
 		sendDataSerial();
 	} else if (req=='S') { //setup
 		readDataSerial();
@@ -577,7 +591,7 @@ void loop() {
     }
   }
 #endif
-}
+} //loop
 
 
 void displayTemp(int x, int y, float value) {
