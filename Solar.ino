@@ -145,13 +145,13 @@ unsigned long lastOff = 0;  //ms posledniho vypnuti rele
 unsigned long const dayInterval=43200000; //1000*60*60*12; //
 unsigned long const delayON=120000; //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
 unsigned long lastOn4Delay = 0;
-unsigned long lastWriteEEPROMDelay = 60*1000*24; //1 hod
+unsigned long lastWriteEEPROMDelay = 1000*60*60; //in ms = 1 hod
 unsigned long lastWriteEEPROM = 0;
 unsigned long totalEnergy = 0; //total enery in Ws
 float power = 0; //actual power in W
 float maxPower = 0; //maximal power in W
 float energyADay = 0.0; //energy a day in Ws
-float energyDiff = 0.0; //difference in Ws
+//float energyDiff = 0.0; //difference in Ws
 float const energyKoef = 343; //Ws TODO - read from configuration
 
 float tIn		  = 0; //input medium temperature to solar panel
@@ -307,11 +307,11 @@ void setup() {
 	Serial.print("L:");
 	Serial.println(valueIL);  //0
 	
-	totalEnergy = (valueIH << 24) + (valueIM << 16) + (valueIS << 8) + valueIL;
+	totalEnergy = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
 	Serial.print("TotalEnergy from EEPROM:");
 	Serial.print(totalEnergy);
-	if (totalEnergy = 0) {
-		totalEnergy = 90000 * 3600;
+	if (totalEnergy == 0) {
+		totalEnergy = 150000 * 3600;
 		writeTotalEnergyEEPROM(totalEnergy);
 		Serial.print("Save totalEnergy to EEPROM:");
 		Serial.print(totalEnergy);
@@ -389,7 +389,7 @@ void loop() {
           maxPower = power;
         }
 				energyADay+=((float)(millis()-lastOn)*power/1000.f); //in Ws
-				energyDiff+=((float)(millis()-lastOn)*power/1000.f);
+				totalEnergy+=((float)(millis()-lastOn)*power/1000.f);
 			}
 			lastOn = millis();
 		}
@@ -414,30 +414,29 @@ void loop() {
       relay1=LOW; //relay ON
     } else if (manualON) {
     } else {
-    //pump is ON
-      if (relay1==LOW) { //switch pump ON->OFF
+      //pump is ON - relay ON = LOW
+      if (relay1==LOW) { 
         //save totalEnergy to EEPROM
         if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
           lastWriteEEPROM = millis();
-          totalEnergy += energyDiff;
-          energyDiff=0.0;
+          //totalEnergy += energyDiff;
+          //energyDiff=0.0;
           writeTotalEnergyEEPROM(totalEnergy);
         }
-        if (((tOut - tDir) < tempDiffOFF && (tIn < tOut)) /*|| (int)getPower() < powerOff)*/) {
-          relay1=HIGH; ///relay OFF
+        if (((tOut - tDir) < tempDiffOFF && (tIn < tOut)) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
+          relay1=HIGH; //relay OFF = HIGH
           digitalWrite(RELAY1PIN, relay1);
           lastOff=millis();
           lastOn4Delay=0;
           //save totalEnergy to EEPROM
           lastWriteEEPROM = millis();
-          totalEnergy += energyDiff;
-          energyDiff=0.0;
+          //totalEnergy += energyDiff;
+          //energyDiff=0.0;
           writeTotalEnergyEEPROM(totalEnergy);
         }
-      } else { //pump is OFF
-      //if (relay1==HIGH) { //switch pump OFF->ON
-        if ((((tOut - tDir) >= tempDiffON) || ((tIn - tDir) >= tempDiffON))) {
-          relay1=LOW; //relay ON
+      } else { //pump is OFF - relay OFF = HIGH
+        if ((((tOut - tDir) >= tempDiffON) || ((tIn - tDir) >= tempDiffON))) { //switch pump OFF->ON
+          relay1=LOW; //relay ON = LOW
           digitalWrite(RELAY1PIN, relay1);
           lastOn = millis();
           if (lastOn4Delay==0) {
@@ -445,7 +444,7 @@ void loop() {
           }
           if (lastOff==0) { //first ON in actual day
             energyADay=0.0;
-            energyDiff=0.0;
+            //energyDiff=0.0;
             msDayON=0;
 						tMaxOut=-128.0;
 						tMaxIn=-128.0;
