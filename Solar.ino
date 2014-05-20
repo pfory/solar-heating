@@ -7,6 +7,7 @@ Petr Fory pfory@seznam.cz
 SVN  - https://code.google.com/p/solar-heating/
 
 Version history:
+0.68 - 20.5.2014
 0.67 - 15.6.2014
 0.66 - 6.4.2014
 0.65 - 26.3.2014
@@ -240,7 +241,7 @@ byte const totalEnergyEEPROMAdrL	=7;
 byte const ridiciCidloEEPROMAdr	  =8;
 
 //SW name & version
-float const   versionSW=0.67;
+float const   versionSW=0.68;
 char  const   versionSWString[] = "Solar v"; 
 
 //--------------------------------------------------------------------------------------------------------------------------
