@@ -7,6 +7,7 @@ Petr Fory pfory@seznam.cz
 SVN  - https://code.google.com/p/solar-heating/
 
 Version history:
+0.70 - 21.5.2014
 0.69 - 21.5.2014
 0.68 - 20.5.2014
 0.67 - 15.6.2014
@@ -155,7 +156,12 @@ float maxPower = 0; //maximal power in W
 float energyADay = 0.0; //energy a day in Ws
 //float energyDiff = 0.0; //difference in Ws
 float const energyKoef = 343; //Ws TODO - read from configuration
+
+//MODE
 byte modeSolar=0;
+bool manualSetFromKeyboard=false;
+bool firstMeasComplete=false;
+bool manualON = false;
 
 float tIn		  = 0; //input medium temperature to solar panel
 float tOut	  = 0; //output medium temperature to solar panel
@@ -177,7 +183,6 @@ enum mode {NORMAL, POWERSAVE};
 mode powerMode=NORMAL;
 
 byte display=0;
-bool manualON = false;
 
 //0123456789012345
 //15.6 15.8 15.8 V
@@ -243,7 +248,7 @@ byte const totalEnergyEEPROMAdrL	=7;
 byte const ridiciCidloEEPROMAdr	  =8;
 
 //SW name & version
-float const   versionSW=0.69;
+float const   versionSW=0.70;
 char  const   versionSWString[] = "Solar v"; 
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -301,7 +306,7 @@ void setup() {
 	int valueIM = EEPROM.read(totalEnergyEEPROMAdrM);
 	int valueIS = EEPROM.read(totalEnergyEEPROMAdrS);
 	valueIL = EEPROM.read(totalEnergyEEPROMAdrL);
-	Serial.print("H:");
+	/*Serial.print("H:");
 	Serial.println(valueIH); //18
 	Serial.print("M:");
 	Serial.println(valueIM); //252
@@ -309,10 +314,12 @@ void setup() {
 	Serial.println(valueIS);  //143
 	Serial.print("L:");
 	Serial.println(valueIL);  //0
-	
+	*/
+  
 	totalEnergy = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
 	Serial.print("TotalEnergy from EEPROM:");
-	Serial.print(totalEnergy);
+	Serial.print(totalEnergy/3600.0/1000.0);
+  Serial.println("kWh");
 	if (totalEnergy == 0) {
 		totalEnergy = 150000 * 3600;
 		writeTotalEnergyEEPROM(totalEnergy);
@@ -405,6 +412,7 @@ void tempMeas() {
   }
   else if (dsMeasStarted && (millis() - lastDsMeasStartTime>dsMeassureInterval)) {
     dsMeasStarted=false;
+    firstMeasComplete=true;
     //digitalWrite(13,LOW);
     //saving temperatures into variables
     for (byte i=0;i<numberOfDevices; i++) {
@@ -518,9 +526,12 @@ void keyBoard() {
 			manualON = !manualON;
       if (manualON) {
         relay1=LOW;
+        manualSetFromKeyboard = true;
         //digitalWrite(RELAY1PIN, LOW);
       } else {
         relay1=HIGH;
+        manualSetFromKeyboard = false;
+        //relay1=HIGH;
         //digitalWrite(RELAY1PIN, HIGH);
       }
 		}
@@ -710,6 +721,8 @@ void displayRelayStatus(void) {
 }
 
 void sendDataSerial() {
+  if (firstMeasComplete==false) return;
+
 	//data sended:
 	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69M;0$3600177622*
 	digitalWrite(LEDPIN,HIGH);
@@ -819,14 +832,16 @@ void readDataSerial() {
 			mySerial.readBytes(b,1);
       //0 - auto, 1 - ON, 2 - OFF
       modeSolar = b[0]-48;
-      if (modeSolar==0) {
-        manualON = false;
-      } else {
-        manualON = true;
-        if (modeSolar==1) {
-          relay1=LOW;
+      if (manualSetFromKeyboard) { //keyboard setup has a high priority as internet setup
+        if (modeSolar==0) {
+          manualON = false;
         } else {
-          relay1=HIGH;
+          manualON = true;
+          if (modeSolar==1) {
+            relay1=LOW;
+          } else if (modeSolar==2) {
+            relay1=HIGH;
+          }
         }
       }
 #ifdef serial
@@ -964,8 +979,8 @@ void lcdShow() {
 			//zobrazeni poctu minut behu cerpadla za aktualni den
 			//0123456789012345
 			// 636 0.1234 720T
-			lcd.setCursor(POWERX,POWERY);
 			unsigned int p=(int)power;
+			lcd.setCursor(POWERX,POWERY);
 			if (p<10000) lcd.print(" ");
 			if (p<1000) lcd.print(" ");
 			if (p<100) lcd.print(" ");
@@ -986,57 +1001,60 @@ void lcdShow() {
 			}
       displayRelayStatus();
 		} else if (display==1) { //total Energy
-      lcd.clear();
+      //lcd.clear();
 			lcd.setCursor(0,0);
       lcd.print("Total Energy");
 			lcd.setCursor(0,1);
       lcd.print(totalEnergy/1000.f/3600.f);
-      lcd.print(" kWh");
+      lcd.print(" kWh     ");
     } else if (display==2) { //TempDiffON
-      lcd.clear();
+      //lcd.clear();
 			lcd.setCursor(0,0);
       lcd.print("TempDiffON");
 			lcd.setCursor(0,1);
       lcd.print(tempDiffON);
-      lcd.print("");
+      lcd.print("     ");
     } else if (display==3) { //TempDiffOFF
-      lcd.clear();
+      //lcd.clear();
 			lcd.setCursor(0,0);
       lcd.print("TempDiffOFF");
 			lcd.setCursor(0,1);
       lcd.print(tempDiffOFF);
-      lcd.print("");
+      lcd.print("     ");
     } else if (display==4) { //Energy koef
-      lcd.clear();
+      //lcd.clear();
 			lcd.setCursor(0,0);
       lcd.print("Energy koef.");
 			lcd.setCursor(0,1);
       lcd.print(energyKoef);
-      lcd.print(" W/K");
+      lcd.print(" W/K    ");
     } else if (display==5) { //Max IN OUT temp
 			lcd.setCursor(0,0);
-      lcd.clear();
+      //lcd.clear();
       lcd.print("Max IN:");
       lcd.print(tMaxIn);
+      lcd.print("     ");
 			lcd.setCursor(0,1);
       lcd.print("Max OUT:");
       lcd.print(tMaxOut);
+      lcd.print("     ");
     } else if (display==6) { //Max bojler
 			lcd.setCursor(0,0);
-      lcd.clear();
+      //lcd.clear();
       lcd.print("Max bojler");
 			lcd.setCursor(0,1);
       lcd.print(tMaxBojler);
+      lcd.print("     ");
     } else if (display==7) { //Max power today
 			lcd.setCursor(0,0);
-      lcd.clear();
+      //lcd.clear();
       lcd.print("Max power today");
 			lcd.setCursor(0,1);
       lcd.print(maxPower);
-      lcd.print(" W");
+      lcd.print(" W     ");
     } else if (display==8) { //Directing sensor
 			lcd.setCursor(0,0);
-      lcd.clear();
+      //lcd.clear();
       lcd.print("Directing sensor");
 			lcd.setCursor(0,1);
       if (ridiciCidlo==3) {
@@ -1048,19 +1066,20 @@ void lcdShow() {
 			}
       lcd.print(" [");
       lcd.print(sensor[ridiciCidlo]);
-      lcd.print("]");
+      lcd.print("]   ");
     } else if (display>=100 && display<200) { //Save energy to EEPROM
 			lcd.setCursor(0,0);
-      lcd.clear();
-      lcd.print("Energy saved!");
+      //lcd.clear();
+      lcd.print("Energy saved!   ");
 			lcd.setCursor(0,1);
       lcd.print(totalEnergy);
-      lcd.print(" Ws");
+      lcd.print(" Ws     ");
       delay(500);
+      lcd.clear();
       display = display - 100;
     } else if (display>=200 && display<300) { //Vyber ridiciho cidla
 			lcd.setCursor(0,0);
-      lcd.clear();
+      //lcd.clear();
       lcd.print("Directing sensor");
 			lcd.setCursor(0,1);
       lcd.print("Room=1 Bojler=2");
