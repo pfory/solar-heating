@@ -91,6 +91,7 @@ float tLivingRoom   = 0;
 float tCorridor   	= 0;
 float tWorkRoom   	= 0;
 float versionSolar;
+byte modeSolar;
 
 
 unsigned int const SERIAL_SPEED=9600;
@@ -140,10 +141,12 @@ char StatusID[] 				= "Status";
 char PowerID[] 					= "Power";
 char EnergyID[] 				= "EnergyAday";
 char EnergyTotalID[] 		= "EnergyTotal";
+char ModeID[] 		      = "Mode";
 
 //setup feed
-char setTempDiffONID[] = "setDiffON";
+char setTempDiffONID[]  = "setDiffON";
 char setTempDiffOFFID[] = "setDiffOFF";
+char setModeID[]        = "setMode";
 
 bool statusSolar=0;
 bool statusHouse=0;
@@ -160,16 +163,18 @@ XivelyDatastream datastreamsSolar[] = {
 	XivelyDatastream(StatusID, 					strlen(StatusID), 				DATASTREAM_INT),
 	XivelyDatastream(PowerID, 					strlen(PowerID), 					DATASTREAM_FLOAT),
 	XivelyDatastream(EnergyID, 					strlen(EnergyID), 				DATASTREAM_FLOAT),
-	XivelyDatastream(EnergyTotalID, 		strlen(EnergyTotalID), 		DATASTREAM_FLOAT)
+	XivelyDatastream(EnergyTotalID, 		strlen(EnergyTotalID), 		DATASTREAM_FLOAT),
+	XivelyDatastream(ModeID, 		        strlen(ModeID), 		      DATASTREAM_INT)
 };
 
 XivelyDatastream datastreamsSolarSetup[] = {
 	XivelyDatastream(setTempDiffONID, 	strlen(setTempDiffONID), 	DATASTREAM_FLOAT),
-	XivelyDatastream(setTempDiffOFFID, 	strlen(setTempDiffOFFID), DATASTREAM_FLOAT)
+	XivelyDatastream(setTempDiffOFFID, 	strlen(setTempDiffOFFID), DATASTREAM_FLOAT),
+	XivelyDatastream(setModeID, 	      strlen(setModeID),        DATASTREAM_INT)
 };
 
-XivelyFeed feedSolar(xivelyFeedSolar, 			datastreamsSolar, 			12);
-XivelyFeed feedSetup(xivelyFeedSetupSolar, 	datastreamsSolarSetup, 	2);
+XivelyFeed feedSolar(xivelyFeedSolar, 			datastreamsSolar, 			13);
+XivelyFeed feedSetup(xivelyFeedSetupSolar, 	datastreamsSolarSetup, 	3);
 
 EthernetClient client;
 XivelyClient xivelyclientSolar(client);
@@ -363,13 +368,14 @@ void loop() {
 }
 
 void sendDataSolar() {
-	//#ON (4digits, only >=0) OFF (4digits, only >=0) $CRC
-	//#25.115.5$541458114*
+	//#ON (4digits, only >=0) OFF (4digits, only >=0) MODE 1 digit $CRC
+	//#25.115.50$541458114*
 	crc = ~0L;
 	send('S');
 	send(START_BLOCK);
 	send(tempDiffON);
 	send(tempDiffOFF);
+	send(modeSolar);
 	send(END_BLOCK);
 	Serial1.print(crc);
 	Serial1.println("*");
@@ -392,6 +398,7 @@ void sendDataSolarXively() {
   datastreamsSolar[9].setFloat(power);  
   datastreamsSolar[10].setFloat(energy);  
   datastreamsSolar[11].setFloat(energyTotal);  
+  datastreamsSolar[12].setInt(modeSolar);  
   
   if (relay1==LOW)
     datastreamsSolar[8].setInt(1);  
@@ -673,10 +680,11 @@ bool readDataXivelySolar() {
   Serial.println(ret);
 #endif
   if (ret > 0) {
-		float _tempDiffON = tempDiffON;
-		float _tempDiffOFF = tempDiffOFF;
-		tempDiffON=datastreamsSolarSetup[0].getFloat();
-		tempDiffOFF=datastreamsSolarSetup[1].getFloat();
+		float _tempDiffON   = tempDiffON;
+		float _tempDiffOFF  = tempDiffOFF;
+		tempDiffON          = datastreamsSolarSetup[0].getFloat();
+		tempDiffOFF         = datastreamsSolarSetup[1].getFloat();
+		modeSolar           = datastreamsSolarSetup[2].getInt();
 #ifdef verbose
 		if (tempDiffOFF!=_tempDiffOFF || tempDiffON!=_tempDiffON) {
       change = true;
@@ -684,6 +692,8 @@ bool readDataXivelySolar() {
 			Serial.println(tempDiffON);
 			Serial.print("OFF is... ");
 			Serial.println(tempDiffOFF);
+			Serial.print("Mode is... ");
+			Serial.println(modeSolar);
 	#endif	
 		}
   }
