@@ -515,9 +515,11 @@ void keyBoard() {
 		if (customKey=='D') {
 			manualON = !manualON;
       if (manualON) {
-        digitalWrite(RELAY1PIN, LOW);
+        relay1=LOW;
+        //digitalWrite(RELAY1PIN, LOW);
       } else {
-        digitalWrite(RELAY1PIN, HIGH);
+        relay1=HIGH;
+        //digitalWrite(RELAY1PIN, HIGH);
       }
 		}
 		if (customKey=='C') {
@@ -781,8 +783,8 @@ void readDataSerial() {
 	unsigned long timeOut = millis();
 	char b[4+1];
 	//Serial.println("Data req.");
-	//#ON (4digits, only >=0) OFF (4digits, only >=0) $CRC
-	//#25.115.5$541458114*
+	//#ON (4digits, only >=0) OFF (4digits, only >=0) STATUS 1 digit $CRC
+	//#25.115.50$541458114*
   char incomingByte;
 	digitalWrite(LEDPIN,HIGH);
 	do {
@@ -804,6 +806,21 @@ void readDataSerial() {
 			Serial.print("OFF=");
 			Serial.println(setOff);
 #endif
+			mySerial.readBytes(b,1);
+      //0 - auto, 1 - ON, 2 - OFF
+      if (b[0]==0) {
+        manualON = false;
+      } else {
+        manualON = true;
+        if (b[0]==1) {
+          relay1=LOW;
+        } else {
+          relay1=HIGH;
+        }
+      }
+#ifdef serial
+			Serial.print("Mode=");
+			Serial.println(manualON);
 		}
 		//TODO validation with CRC
     
