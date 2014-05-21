@@ -7,6 +7,7 @@ Petr Fory pfory@seznam.cz
 SVN  - https://code.google.com/p/solar-heating/
 
 Version history:
+0.69 - 21.5.2014
 0.68 - 20.5.2014
 0.67 - 15.6.2014
 0.66 - 6.4.2014
@@ -154,6 +155,7 @@ float maxPower = 0; //maximal power in W
 float energyADay = 0.0; //energy a day in Ws
 //float energyDiff = 0.0; //difference in Ws
 float const energyKoef = 343; //Ws TODO - read from configuration
+byte modeSolar=0;
 
 float tIn		  = 0; //input medium temperature to solar panel
 float tOut	  = 0; //output medium temperature to solar panel
@@ -241,7 +243,7 @@ byte const totalEnergyEEPROMAdrL	=7;
 byte const ridiciCidloEEPROMAdr	  =8;
 
 //SW name & version
-float const   versionSW=0.68;
+float const   versionSW=0.69;
 char  const   versionSWString[] = "Solar v"; 
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -378,12 +380,12 @@ void loop() {
   
   lcdShow(); //show display
   
-#ifdef serial		
+/*#ifdef serial		
   Serial.print("tempDiffON=");
   Serial.println(tempDiffON);
   Serial.print("tempDiffOFF=");
   Serial.println(tempDiffOFF);
-#endif
+#endif*/
   if (lastOff > 0 && (millis() - lastOff>dayInterval)) {
       lastOff = 0;
   }
@@ -426,7 +428,7 @@ void tempMeas() {
 		if (tOut>tMaxOut) 			tMaxOut 		= tOut;
 		if (tIn>tMaxIn) 				tMaxIn  		= tIn;
 		if (tBojler>tMaxBojler) tMaxBojler 	= tBojler;
-#ifdef serial
+/*#ifdef serial
 		Serial.print("tOut:");
     Serial.print(tOut);
 		Serial.print(" tIn:");
@@ -437,7 +439,7 @@ void tempMeas() {
     Serial.print(tBojler);
 		Serial.print(" Ridici teplota:");
     Serial.println(tDir);
-#endif
+#endif*/
 		//obcas se vyskytne chyba a vsechna cidla prestanou merit
 		//zkusim restartovat sbernici
 		bool reset=true;
@@ -470,7 +472,7 @@ void calcPowerAndEnergy() {
     power=0;
   }
 
-#ifdef serial
+/*#ifdef serial
   Serial.print("Power:");
   Serial.print(power);
   Serial.println("[W]");
@@ -480,7 +482,7 @@ void calcPowerAndEnergy() {
   Serial.print("Pump ON:");
   Serial.print((int)(msDayON/1000));
   Serial.println("[s]");
-#endif
+#endif*/
 }
 
 void keyBoard() {
@@ -687,16 +689,18 @@ void displayRelayStatus(void) {
       lcd.print("N");
   }
 #ifdef serial
-  Serial.print("R1:");
-  if (manualON) {
-    lcd.print("M");
-  } else {
-    if (relay1==LOW)
-      Serial.println("ON");
-    else
-      Serial.println("OFF");
-    }
+  //Serial.print("R1:");
 #endif
+  if (manualON) {
+    //Serial.println("Manual");
+  } else {
+#ifdef serial
+    //if (relay1==LOW)
+      //Serial.println("ON");
+    //else
+      //Serial.println("OFF");
+#endif
+  }
 /*  lcd.setCursor(RELAY2X,RELAY2Y);
   if (relay2==LOW)
     lcd.print("T");
@@ -707,7 +711,7 @@ void displayRelayStatus(void) {
 
 void sendDataSerial() {
 	//data sended:
-	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0$3600177622*
+	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69M;0$3600177622*
 	digitalWrite(LEDPIN,HIGH);
 	crc = ~0L;
   for (byte i=0;i<numberOfDevices; i++) {
@@ -765,6 +769,10 @@ void sendDataSerial() {
 	send(DELIMITER);
 	send(versionSW);
 	
+	send(START_BLOCK);
+	send('M');
+	send(DELIMITER);
+	send(modeSolar);
 	
 	send(END_BLOCK);
 #ifdef serial
@@ -782,7 +790,9 @@ void readDataSerial() {
 	float setOff=tempDiffOFF;
 	unsigned long timeOut = millis();
 	char b[4+1];
-	//Serial.println("Data req.");
+#ifdef serial
+	Serial.println("Setup req.");
+#endif
 	//#ON (4digits, only >=0) OFF (4digits, only >=0) STATUS 1 digit $CRC
 	//#25.115.50$541458114*
   char incomingByte;
@@ -808,11 +818,12 @@ void readDataSerial() {
 #endif
 			mySerial.readBytes(b,1);
       //0 - auto, 1 - ON, 2 - OFF
-      if (b[0]==0) {
+      modeSolar = b[0]-48;
+      if (modeSolar==0) {
         manualON = false;
       } else {
         manualON = true;
-        if (b[0]==1) {
+        if (modeSolar==1) {
           relay1=LOW;
         } else {
           relay1=HIGH;
@@ -820,7 +831,8 @@ void readDataSerial() {
       }
 #ifdef serial
 			Serial.print("Mode=");
-			Serial.println(manualON);
+			Serial.println(modeSolar);
+#endif
 		}
 		//TODO validation with CRC
     
