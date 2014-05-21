@@ -326,7 +326,75 @@ void loop() {
 #ifdef watchdog
 	wdt_reset();
 #endif
-  if (!dsMeasStarted) {
+  
+  tempMeas();
+  calcPowerAndEnergy();
+
+  //safety function
+  if ((tOut || tIn) >= safetyON) {
+    relay1=LOW; //relay ON
+  } else if (manualON) {
+  } else {
+    //pump is ON - relay ON = LOW
+    if (relay1==LOW) { 
+      //save totalEnergy to EEPROM
+      if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
+        lastWriteEEPROM = millis();
+        //totalEnergy += energyDiff;
+        //energyDiff=0.0;
+        writeTotalEnergyEEPROM(totalEnergy);
+      }
+      if (((tOut - tDir) < tempDiffOFF && (tIn < tOut)) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
+        relay1=HIGH; //relay OFF = HIGH
+        //digitalWrite(RELAY1PIN, relay1);
+        lastOff=millis();
+        lastOn4Delay=0;
+        //save totalEnergy to EEPROM
+        lastWriteEEPROM = millis();
+        //totalEnergy += energyDiff;
+        //energyDiff=0.0;
+        writeTotalEnergyEEPROM(totalEnergy);
+      }
+    } else { //pump is OFF - relay OFF = HIGH
+      if ((((tOut - tDir) >= tempDiffON) || ((tIn - tDir) >= tempDiffON))) { //switch pump OFF->ON
+        relay1=LOW; //relay ON = LOW
+        //digitalWrite(RELAY1PIN, relay1);
+        lastOn = millis();
+        if (lastOn4Delay==0) {
+          lastOn4Delay = lastOn;
+        }
+        if (lastOff==0) { //first ON in actual day
+          energyADay=0.0;
+          //energyDiff=0.0;
+          msDayON=0;
+          tMaxOut=-128.0;
+          tMaxIn=-128.0;
+          tMaxBojler=-128.0;
+        }
+      }
+    }
+  }
+  digitalWrite(RELAY1PIN, relay1);
+  
+  lcdShow(); //show display
+  
+#ifdef serial		
+  Serial.print("tempDiffON=");
+  Serial.println(tempDiffON);
+  Serial.print("tempDiffOFF=");
+  Serial.println(tempDiffOFF);
+#endif
+  if (lastOff > 0 && (millis() - lastOff>dayInterval)) {
+      lastOff = 0;
+  }
+
+  communication();
+
+  keyBoard();
+} //loop
+
+void tempMeas() {
+ if (!dsMeasStarted) {
     //start sampling
     dsMeasStarted=true;
     dsSensors.requestTemperatures(); 
@@ -381,114 +449,41 @@ void loop() {
 		if (reset) {
 			dsInit();
 		}
+  }
+}
 
-		if (relay1==LOW) {  //pump is ON
-			if (tIn<tOut) {
-				msDayON+=(millis()-lastOn);
-        power = getPower(); //in W
-        if (power > maxPower) {
-          maxPower = power;
-        }
-				energyADay+=((float)(millis()-lastOn)*power/1000.f); //in Ws
-				totalEnergy+=((float)(millis()-lastOn)*power/1000.f);
-			}
-			lastOn = millis();
-		}
-		else {
-			power=0;
-		}
-
-#ifdef serial
-    Serial.print("Power:");
-    Serial.print(power);
-    Serial.println("[W]");
-    Serial.print("Energy:");
-    Serial.print(energyADay/1000.f/3600.f);
-    Serial.println("[kWh]");
-    Serial.print("Pump ON:");
-    Serial.print((int)(msDayON/1000));
-    Serial.println("[s]");
-#endif
- 
-    //safety function
-    if ((tOut || tIn) >= safetyON) {
-      relay1=LOW; //relay ON
-    } else if (manualON) {
-    } else {
-      //pump is ON - relay ON = LOW
-      if (relay1==LOW) { 
-        //save totalEnergy to EEPROM
-        if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
-          lastWriteEEPROM = millis();
-          //totalEnergy += energyDiff;
-          //energyDiff=0.0;
-          writeTotalEnergyEEPROM(totalEnergy);
-        }
-        if (((tOut - tDir) < tempDiffOFF && (tIn < tOut)) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
-          relay1=HIGH; //relay OFF = HIGH
-          digitalWrite(RELAY1PIN, relay1);
-          lastOff=millis();
-          lastOn4Delay=0;
-          //save totalEnergy to EEPROM
-          lastWriteEEPROM = millis();
-          //totalEnergy += energyDiff;
-          //energyDiff=0.0;
-          writeTotalEnergyEEPROM(totalEnergy);
-        }
-      } else { //pump is OFF - relay OFF = HIGH
-        if ((((tOut - tDir) >= tempDiffON) || ((tIn - tDir) >= tempDiffON))) { //switch pump OFF->ON
-          relay1=LOW; //relay ON = LOW
-          digitalWrite(RELAY1PIN, relay1);
-          lastOn = millis();
-          if (lastOn4Delay==0) {
-            lastOn4Delay = lastOn;
-          }
-          if (lastOff==0) { //first ON in actual day
-            energyADay=0.0;
-            //energyDiff=0.0;
-            msDayON=0;
-						tMaxOut=-128.0;
-						tMaxIn=-128.0;
-						tMaxBojler=-128.0;
-          }
-        }
+void calcPowerAndEnergy() {
+  if (relay1==LOW) {  //pump is ON
+    if (tIn<tOut) {
+      msDayON+=(millis()-lastOn);
+      power = getPower(); //in W
+      if (power > maxPower) {
+        maxPower = power;
       }
+      energyADay+=((float)(millis()-lastOn)*power/1000.f); //in Ws
+      totalEnergy+=((float)(millis()-lastOn)*power/1000.f);
+    } else {
+      power=0;
     }
-    
-    lcdShow(); //show display
-    
-#ifdef serial		
-		Serial.print("tempDiffON=");
-		Serial.println(tempDiffON);
-		Serial.print("tempDiffOFF=");
-		Serial.println(tempDiffOFF);
-#endif
-    if (lastOff > 0 && (millis() - lastOff>dayInterval)) {
-        lastOff = 0;
-    }
+    lastOn = millis();
+  } else {
+    power=0;
   }
 
-  char req=dataRequested();
-	if (req=='R') { //if data were requested from central unit then send data
-		sendDataSerial();
-	} else if (req=='S') { //setup
-		readDataSerial();
-	} else if (req=='P') { //power down, power save mode set
-		if (powerMode!=POWERSAVE) {
-			tempDiffONNormal   = tempDiffON;
-			tempDiffOFFNormal  = tempDiffOFF;
-			tempDiffON         = tempDiffONPowerSave;
-			tempDiffOFF        = tempDiffOFFPowerSave;
-			powerMode=POWERSAVE;
-		}
-		mySerial.print("OK");
-  } else if (req=='N') { //power up, normal mode 
-    powerMode=NORMAL;
-    tempDiffON      = tempDiffONNormal;
-    tempDiffOFF     = tempDiffOFFNormal;
-		mySerial.print("OK");
- }
- 
+#ifdef serial
+  Serial.print("Power:");
+  Serial.print(power);
+  Serial.println("[W]");
+  Serial.print("Energy:");
+  Serial.print(energyADay/1000.f/3600.f);
+  Serial.println("[kWh]");
+  Serial.print("Pump ON:");
+  Serial.print((int)(msDayON/1000));
+  Serial.println("[s]");
+#endif
+}
+
+void keyBoard() {
 #ifdef keypad
   char customKey = customKeypad.getKey();
   if (customKey){
@@ -591,8 +586,30 @@ void loop() {
     }
   }
 #endif
-} //loop
+}
 
+void communication() {
+  char req=dataRequested();
+	if (req=='R') { //if data were requested from central unit then send data
+		sendDataSerial();
+	} else if (req=='S') { //setup
+		readDataSerial();
+	} else if (req=='P') { //power down, power save mode set
+		if (powerMode!=POWERSAVE) {
+			tempDiffONNormal   = tempDiffON;
+			tempDiffOFFNormal  = tempDiffOFF;
+			tempDiffON         = tempDiffONPowerSave;
+			tempDiffOFF        = tempDiffOFFPowerSave;
+			powerMode=POWERSAVE;
+		}
+		mySerial.print("OK");
+  } else if (req=='N') { //power up, normal mode 
+    powerMode=NORMAL;
+    tempDiffON      = tempDiffONNormal;
+    tempDiffOFF     = tempDiffOFFNormal;
+		mySerial.print("OK");
+  }
+}
 
 void displayTemp(int x, int y, float value) {
   /*
