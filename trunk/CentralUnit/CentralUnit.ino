@@ -150,6 +150,9 @@ char setModeID[]        = "setMode";
 
 bool statusSolar=0;
 bool statusHouse=0;
+byte setModeSolar;
+float setTempDiffOFF;
+float setTempDiffON;
 
 XivelyDatastream datastreamsSolar[] = {
 	XivelyDatastream(VersionSolarID, 		strlen(VersionSolarID), 	DATASTREAM_FLOAT),
@@ -249,7 +252,7 @@ unsigned long lastSaveTime;
 unsigned long getNtpTime();
 void sendNTPpacket(IPAddress &address);
 
-float versionSW=0.1;
+float versionSW=0.2;
 char versionSWString[] = "CentralUnit v"; //SW name & version
 
 
@@ -297,9 +300,8 @@ void setup() {
   }
 #endif
 	if (ethOK) {
-		if (readDataXivelySolar()) {  //read setup from xively for Solar
-      sendDataSolar(); //send setup data to Solar unit
-    }
+		readDataXivelySolar(); //read setup from xively for Solar
+    sendDataSolar(); //send setup data to Solar unit
 	}
 
 	lastSendSolarTime = lastUpdateSolarTime = lastReadSolarTime = lastReadTemperatureTime = millis();
@@ -355,9 +357,8 @@ void loop() {
     }
     if(!client.connected() && (millis() - lastUpdateSolarTime > updateTimeSolarDelay)) {
       lastUpdateSolarTime = millis();
-      if (readDataXivelySolar()) {
-        sendDataSolar(); //send setup data to Solar unit
-      }
+      readDataXivelySolar();  //read Setp data
+      sendDataSolar(); //send setup data to Solar unit
     }
 		if(!client.connected() && (millis() - lastSendHouseTime > sendTimeHouseDelay)) {
       lastSendHouseTime = millis();
@@ -373,9 +374,9 @@ void sendDataSolar() {
 	crc = ~0L;
 	send('S');
 	send(START_BLOCK);
-	send(tempDiffON);
-	send(tempDiffOFF);
-	send(modeSolar);
+	send(setTempDiffON);
+	send(setTempDiffOFF);
+	send(setModeSolar);
 	send(END_BLOCK);
 	Serial1.print(crc);
 	Serial1.println("*");
@@ -468,7 +469,7 @@ void readDataSolar() {
 	byte i=0;
 	char flag=' ';
 	byte status=0;
-	//#0;25.31#1;25.19#2;5.19#N;25.00#F;15.00#R;1#S;0$3600177622*
+	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69M;0$3600177622*
 	char incomingByte = 0;   // for incoming serial data
 	do {
 		incomingByte = Serial1.read();
@@ -534,6 +535,9 @@ void readDataSolar() {
 				}
 				if (flag=='V') { //Version
 					versionSolar=atof(b);
+				}
+				if (flag=='M') { //Version
+					modeSolar=atof(b);
 				}
 
 				status=1;
@@ -662,9 +666,8 @@ void crc_string(byte s) {
   crc = ~crc;
 }
 
-bool readDataXivelySolar() {
+void readDataXivelySolar() {
 	Serial.println("I am reading setup data from Xively...");
-  bool change=false;
 #ifdef watchdog
 	wdt_disable();
 #endif
@@ -680,24 +683,19 @@ bool readDataXivelySolar() {
   Serial.println(ret);
 #endif
   if (ret > 0) {
-		float _tempDiffON   = tempDiffON;
-		float _tempDiffOFF  = tempDiffOFF;
-		tempDiffON          = datastreamsSolarSetup[0].getFloat();
-		tempDiffOFF         = datastreamsSolarSetup[1].getFloat();
-		modeSolar           = datastreamsSolarSetup[2].getInt();
+		setTempDiffON          = datastreamsSolarSetup[0].getFloat();
+		setTempDiffOFF         = datastreamsSolarSetup[1].getFloat();
+		setModeSolar           = datastreamsSolarSetup[2].getInt();
+		//if (setTempDiffOFF!=tempDiffOFF || setTempDiffON!=tempDiffON || setModeSolar!=modeSolar) {
 #ifdef verbose
-		if (tempDiffOFF!=_tempDiffOFF || tempDiffON!=_tempDiffON) {
-      change = true;
-			Serial.print("ON is...");
-			Serial.println(tempDiffON);
-			Serial.print("OFF is... ");
-			Serial.println(tempDiffOFF);
-			Serial.print("Mode is... ");
-			Serial.println(modeSolar);
-	#endif	
-		}
-  }
-  return change;
+		Serial.print("ON is...");
+		Serial.println(setTempDiffON);
+		Serial.print("OFF is... ");
+		Serial.println(setTempDiffOFF);
+		Serial.print("Mode is... ");
+		Serial.println(setModeSolar);
+#endif	
+	}
 }
 
 void send(char s) {
