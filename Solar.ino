@@ -348,7 +348,6 @@ void loop() {
     if (relay1==LOW) { 
       //save totalEnergy to EEPROM
       if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
-        lastWriteEEPROM = millis();
         //totalEnergy += energyDiff;
         //energyDiff=0.0;
         writeTotalEnergyEEPROM(totalEnergy);
@@ -359,7 +358,6 @@ void loop() {
         lastOff=millis();
         lastOn4Delay=0;
         //save totalEnergy to EEPROM
-        lastWriteEEPROM = millis();
         //totalEnergy += energyDiff;
         //energyDiff=0.0;
         writeTotalEnergyEEPROM(totalEnergy);
@@ -836,10 +834,11 @@ void readDataSerial() {
         if (modeSolar==0) {
           manualON = false;
         } else {
-          manualON = true;
           if (modeSolar==1) {
+            manualON = true;
             relay1=LOW;
           } else if (modeSolar==2) {
+            manualON = true;
             relay1=HIGH;
           }
         }
@@ -962,6 +961,7 @@ void writeTotalEnergyEEPROM(unsigned long totalEnergy) {
 	EEPROM.write(totalEnergyEEPROMAdrS, (totalEnergy >> 8) & 0xFF);
 	EEPROM.write(totalEnergyEEPROMAdrM, (totalEnergy >> 16) & 0xFF);
 	EEPROM.write(totalEnergyEEPROMAdrH, (totalEnergy >> 24) & 0xFF); 
+  lastWriteEEPROM = millis();
 }
 
 float getPower() {
