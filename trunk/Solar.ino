@@ -799,78 +799,117 @@ void sendDataSerial() {
 void readDataSerial() {
 	float setOn=tempDiffON;
 	float setOff=tempDiffOFF;
+  byte setModeSolar=modeSolar
 	unsigned long timeOut = millis();
 	char b[4+1];
+  crc = ~0L;
+  char crcBuffer[10+1]; //long = 10digits
+  byte crcPointer=0;
+  bool startCRC = false;
 #ifdef serial
 	Serial.println("Setup req.");
 #endif
-	//#ON (4digits, only >=0) OFF (4digits, only >=0) STATUS 1 digit $CRC
+	//#ON (4digits, only >=0) OFF (4digits (ex 25.1...), only >=0) MODE 1 digit $CRC
 	//#25.115.50$541458114*
   char incomingByte;
 	digitalWrite(LEDPIN,HIGH);
 	do {
-//		if (Serial1.available() > 0) {
 		incomingByte = mySerial.read();
 		if (incomingByte=='#') {
+      crc_string("#");
 			//ON
 			mySerial.readBytes(b,4);
 			b[4]='\0';
 			setOn=atof(b);
+      crc_string(setOn);
 #ifdef serial
 			Serial.print("ON=");
 			Serial.println(setOn);
 #endif
+      //OFF
 			mySerial.readBytes(b,4);
 			b[4]='\0';
 			setOff=atof(b);
+      crc_string(setOff);
 #ifdef serial
 			Serial.print("OFF=");
 			Serial.println(setOff);
 #endif
 			mySerial.readBytes(b,1);
-      //0 - auto, 1 - ON, 2 - OFF
-      modeSolar = b[0]-48;
-      if (manualSetFromKeyboard) { //keyboard setup has a high priority as internet setup
-        if (modeSolar==0) {
-          manualON = false;
-        } else {
-          if (modeSolar==1) {
-            manualON = true;
-            relay1=LOW;
-          } else if (modeSolar==2) {
-            manualON = true;
-            relay1=HIGH;
-          }
-        }
-      }
+      //MODE 0 - auto, 1 - ON, 2 - OFF
+      setModeSolar = b[0]-48;
+      crc_string(setModeSolar);
 #ifdef serial
 			Serial.print("Mode=");
 			Serial.println(modeSolar);
 #endif
 		}
-		//TODO validation with CRC
+
+    if (startCRC) {
+#ifdef serial
+      Serial.print(incomingByte);
+#endif
+      crcBuffer[crcPointer++]=incomingByte;
+      crcBuffer[crcPointer]='\0';
+    }
     
+    if (incomingByte=="$") {
+      startCRC = true;
+#ifdef serial
+      Serial.print("CRC-");
+#endif
+    }
+
+  } while ((char)incomingByte!='*' && millis() < (timeOut + serialTimeout));
+
+#ifdef serial
+  Serial.println();
+#endif
+
+  //validation with CRC
+#ifdef serial
+  Serial.print("CRC=");
+  Serial.println(crcBuffer);
+#endif
+  if (crc==atol(crcBuffer)) {
+    //data valid
     //if any change -> save setup to EEPROM
     if (tempDiffON!=setOn) {
       tempDiffON=setOn;
-#ifdef serial
+  #ifdef serial
       Serial.print("The new value of tempDiffON was written to EEPROM:");
       Serial.println(tempDiffON);
-#endif
+  #endif
       EEPROM.write(tempDiffONEEPROMAdrH, (char)tempDiffON);
       EEPROM.write(tempDiffONEEPROMAdrL, (int)(tempDiffON * 10) % 10);
     }
     if (tempDiffOFF!=setOff) {
       tempDiffOFF=setOff;
-#ifdef serial
+  #ifdef serial
       Serial.print("The new value of tempDiffOFF was written to EEPROM:");
       Serial.println(tempDiffOFF);
-#endif
+  #endif
       EEPROM.write(tempDiffOFFEEPROMAdrH, (char)tempDiffOFF);
       EEPROM.write(tempDiffOFFEEPROMAdrL, (int)(tempDiffOFF * 10) % 10);
     }
-    
-	} while ((char)incomingByte!='*' && millis() < (timeOut + serialTimeout));
+
+    if (setModeSolar!=modeSolar) {
+      if (manualSetFromKeyboard) { //keyboard setup has a high priority as internet setup
+        if (setModeSolar==0) {
+          manualON = false;
+        } else {
+          if (setModeSolar==1) {
+            manualON = true;
+            relay1=LOW;
+          } else if (setModeSolar==2) {
+            manualON = true;
+            relay1=HIGH;
+          }
+        }
+      }
+    }
+  }
+
 	digitalWrite(LEDPIN,LOW);
 }
 
