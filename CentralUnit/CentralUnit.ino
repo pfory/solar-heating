@@ -67,11 +67,11 @@ float power = 0.0;
 float energy = 0.0;
 float energyTotal = 0.0;
 
-unsigned long       lastReadSolarTime;
-unsigned long       lastSendSolarTime;
+unsigned long       lastReadDataSolarUARTTime;
+unsigned long       lastSendDataSolarXivelyTime;
 unsigned long       lastUpdateSolarTime;
-unsigned long 			lastReadTemperatureTime;
-unsigned long				lastSendHouseTime;
+unsigned long 			lastReadDataHouseUARTTime;
+unsigned long				lastSendDataHouseXivelyTime;
 unsigned int const  readDataSolarDelay          = 5000; //read data from solar unit
 unsigned int const  sendTimeSolarDelay          = 5000; //to send to xively.com
 unsigned int const  updateTimeSolarDelay        = 60000; //to send to xively.com
@@ -135,13 +135,13 @@ char TempOUTID[]			 	= "OUT";
 char TempINID[] 				= "IN";
 char TempROOMID[] 			= "ROOM";
 char TempBojler2ID[] 		= "Bojler2";
-char TempDiffONID[] 		= "DiffON";
-char TempDiffOFFID[] 		= "DiffOFF";
+char TempDiffONID[] 		= "_DiffON";
+char TempDiffOFFID[] 		= "_DiffOFF";
 char StatusID[] 				= "Status";
 char PowerID[] 					= "Power";
 char EnergyID[] 				= "EnergyAday";
 char EnergyTotalID[] 		= "EnergyTotal";
-char ModeID[] 		      = "Mode";
+char ModeID[] 		      = "_Mode";
 
 //setup feed
 char setTempDiffONID[]  = "setDiffON";
@@ -300,11 +300,11 @@ void setup() {
   }
 #endif
 	if (ethOK) {
-		readDataXivelySolar(); //read setup from xively for Solar
-    sendDataSolar(); //send setup data to Solar unit
+		readDataSolarXively(); //read setup from xively for Solar
+    sendDataSolarUART(); //send setup data to Solar unit
 	}
 
-	lastSendSolarTime = lastUpdateSolarTime = lastReadSolarTime = lastReadTemperatureTime = millis();
+	lastSendDataSolarXivelyTime = lastUpdateSolarTime = lastReadDataSolarUARTTime = lastReadDataHouseUARTTime = millis();
 	
 #ifdef SDdef
   // make sure that the default chip select pin is set to
@@ -342,33 +342,33 @@ void setup() {
 }
 
 void loop() {
-   if(millis() - lastReadSolarTime > readDataSolarDelay) {
-    lastReadSolarTime = millis();
-    readDataSolar(); //read data from solar
+   if(millis() - lastReadDataSolarUARTTime > readDataSolarDelay) {
+    lastReadDataSolarUARTTime = millis();
+    readDataSolarUART(); //read data from solar
   } 
-  if(millis() - lastReadTemperatureTime > readDataTemperatureDelay) {
-    lastReadTemperatureTime = millis();
-    readDataTemperature(); //read data from temperature satellite
+  if(millis() - lastReadDataHouseUARTTime > readDataTemperatureDelay) {
+    lastReadDataHouseUARTTime = millis();
+    readDataTemperatureUART(); //read data from temperature satellite
   }   
   if (ethOK) {
-    if(!client.connected() && (millis() - lastSendSolarTime > sendTimeSolarDelay)) {
-      lastSendSolarTime = millis();
+    if(!client.connected() && (millis() - lastSendDataSolarXivelyTime > sendTimeSolarDelay)) {
+      lastSendDataSolarXivelyTime = millis();
       sendDataSolarXively();
     }
     if(!client.connected() && (millis() - lastUpdateSolarTime > updateTimeSolarDelay)) {
       lastUpdateSolarTime = millis();
-      readDataXivelySolar();  //read Setp data
-      sendDataSolar(); //send setup data to Solar unit
+      readDataSolarXively();  //read Setp data
+      sendDataSolarUART(); //send setup data to Solar unit
     }
-		if(!client.connected() && (millis() - lastSendHouseTime > sendTimeHouseDelay)) {
-      lastSendHouseTime = millis();
+		if(!client.connected() && (millis() - lastSendDataHouseXivelyTime > sendTimeHouseDelay)) {
+      lastSendDataHouseXivelyTime = millis();
       sendDataHouseXively();
     }
 
   }
 }
 
-void sendDataSolar() {
+void sendDataSolarUART() {
 	//#ON (4digits, only >=0) OFF (4digits, only >=0) MODE 1 digit $CRC
 	//#25.115.50$541458114*
 	crc = ~0L;
@@ -458,7 +458,7 @@ void sendDataHouseXively() {
 
 }
 
-void readDataSolar() {
+void readDataSolarUART() {
   //read data from Solar unit UART1
 	unsigned long timeOut = millis();
 	Serial.println("Reading data from solar unit...");
@@ -571,7 +571,7 @@ void readDataSolar() {
 
 }
 
-void readDataTemperature() {
+void readDataTemperatureUART() {
 	//Reading data from temperature satelite UART2
 	//#0;28E8B84104000016;21.25#1;28A6B0410400004E;7.56#2;28CEB0410400002C;5.81#3;28C9B84104000097;4.19#4;285DF3CF0200007E;46.63$4140078876*
 	unsigned long timeOut = millis();
@@ -666,7 +666,7 @@ void crc_string(byte s) {
   crc = ~crc;
 }
 
-void readDataXivelySolar() {
+void readDataSolarXively() {
 	Serial.println("I am reading setup data from Xively...");
 #ifdef watchdog
 	wdt_disable();
