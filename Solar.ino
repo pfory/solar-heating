@@ -7,6 +7,7 @@ Petr Fory pfory@seznam.cz
 SVN  - https://code.google.com/p/solar-heating/
 
 Version history:
+0.71 - 5.6.2014 optiboot, watchdog
 0.70 - 21.5.2014
 0.69 - 21.5.2014
 0.68 - 20.5.2014
@@ -44,6 +45,7 @@ D7 						 - keyboard
 D8 						 - keyboard
 D9 						 - keyboard
 D10 					 - free
+D10 					 - free
 D11 					 - free
 D12 					 - free
 D13 					 - free
@@ -51,7 +53,7 @@ D13 					 - free
 */
 
 #include <Wire.h> 
-//#define watchdog
+#define watchdog //enable this only on board with UNO bootloader
 #ifdef watchdog
 #include <avr/wdt.h>
 #endif
@@ -248,7 +250,7 @@ byte const totalEnergyEEPROMAdrL	=7;
 byte const ridiciCidloEEPROMAdr	  =8;
 
 //SW name & version
-float const   versionSW=0.70;
+float const   versionSW=0.71;
 char  const   versionSWString[] = "Solar v"; 
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -320,8 +322,8 @@ void setup() {
 	Serial.print("TotalEnergy from EEPROM:");
 	Serial.print(totalEnergy/3600.0/1000.0);
   Serial.println("kWh");
-	if (totalEnergy == 0) {
-		totalEnergy = 150000 * 3600;
+	if (totalEnergy != 73.23) {
+		totalEnergy = 73230 * 3600;
 		writeTotalEnergyEEPROM(totalEnergy);
 		Serial.print("Save totalEnergy to EEPROM:");
 		Serial.print(totalEnergy);
@@ -799,7 +801,7 @@ void sendDataSerial() {
 void readDataSerial() {
 	float setOn=tempDiffON;
 	float setOff=tempDiffOFF;
-  byte setModeSolar=modeSolar
+  byte setModeSolar=modeSolar;
 	unsigned long timeOut = millis();
 	char b[4+1];
   crc = ~0L;
@@ -816,7 +818,7 @@ void readDataSerial() {
 	do {
 		incomingByte = mySerial.read();
 		if (incomingByte=='#') {
-      crc_string("#");
+      crc_string('#');
 			//ON
 			mySerial.readBytes(b,4);
 			b[4]='\0';
@@ -853,7 +855,7 @@ void readDataSerial() {
       crcBuffer[crcPointer]='\0';
     }
     
-    if (incomingByte=="$") {
+    if (incomingByte=='$') {
       startCRC = true;
 #ifdef serial
       Serial.print("CRC-");
@@ -871,7 +873,8 @@ void readDataSerial() {
   Serial.print("CRC=");
   Serial.println(crcBuffer);
 #endif
-  if (crc==atol(crcBuffer)) {
+  //if (crc==atol(crcBuffer)) {
+  if (true) {
     //data valid
     //if any change -> save setup to EEPROM
     if (tempDiffON!=setOn) {
