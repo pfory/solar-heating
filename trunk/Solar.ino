@@ -322,12 +322,12 @@ void setup() {
 	Serial.print("TotalEnergy from EEPROM:");
 	Serial.print(totalEnergy/3600.0/1000.0);
   Serial.println("kWh");
-	if (totalEnergy != 73.23) {
+	/*if (totalEnergy != 73.23) {
 		totalEnergy = 73230 * 3600;
 		writeTotalEnergyEEPROM(totalEnergy);
 		Serial.print("Save totalEnergy to EEPROM:");
 		Serial.print(totalEnergy);
-	}
+	}*/
   
   ridiciCidlo = EEPROM.read(ridiciCidloEEPROMAdr);
 } //setup
