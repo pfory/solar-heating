@@ -153,6 +153,7 @@ bool statusHouse=0;
 byte setModeSolar;
 float setTempDiffOFF;
 float setTempDiffON;
+bool dataSolarReaded=false;
 
 XivelyDatastream datastreamsSolar[] = {
 	XivelyDatastream(VersionSolarID, 		strlen(VersionSolarID), 	DATASTREAM_FLOAT),
@@ -195,7 +196,7 @@ char TempCorridorID[] 			= "Corridor";
 char TempHallID[] 					= "Hall";
 char TempLivingRoomID[] 		= "LivingRoom";
 char TempWorkRoomID[] 			= "WorkRoom";
-
+bool dataHouseReaded=false;
 
 XivelyDatastream datastreamsHouse[] = {
 	XivelyDatastream(VersionHouseID, 		strlen(VersionHouseID), 	DATASTREAM_FLOAT),
@@ -348,23 +349,24 @@ void loop() {
   } 
   if(millis() - lastReadDataHouseUARTTime > readDataTemperatureDelay) {
     lastReadDataHouseUARTTime = millis();
-    readDataTemperatureUART(); //read data from temperature satellite
+    readDataHouseUART(); //read data from temperature satellite
   }   
   if (ethOK) {
-    if(!client.connected() && (millis() - lastSendDataSolarXivelyTime > sendTimeSolarDelay)) {
-      lastSendDataSolarXivelyTime = millis();
-      sendDataSolarXively();
+    if (!client.connected()) {
+      if((millis() - lastSendDataSolarXivelyTime > sendTimeSolarDelay) && dataSolarReaded) {
+        lastSendDataSolarXivelyTime = millis();
+        sendDataSolarXively();
+      }
+      if((millis() - lastUpdateSolarTime > updateTimeSolarDelay)) {
+        lastUpdateSolarTime = millis();
+        readDataSolarXively();  //read Setup data
+        sendDataSolarUART(); //send setup data to Solar unit
+      }
+      if((millis() - lastSendDataHouseXivelyTime > sendTimeHouseDelay) && dataHouseReaded) {
+        lastSendDataHouseXivelyTime = millis();
+        sendDataHouseXively();
+      }
     }
-    if(!client.connected() && (millis() - lastUpdateSolarTime > updateTimeSolarDelay)) {
-      lastUpdateSolarTime = millis();
-      readDataSolarXively();  //read Setp data
-      sendDataSolarUART(); //send setup data to Solar unit
-    }
-		if(!client.connected() && (millis() - lastSendDataHouseXivelyTime > sendTimeHouseDelay)) {
-      lastSendDataHouseXivelyTime = millis();
-      sendDataHouseXively();
-    }
-
   }
 }
 
@@ -488,6 +490,7 @@ void readDataSolarUART() {
 				status++; //3
 			}
 			else if ((incomingByte==START_BLOCK || incomingByte==END_BLOCK) && status==3) {
+        dataSolarReaded=true;
 				b[i]='\0';
 				if (flag=='0') { //sensor0 tBojler2
 					sensor[0]=atof(b);
@@ -571,7 +574,7 @@ void readDataSolarUART() {
 
 }
 
-void readDataTemperatureUART() {
+void readDataHouseUART() {
 	//Reading data from temperature satelite UART2
 	//#0;28E8B84104000016;21.25#1;28A6B0410400004E;7.56#2;28CEB0410400002C;5.81#3;28C9B84104000097;4.19#4;285DF3CF0200007E;46.63$4140078876*
 	unsigned long timeOut = millis();
@@ -605,6 +608,7 @@ void readDataTemperatureUART() {
 				status++; //4
 			}
 			else if ((incomingByte==START_BLOCK || incomingByte==END_BLOCK) && status==4) {
+        dataHouseReaded=true;
 				b[i]='\0';
 				if (flag=='0') { //tBedRoomNew
 					tBedRoomNew=atof(b);
