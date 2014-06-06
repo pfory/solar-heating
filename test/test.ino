@@ -14,13 +14,204 @@ static PROGMEM prog_uint32_t crc_table[16] = {
     0x9b64c2b0, 0x86d3d2d4, 0xa00ae278, 0xbdbdf21c
 };
 
+float tempDiffON = 5.5f;
+float tempDiffOFF = 10.3f;
+byte modeSolar=0;
+
+#define START_BLOCK 			'#'
+#define DELIMITER 				';'
+#define END_BLOCK 				'$'
+#define END_TRANSMITION 	'*'
+
+#define serial
+#define LEDPIN 13
+
+const unsigned int serialTimeout=2000;
+
+
 void setup() {
   Serial.begin(9600);
+	crc = ~0L;
+	//send('S');
+	send(START_BLOCK);
+	send41(tempDiffON);
+	send41(tempDiffOFF);
+	send(modeSolar);
+	send(END_BLOCK);
+	Serial.print(crc);
+	Serial.println("*");
+	Serial.flush();
 }
 
 void loop() {
-	readDataUART();
+  communication();
 }
+
+
+/*void serialEvent() {
+  char req;
+  while (Serial.available()) {
+    req = (char)Serial.read();
+    if (req=='S') {
+      Serial.print("Read data:");
+      readDataSerial();
+    }
+  }
+}
+*/
+
+void communication() {
+  char req=dataRequested();
+	if (req=='R') { //if data were requested from central unit then send data
+		//sendDataSerial();
+	} else if (req=='S') { //setup
+		readDataSerial();
+  }
+}
+
+char dataRequested() {
+	char incomingByte=0;
+	if (Serial.available() > 0) {
+    incomingByte = (char)Serial.read();
+#ifdef serial
+		Serial.print("Data req-");
+		Serial.println(incomingByte);
+#endif
+  }
+	return incomingByte;
+}
+
+void send(char s) {
+	send(s, ' ');
+}
+
+
+void readDataSerial() {
+	float setOn=tempDiffON;
+	float setOff=tempDiffOFF;
+  byte setModeSolar=modeSolar;
+	unsigned long timeOut = millis();
+	char b[4+1];
+  crc = ~0L;
+  char crcBuffer[10+1]; //long = 10digits
+  byte crcPointer=0;
+  bool startCRC = false;
+#ifdef serial
+	Serial.println("Setup req.");
+#endif
+	//#ON (4digits, only >=0) OFF (4digits (ex 25.1...), only >=0) MODE 1 digit $CRC
+	//#25.115.50$541458114*
+  char incomingByte;
+	digitalWrite(LEDPIN,HIGH);
+	do {
+		incomingByte = Serial.read();
+		if (incomingByte=='#') {
+      crc_string('#');
+			//ON
+			Serial.readBytes(b,4);
+			b[4]='\0';
+			setOn=atof(b);
+      crc_string(setOn);
+#ifdef serial
+			Serial.print("ON=");
+			Serial.println(setOn);
+#endif
+      //OFF
+			Serial.readBytes(b,4);
+			b[4]='\0';
+			setOff=atof(b);
+      crc_string(setOff);
+#ifdef serial
+			Serial.print("OFF=");
+			Serial.println(setOff);
+#endif
+			Serial.readBytes(b,1);
+      //MODE 0 - auto, 1 - ON, 2 - OFF
+      setModeSolar = b[0]-48;
+      crc_string(setModeSolar);
+#ifdef serial
+			Serial.print("Mode=");
+			Serial.println(modeSolar);
+#endif
+		}
+
+    if (startCRC && incomingByte>0) {
+#ifdef serial
+      //Serial.print(incomingByte);
+#endif
+      crcBuffer[crcPointer++]=incomingByte;
+      crcBuffer[crcPointer]='\0';
+    }
+    
+    if (incomingByte=='$') {
+      startCRC = true;
+#ifdef serial
+      //Serial.print("CRC-");
+#endif
+    }
+
+  } while ((char)incomingByte!='*' && millis() < (timeOut + serialTimeout));
+
+#ifdef serial
+  Serial.println();
+#endif
+
+  //validation with CRC
+#ifdef serial
+  Serial.print("CRC=");
+  Serial.println(atol(crcBuffer));
+  Serial.println(crc);
+#endif
+  if (crc==atol(crcBuffer)) {
+    //data valid
+  }
+	digitalWrite(LEDPIN,LOW);
+}
+
+
+
+void send(char s, char type) {
+	if (type=='X') {
+		Serial.print(s, HEX);
+	} else {
+		Serial.print(s);
+	}
+	crc_string(byte(s));
+}
+
+void send(byte s) {
+	send(s, ' ');
+}
+
+void send(byte s, char type) {
+	if (type=='X') {
+		Serial.print(s, HEX);
+	}
+	else {
+		Serial.print(s);
+	}
+	crc_string(s);
+}
+
+void send(float s) {
+	char tBuffer[8];
+	dtostrf(s,0,2,tBuffer);
+	for (byte i=0; i<8; i++) {
+		if (tBuffer[i]==0) break;
+		send(tBuffer[i]);
+	}
+}
+
+void send41(float s) {
+	char tBuffer[4+1];
+	dtostrf(s,0,1,tBuffer);
+  if (tBuffer[1]=='.') send('0');
+	for (byte i=0; i<5; i++) {
+		if (tBuffer[i]==0) break;
+		send(tBuffer[i]);
+	}
+}
+
 
 void readDataUART() {
   //read data from UART
