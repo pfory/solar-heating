@@ -252,7 +252,7 @@ unsigned long lastSaveTime;
 unsigned long getNtpTime();
 void sendNTPpacket(IPAddress &address);
 
-float versionSW=0.2;
+float versionSW=0.3;
 char versionSWString[] = "CentralUnit v"; //SW name & version
 
 
@@ -374,8 +374,8 @@ void sendDataSolarUART() {
 	crc = ~0L;
 	send('S');
 	send(START_BLOCK);
-	send(setTempDiffON);
-	send(setTempDiffOFF);
+	send41(setTempDiffON);
+	send41(setTempDiffOFF);
 	send(setModeSolar);
 	send(END_BLOCK);
 	Serial1.print(crc);
@@ -730,6 +730,16 @@ void send(float s) {
 	char tBuffer[8];
 	dtostrf(s,0,2,tBuffer);
 	for (byte i=0; i<8; i++) {
+		if (tBuffer[i]==0) break;
+		send(tBuffer[i]);
+	}
+}
+
+void send41(float s) {
+	char tBuffer[4+1];
+	dtostrf(s,0,1,tBuffer);
+  if (tBuffer[1]=='.') send('0');
+	for (byte i=0; i<5; i++) {
 		if (tBuffer[i]==0) break;
 		send(tBuffer[i]);
 	}
