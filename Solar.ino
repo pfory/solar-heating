@@ -152,7 +152,7 @@ unsigned long const delayON=120000; //1000*60*2; //po tento cas zustane rele sep
 unsigned long lastOn4Delay = 0;
 unsigned long lastWriteEEPROMDelay = 1000*60*60; //in ms = 1 hod
 unsigned long lastWriteEEPROM = 0;
-unsigned long totalEnergy = 0; //total enery in Ws
+unsigned long totalEnergy = 0; //total enery in Ws. To kWh ->> totalEnergy/1000.f/3600.f
 float power = 0; //actual power in W
 float maxPower = 0; //maximal power in W
 float energyADay = 0.0; //energy a day in Ws
@@ -320,7 +320,7 @@ void setup() {
   
 	totalEnergy = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
 	Serial.print("TotalEnergy from EEPROM:");
-	Serial.print(totalEnergy/3600.0/1000.0);
+	Serial.print(totalEnergy/3600.f/1000.f);
   Serial.println("kWh");
 	/*if (totalEnergy != 73.23) {
 		totalEnergy = 73230 * 3600;
@@ -330,6 +330,10 @@ void setup() {
 	}*/
   
   ridiciCidlo = EEPROM.read(ridiciCidloEEPROMAdr);
+  if (ridiciCidlo!=0 || ridiciCidlo!=3) {
+    ridiciCidlo=0;
+    EEPROM.write(ridiciCidloEEPROMAdr, ridiciCidlo);
+  }
 } //setup
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -775,7 +779,7 @@ void sendDataSerial() {
 	send(START_BLOCK);
 	send('T');
 	send(DELIMITER);
-	send(totalEnergy/1000.f/3600.f);
+	send(totalEnegyWsTokWh(totalEnergy));
 	
 	send(START_BLOCK);
 	send('V');
@@ -1047,7 +1051,7 @@ void lcdShow() {
 			lcd.setCursor(0,0);
       lcd.print("Total Energy");
 			lcd.setCursor(0,1);
-      lcd.print(totalEnergy/1000.f/3600.f);
+      lcd.print(totalEnegyWsTokWh(totalEnergy));
       lcd.print(" kWh     ");
     } else if (display==2) { //TempDiffON
       //lcd.clear();
@@ -1114,7 +1118,7 @@ void lcdShow() {
       //lcd.clear();
       lcd.print("Energy saved!   ");
 			lcd.setCursor(0,1);
-      lcd.print(totalEnergy);
+      lcd.print(totalEnegyWsTokWh(totalEnergy));
       lcd.print(" Ws     ");
       delay(500);
       lcd.clear();
@@ -1132,4 +1136,8 @@ void lcdShow() {
     //Save Energy EEPR
     //Yes = 1
 
+}
+
+float totalEnegyWsTokWh(float te) {
+  return te/3600.f/1000.f;
 }
