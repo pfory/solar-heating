@@ -33,15 +33,19 @@
 // D11 			- Ethernet shield
 // D12 			- Ethernet shield
 // D13 			- Ethernet shield
-// D14          - Alarm (Serial 3 Tx)
-// D15          - Alarm (Serial 3 Rx)
-// D16          - Temperature (Serial 2 Tx)
-// D17          - Temperature (Serial 2 Rx)
-// D18          - Solar (Serial 1 Tx)
-// D19          - Solar (Serial 1 Rx)
-// D20          - (SDA)
-// D21          - (SCL)
-// D22-D52      - reserved for Alarm sensors
+// D14      - Alarm (Serial 3 Tx)
+// D15      - Alarm (Serial 3 Rx)
+// D16      - Temperature (Serial 2 Tx)
+// D17      - Temperature (Serial 2 Rx)
+// D18      - Solar (Serial 1 Tx)
+// D19      - Solar (Serial 1 Rx)
+// D20      - (SDA)
+// D21      - (SCL)
+// D22-D49  - reserved for Alarm sensors 26x
+// D50      - MISO
+// D51      - MOSI
+// D52      - SCK
+// D53      - SS
 // D53			- SD card on Ethernet shield
 
 #ifndef dummy //this section prevent from error while program is compiling without Ethernetdef
@@ -123,6 +127,8 @@ byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x6E};
 
 //XIVELY
 #include <Xively.h>
+
+//--------------SOLAR
 char xivelyKeySolar[] 			= "azCLxsU4vKepKymGFFWVnXCvTQ6Ilze3euIsNrRKRRXuSPO8";
 char xivelyKeySetupSolar[] 	= "xabE5tkgkDbMBSn6k60NUqCP4WGpVvp2AMqsL36rWSx6y3Bv";
 
@@ -184,6 +190,7 @@ EthernetClient client;
 XivelyClient xivelyclientSolar(client);
 XivelyClient xivelyclientSetup(client);
 
+//--------------HOUSE
 char xivelyKeyHouse[] 			= "I88WA1Y8x01WFUthoFJjhk5PD2xZIsTh1XMzAN6YeAA46teR";
 #define xivelyFeedHouse 				740319992
 
@@ -207,12 +214,99 @@ XivelyDatastream datastreamsHouse[] = {
 	XivelyDatastream(TempCorridorID, 		strlen(TempCorridorID), 	DATASTREAM_FLOAT),
 	XivelyDatastream(TempHallID,				strlen(TempHallID), 			DATASTREAM_FLOAT),
 	XivelyDatastream(TempLivingRoomID, 	strlen(TempLivingRoomID), DATASTREAM_FLOAT),
-	XivelyDatastream(TempWorkRoomID, 		strlen(TempWorkRoomID), 	DATASTREAM_FLOAT),
+	XivelyDatastream(TempWorkRoomID, 		strlen(TempWorkRoomID), 	DATASTREAM_FLOAT)
 };
 
 XivelyFeed feedHouse(xivelyFeedHouse, 						datastreamsHouse, 			9);
 
 XivelyClient xivelyclientHouse(client);
+
+//--------------ALARM
+char xivelyKeyAlarm[] 			= "9fA2YgbOt7jhEkSR3BUiePAu1WSBTO90uGoiKie0ueIFP157";
+#define xivelyFeedAlarm 				1912511577
+
+bool statusAlarm=0;
+bool isArmed=false;
+bool isAlarm=false;
+#define pin 650419
+byte numberOfZones[10];
+byte numberOfSensors[26];
+
+bool isActive[numberOfZones];
+byte delayIn[numberOfZones];
+byte delayOut[numberOfZones];
+
+byte sensorZone[numberOfSensors];
+
+char VersionAlarmID[] 			= "_V";
+char StatusAlarmID[] 				= "_S";
+char Sensor1ID[] 		        = "Sensor1";
+char Sensor2ID[] 		        = "Sensor2";
+char Sensor3ID[] 		        = "Sensor3";
+char Sensor4ID[] 		        = "Sensor4";
+char Sensor5ID[] 		        = "Sensor5";
+char Sensor6ID[] 		        = "Sensor6";
+char Sensor7ID[] 		        = "Sensor7";
+char Sensor8ID[] 		        = "Sensor8";
+char Sensor9ID[] 		        = "Sensor9";
+char Sensor10ID[] 		      = "Sensor10";
+char Sensor11ID[] 		      = "Sensor11";
+char Sensor12ID[] 		      = "Sensor12";
+char Sensor13ID[] 		      = "Sensor13";
+char Sensor14ID[] 		      = "Sensor14";
+char Sensor15ID[] 		      = "Sensor15";
+char Sensor16ID[] 		      = "Sensor16";
+char Sensor17ID[] 		      = "Sensor17";
+char Sensor18ID[] 		      = "Sensor18";
+char Sensor19ID[] 		      = "Sensor19";
+char Sensor20ID[] 		      = "Sensor20";
+char Sensor21ID[] 		      = "Sensor21";
+char Sensor22ID[] 		      = "Sensor22";
+char Sensor23ID[] 		      = "Sensor23";
+char Sensor24ID[] 		      = "Sensor24";
+char Sensor25ID[] 		      = "Sensor25";
+char Sensor26ID[] 		      = "Sensor26";
+char IsArmedID[] 		        = "isArmed";
+char IsAlarmID[] 		        = "isAlarm";
+
+
+XivelyDatastream datastreamsAlarm[] = {
+	XivelyDatastream(VersionAlarmID, 		strlen(VersionAlarmID), 	DATASTREAM_FLOAT),
+	XivelyDatastream(StatusAlarmID, 		strlen(StatusAlarmID), 		DATASTREAM_INT),
+	XivelyDatastream(Sensor1ID,	        strlen(Sensor1ID),        DATASTREAM_INT),
+	XivelyDatastream(Sensor2ID,	        strlen(Sensor2ID),        DATASTREAM_INT),
+	XivelyDatastream(Sensor3ID,	        strlen(Sensor3ID),        DATASTREAM_INT),
+	XivelyDatastream(Sensor4ID,	        strlen(Sensor4ID),        DATASTREAM_INT),
+	XivelyDatastream(Sensor5ID,	        strlen(Sensor5ID),        DATASTREAM_INT),
+	XivelyDatastream(Sensor6ID,	        strlen(Sensor6ID),        DATASTREAM_INT),
+	XivelyDatastream(Sensor7ID,	        strlen(Sensor7ID),        DATASTREAM_INT),
+	XivelyDatastream(Sensor8ID,	        strlen(Sensor8ID),        DATASTREAM_INT),
+	XivelyDatastream(Sensor9ID,	        strlen(Sensor9ID),        DATASTREAM_INT),
+	XivelyDatastream(Sensor10ID,	      strlen(Sensor10ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor11ID,	      strlen(Sensor11ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor12ID,	      strlen(Sensor12ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor13ID,	      strlen(Sensor13ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor14ID,	      strlen(Sensor14ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor15ID,	      strlen(Sensor15ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor16ID,	      strlen(Sensor16ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor17ID,	      strlen(Sensor17ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor18ID,	      strlen(Sensor18ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor19ID,	      strlen(Sensor19ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor20ID,	      strlen(Sensor20ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor21ID,	      strlen(Sensor21ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor22ID,	      strlen(Sensor22ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor23ID,	      strlen(Sensor23ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor24ID,	      strlen(Sensor24ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor25ID,	      strlen(Sensor25ID),       DATASTREAM_INT),
+	XivelyDatastream(Sensor26ID,	      strlen(Sensor26ID),       DATASTREAM_INT),
+	XivelyDatastream(IsArmedID,	        strlen(IsArmedID),        DATASTREAM_INT),
+	XivelyDatastream(IsAlarmID,	        strlen(IsAlarmID),        DATASTREAM_INT)
+};
+
+XivelyFeed feedAlarm(xivelyFeedAlarm, 						datastreamsAlarm, 			30);
+
+XivelyClient xivelyclientAlarm(client);
+
  
 IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
 // IPAddress timeServer(132, 163, 4, 102); // time-b.timefreq.bldrdoc.gov
@@ -343,7 +437,7 @@ void setup() {
 }
 
 void loop() {
-   if(millis() - lastReadDataSolarUARTTime > readDataSolarDelay) {
+  if(millis() - lastReadDataSolarUARTTime > readDataSolarDelay) {
     lastReadDataSolarUARTTime = millis();
     readDataSolarUART(); //read data from solar
   } 
@@ -427,7 +521,6 @@ void sendDataSolarXively() {
 #endif
 }
 
-
 void sendDataHouseXively() {
   datastreamsHouse[1].setInt(statusHouse);  
   if (statusHouse==0) statusHouse=1; else statusHouse=0;
@@ -459,6 +552,34 @@ void sendDataHouseXively() {
 #endif
 
 }
+
+void sendDataAlarmXively() {
+	if (versionAlarm==0)
+		versionAlarm=0.01;
+	datastreamsAlarm[0].setFloat(versionAlarm);
+  datastreamsAlarm[1].setInt(statusAlarm);  
+  if (statusAlarm==0) statusAlarm=1; else statusAlarm=0;
+  datastreamsSolar[2].setInt(0);
+
+#ifdef verbose
+  Serial.println("Uploading alarm data to Xively");
+#endif
+#ifdef watchdog
+	wdt_disable();
+#endif
+
+  int ret = xivelyclientSolar.put(feedAlarm, xivelyKeyAlarm);
+	
+#ifdef watchdog
+	wdt_enable(WDTO_8S);
+#endif
+
+#ifdef verbose
+  Serial.print("xivelyclientAlarm.put returned ");
+  Serial.println(ret);
+#endif
+}
+
 
 void readDataSolarUART() {
   //read data from Solar unit UART1
