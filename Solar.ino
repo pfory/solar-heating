@@ -250,7 +250,7 @@ byte const totalEnergyEEPROMAdrL	=7;
 byte const ridiciCidloEEPROMAdr	  =8;
 
 //SW name & version
-float const   versionSW=0.71;
+float const   versionSW=0.72;
 char  const   versionSWString[] = "Solar v"; 
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -358,7 +358,8 @@ void loop() {
         //energyDiff=0.0;
         writeTotalEnergyEEPROM(totalEnergy);
       }
-      if (((tOut - tDir) < tempDiffOFF && (tIn < tOut)) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
+      //if (((tOut - tDir) < tempDiffOFF && (tIn < tOut) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
+      if (((tOut - tDir) < tempDiffOFF) { //switch pump ON->OFF
         relay1=HIGH; //relay OFF = HIGH
         //digitalWrite(RELAY1PIN, relay1);
         lastOff=millis();
@@ -369,7 +370,8 @@ void loop() {
         writeTotalEnergyEEPROM(totalEnergy);
       }
     } else { //pump is OFF - relay OFF = HIGH
-      if ((((tOut - tDir) >= tempDiffON) || ((tIn - tDir) >= tempDiffON))) { //switch pump OFF->ON
+      //if ((((tOut - tDir) >= tempDiffON) || ((tIn - tDir) >= tempDiffON))) { //switch pump OFF->ON
+      if ((tOut - tDir) >= tempDiffON) { //switch pump OFF->ON
         relay1=LOW; //relay ON = LOW
         //digitalWrite(RELAY1PIN, relay1);
         lastOn = millis();
