@@ -7,6 +7,7 @@ Petr Fory pfory@seznam.cz
 SVN  - https://code.google.com/p/solar-heating/
 
 Version history:
+0.72 - 14.6.2013 zmena spinani teplot
 0.71 - 5.6.2014 optiboot, watchdog
 0.70 - 21.5.2014
 0.69 - 21.5.2014
@@ -322,12 +323,15 @@ void setup() {
 	Serial.print("TotalEnergy from EEPROM:");
 	Serial.print(totalEnergy/3600.f/1000.f);
   Serial.println("kWh");
-	/*if (totalEnergy != 73.23) {
-		totalEnergy = 73230 * 3600;
+  //#define setTE
+  #ifdef setTE
+	if (totalEnergy != 126) {
+		totalEnergy = 126000 * 3600;
 		writeTotalEnergyEEPROM(totalEnergy);
 		Serial.print("Save totalEnergy to EEPROM:");
 		Serial.print(totalEnergy);
-	}*/
+	}
+  #endif
   
   ridiciCidlo = EEPROM.read(ridiciCidloEEPROMAdr);
   if (ridiciCidlo!=0 || ridiciCidlo!=3) {
@@ -359,7 +363,7 @@ void loop() {
         writeTotalEnergyEEPROM(totalEnergy);
       }
       //if (((tOut - tDir) < tempDiffOFF && (tIn < tOut) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
-      if (((tOut - tDir) < tempDiffOFF) { //switch pump ON->OFF
+      if ((tOut - tDir) < tempDiffOFF) { //switch pump ON->OFF
         relay1=HIGH; //relay OFF = HIGH
         //digitalWrite(RELAY1PIN, relay1);
         lastOff=millis();
