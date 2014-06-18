@@ -7,8 +7,9 @@ Petr Fory pfory@seznam.cz
 SVN  - https://code.google.com/p/solar-heating/
 
 Version history:
-0.72 - 14.6.2013 zmena spinani teplot
-0.71 - 5.6.2014 optiboot, watchdog
+0.73 -            add totalSec
+0.72 - 14.6.2013  zmena spinani teplot
+0.71 - 5.6.2014   optiboot, watchdog
 0.70 - 21.5.2014
 0.69 - 21.5.2014
 0.68 - 20.5.2014
@@ -154,6 +155,8 @@ unsigned long lastOn4Delay = 0;
 unsigned long lastWriteEEPROMDelay = 1000*60*60; //in ms = 1 hod
 unsigned long lastWriteEEPROM = 0;
 unsigned long totalEnergy = 0; //total enery in Ws. To kWh ->> totalEnergy/1000.f/3600.f
+unsigned long totalSec = 0; //total time for pump ON in sec. To hours ->> totalSec/60/60
+unsigned long msDiff = 0; //pocet ms ve stavu ON od posledniho ulozeni do EEPROM
 float power = 0; //actual power in W
 float maxPower = 0; //maximal power in W
 float energyADay = 0.0; //energy a day in Ws
@@ -249,9 +252,13 @@ byte const totalEnergyEEPROMAdrM	=5;
 byte const totalEnergyEEPROMAdrS	=6;
 byte const totalEnergyEEPROMAdrL	=7;
 byte const ridiciCidloEEPROMAdr	  =8;
+byte const totalSecEEPROMAdrH	    =9;
+byte const totalSecEEPROMAdrM	    =10;
+byte const totalSecEEPROMAdrS	    =11;
+byte const totalSecEEPROMAdrL	    =12;
 
 //SW name & version
-float const   versionSW=0.72;
+float const   versionSW=0.73;
 char  const   versionSWString[] = "Solar v"; 
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -332,6 +339,15 @@ void setup() {
 		Serial.print(totalEnergy);
 	}
   #endif
+
+	valueIH = EEPROM.read(totalSecEEPROMAdrH);
+	valueIM = EEPROM.read(totalSecEEPROMAdrM);
+	valueIS = EEPROM.read(totalSecEEPROMAdrS);
+	valueIL = EEPROM.read(totalSecEEPROMAdrL);
+	totalSec = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
+	Serial.print("TotalSec from EEPROM:");
+	Serial.print(totalSec);
+  Serial.println("s");
   
   ridiciCidlo = EEPROM.read(ridiciCidloEEPROMAdr);
   if (ridiciCidlo!=0 || ridiciCidlo!=3) {
@@ -476,6 +492,7 @@ void calcPowerAndEnergy() {
   if (relay1==LOW) {  //pump is ON
     if (tIn<tOut) {
       msDayON+=(millis()-lastOn);
+      msDiff+=(millis()-lastOn);
       power = getPower(); //in W
       if (power > maxPower) {
         maxPower = power;
@@ -734,7 +751,7 @@ void sendDataSerial() {
   if (firstMeasComplete==false) return;
 
 	//data sended:
-	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69M;0$3600177622*
+	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#S;123456$3600177622*
 	digitalWrite(LEDPIN,HIGH);
 	crc = ~0L;
   for (byte i=0;i<numberOfDevices; i++) {
@@ -796,6 +813,12 @@ void sendDataSerial() {
 	send('M');
 	send(DELIMITER);
 	send(modeSolar);
+
+  //total time in minutes
+	send(START_BLOCK);
+	send('S');
+	send(DELIMITER);
+	send((totalSec+(msDiff/1000))/60);
 	
 	send(END_BLOCK);
 #ifdef serial
@@ -967,6 +990,10 @@ void send(byte s, char type) {
 	crc_string(s);
 }
 
+void send(unsigned long s) {
+  Serial.print(s);
+}
+
 void send(float s) {
 	char tBuffer[8];
 	dtostrf(s,0,2,tBuffer);
@@ -1013,7 +1040,14 @@ void writeTotalEnergyEEPROM(unsigned long totalEnergy) {
 	EEPROM.write(totalEnergyEEPROMAdrS, (totalEnergy >> 8) & 0xFF);
 	EEPROM.write(totalEnergyEEPROMAdrM, (totalEnergy >> 16) & 0xFF);
 	EEPROM.write(totalEnergyEEPROMAdrH, (totalEnergy >> 24) & 0xFF); 
+
+  totalSec+=msDiff;
+	EEPROM.write(totalSecEEPROMAdrL, totalSec & 0xFF);
+	EEPROM.write(totalSecEEPROMAdrS, (totalSec >> 8) & 0xFF);
+	EEPROM.write(totalSecEEPROMAdrM, (totalSec >> 16) & 0xFF);
+	EEPROM.write(totalSecEEPROMAdrH, (totalSec >> 24) & 0xFF); 
   lastWriteEEPROM = millis();
+  msDiff = 0;
 }
 
 float getPower() {
