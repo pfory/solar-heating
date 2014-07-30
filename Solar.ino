@@ -7,7 +7,8 @@ Petr Fory pfory@seznam.cz
 SVN  - https://code.google.com/p/solar-heating/
 
 Version history:
-0.73 -            add totalSec
+0.74 - 30.7.2014  add delay after ON, prevent cyclic switch ON-OFF-ON....
+0.73 - 29.7.2014  add totalSec, oprava posilani totalPower
 0.72 - 14.6.2013  zmena spinani teplot
 0.71 - 5.6.2014   optiboot, watchdog
 0.70 - 21.5.2014
@@ -148,20 +149,22 @@ unsigned long const dsMeassureInterval=750; //inteval between meassurements
 unsigned long lastMeasTime=0;
 unsigned long msDayON = 0;  //kolik ms uz jsem za aktualni den byl ve stavu ON
 unsigned long lastOn=0;     //ms posledniho behu ve stavu ON
+unsigned long const delayAfterON = 1000*60*2; //2 min
+unsigned long lastOffOn = 0;
 unsigned long lastOff = 0;  //ms posledniho vypnuti rele
 unsigned long const dayInterval=43200000; //1000*60*60*12; //
 unsigned long const delayON=120000; //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
 unsigned long lastOn4Delay = 0;
-unsigned long lastWriteEEPROMDelay = 1000*60*60; //in ms = 1 hod
+unsigned long const lastWriteEEPROMDelay = 1000*60*60; //in ms = 1 hod
 unsigned long lastWriteEEPROM = 0;
 unsigned long totalEnergy = 0; //total enery in Ws. To kWh ->> totalEnergy/1000.f/3600.f
 unsigned long totalSec = 0; //total time for pump ON in sec. To hours ->> totalSec/60/60
 unsigned long msDiff = 0; //pocet ms ve stavu ON od posledniho ulozeni do EEPROM
-float power = 0; //actual power in W
-float maxPower = 0; //maximal power in W
-float energyADay = 0.0; //energy a day in Ws
-//float energyDiff = 0.0; //difference in Ws
-float const energyKoef = 343; //Ws TODO - read from configuration
+unsigned int  power = 0; //actual power in W
+unsigned int  maxPower = 0; //maximal power in W
+unsigned long energyADay = 0; //energy a day in Ws
+float energyDiff = 0.f; //difference in Ws
+unsigned int const energyKoef = 343; //Ws TODO - read from configuration
 
 //MODE
 byte modeSolar=0;
@@ -258,7 +261,7 @@ byte const totalSecEEPROMAdrS	    =11;
 byte const totalSecEEPROMAdrL	    =12;
 
 //SW name & version
-float const   versionSW=0.73;
+float const   versionSW=0.74;
 char  const   versionSWString[] = "Solar v"; 
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -311,44 +314,14 @@ void setup() {
   }
   else {} //use default value=15.0 see variable initialization
 
-	//read power from EEPROM
-	valueIH = EEPROM.read(totalEnergyEEPROMAdrH);
-	int valueIM = EEPROM.read(totalEnergyEEPROMAdrM);
-	int valueIS = EEPROM.read(totalEnergyEEPROMAdrS);
-	valueIL = EEPROM.read(totalEnergyEEPROMAdrL);
-	/*Serial.print("H:");
-	Serial.println(valueIH); //18
-	Serial.print("M:");
-	Serial.println(valueIM); //252
-	Serial.print("S:");
-	Serial.println(valueIS);  //143
-	Serial.print("L:");
-	Serial.println(valueIL);  //0
-	*/
-  
-	totalEnergy = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
-	Serial.print("TotalEnergy from EEPROM:");
-	Serial.print(totalEnergy/3600.f/1000.f);
-  Serial.println("kWh");
+  readTotalEEPROM();
   //#define setTE
-  #ifdef setTE
-	if (totalEnergy != 126) {
-		totalEnergy = 126000 * 3600;
-		writeTotalEnergyEEPROM(totalEnergy);
-		Serial.print("Save totalEnergy to EEPROM:");
-		Serial.print(totalEnergy);
-	}
-  #endif
+#ifdef setTE
+  totalEnergy = 310000 * 3600;
+  writeTotalEEPROM(totalEnergy);
+  readTotalEEPROM();
+#endif
 
-	valueIH = EEPROM.read(totalSecEEPROMAdrH);
-	valueIM = EEPROM.read(totalSecEEPROMAdrM);
-	valueIS = EEPROM.read(totalSecEEPROMAdrS);
-	valueIL = EEPROM.read(totalSecEEPROMAdrL);
-	totalSec = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
-	Serial.print("TotalSec from EEPROM:");
-	Serial.print(totalSec);
-  Serial.println("s");
-  
   ridiciCidlo = EEPROM.read(ridiciCidloEEPROMAdr);
   if (ridiciCidlo!=0 || ridiciCidlo!=3) {
     ridiciCidlo=0;
@@ -374,20 +347,16 @@ void loop() {
     if (relay1==LOW) { 
       //save totalEnergy to EEPROM
       if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
-        //totalEnergy += energyDiff;
-        //energyDiff=0.0;
-        writeTotalEnergyEEPROM(totalEnergy);
+        writeTotalEEPROM(totalEnergy);
       }
       //if (((tOut - tDir) < tempDiffOFF && (tIn < tOut) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
-      if ((tOut - tDir) < tempDiffOFF) { //switch pump ON->OFF
+      if (((tOut - tDir) < tempDiffOFF) && (millis() - delayAfterON >= lastOffOn)) { //switch pump ON->OFF
         relay1=HIGH; //relay OFF = HIGH
         //digitalWrite(RELAY1PIN, relay1);
         lastOff=millis();
         lastOn4Delay=0;
         //save totalEnergy to EEPROM
-        //totalEnergy += energyDiff;
-        //energyDiff=0.0;
-        writeTotalEnergyEEPROM(totalEnergy);
+        writeTotalEEPROM(totalEnergy);
       }
     } else { //pump is OFF - relay OFF = HIGH
       //if ((((tOut - tDir) >= tempDiffON) || ((tIn - tDir) >= tempDiffON))) { //switch pump OFF->ON
@@ -395,11 +364,12 @@ void loop() {
         relay1=LOW; //relay ON = LOW
         //digitalWrite(RELAY1PIN, relay1);
         lastOn = millis();
+        lastOffOn = lastOn;
         if (lastOn4Delay==0) {
           lastOn4Delay = lastOn;
         }
         if (lastOff==0) { //first ON in actual day
-          energyADay=0.0;
+          energyADay=0;
           //energyDiff=0.0;
           msDayON=0;
           tMaxOut=-128.0;
@@ -497,8 +467,18 @@ void calcPowerAndEnergy() {
       if (power > maxPower) {
         maxPower = power;
       }
-      energyADay+=((float)(millis()-lastOn)*power/1000.f); //in Ws
-      totalEnergy+=((float)(millis()-lastOn)*power/1000.f);
+      float diff = (float)((millis()-lastOn))*(float)power/1000.f; //in Ws
+      energyDiff += diff;
+      if (energyDiff >= 1.f) {
+        totalEnergy += (unsigned long)diff;
+        energyADay  += (unsigned long)diff;
+        energyDiff = 0.f;
+      }
+      /*Serial.print("ED=");
+      Serial.println(energyADay);
+      Serial.print("TE=");
+      Serial.println(totalEnergy);
+      */
     } else {
       power=0;
     }
@@ -620,7 +600,7 @@ void keyBoard() {
       display=8;
     }
 		else if (customKey=='*') { //Save total energy to EEPROM
-      writeTotalEnergyEEPROM();
+      writeTotalEEPROM();
       display=100 + display;
     }
 		else if (customKey=='#') { //Select directing sensor
@@ -796,13 +776,13 @@ void sendDataSerial() {
 	send(START_BLOCK);
 	send('E');
 	send(DELIMITER);
-	send(energyADay/1000.f/3600.f);
+	send(enegyWsTokWh(energyADay));
 	
 	//Energy Total
 	send(START_BLOCK);
 	send('T');
 	send(DELIMITER);
-	send(totalEnegyWsTokWh(totalEnergy));
+	send(enegyWsTokWh(totalEnergy));
 	
 	send(START_BLOCK);
 	send('V');
@@ -994,6 +974,10 @@ void send(unsigned long s) {
   Serial.print(s);
 }
 
+void send(unsigned int s) {
+  Serial.print(s);
+}
+
 void send(float s) {
 	char tBuffer[8];
 	dtostrf(s,0,2,tBuffer);
@@ -1031,15 +1015,18 @@ void crc_string(byte s)
   crc = ~crc;
 }
 
-void writeTotalEnergyEEPROM() {
-  writeTotalEnergyEEPROM(totalEnergy);
+void writeTotalEEPROM() {
+  writeTotalEEPROM(totalEnergy);
 }
 
-void writeTotalEnergyEEPROM(unsigned long totalEnergy) {
-	EEPROM.write(totalEnergyEEPROMAdrL, totalEnergy & 0xFF);
-	EEPROM.write(totalEnergyEEPROMAdrS, (totalEnergy >> 8) & 0xFF);
-	EEPROM.write(totalEnergyEEPROMAdrM, (totalEnergy >> 16) & 0xFF);
-	EEPROM.write(totalEnergyEEPROMAdrH, (totalEnergy >> 24) & 0xFF); 
+void writeTotalEEPROM(unsigned long e) {
+	EEPROM.write(totalEnergyEEPROMAdrL, e & 0xFF);
+	EEPROM.write(totalEnergyEEPROMAdrS, (e >> 8) & 0xFF);
+	EEPROM.write(totalEnergyEEPROMAdrM, (e >> 16) & 0xFF);
+	EEPROM.write(totalEnergyEEPROMAdrH, (e >> 24) & 0xFF); 
+  Serial.print("Save totalEnergy to EEPROM:");
+  Serial.print(totalEnergy);
+  Serial.println("Ws");
 
   totalSec+=msDiff;
 	EEPROM.write(totalSecEEPROMAdrL, totalSec & 0xFF);
@@ -1050,8 +1037,38 @@ void writeTotalEnergyEEPROM(unsigned long totalEnergy) {
   msDiff = 0;
 }
 
-float getPower() {
-  return energyKoef*(tOut-tIn); //in W
+void readTotalEEPROM() {
+	//read power from EEPROM
+	int valueIH = EEPROM.read(totalEnergyEEPROMAdrH);
+	int valueIM = EEPROM.read(totalEnergyEEPROMAdrM);
+	int valueIS = EEPROM.read(totalEnergyEEPROMAdrS);
+	int valueIL = EEPROM.read(totalEnergyEEPROMAdrL);
+	/*Serial.print("H:");
+	Serial.println(valueIH); //18
+	Serial.print("M:");
+	Serial.println(valueIM); //252
+	Serial.print("S:");
+	Serial.println(valueIS);  //143
+	Serial.print("L:");
+	Serial.println(valueIL);  //0
+	*/
+	totalEnergy = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
+	Serial.print("TotalEnergy from EEPROM:");
+	Serial.print(totalEnergy);
+  Serial.println("Ws");
+
+	valueIH = EEPROM.read(totalSecEEPROMAdrH);
+	valueIM = EEPROM.read(totalSecEEPROMAdrM);
+	valueIS = EEPROM.read(totalSecEEPROMAdrS);
+	valueIL = EEPROM.read(totalSecEEPROMAdrL);
+	totalSec = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
+	Serial.print("TotalSec from EEPROM:");
+	Serial.print(totalSec);
+  Serial.println("s");
+}
+
+unsigned int getPower() {
+  return (float)energyKoef*(tOut-tIn); //in W
 }
 
 void lcdShow() {
@@ -1076,7 +1093,7 @@ void lcdShow() {
 			}
 			
 			lcd.setCursor(ENERGYX,ENERGYY);
-			lcd.print(energyADay/1000.f/3600.f); //Ws -> kWh (show it in kWh)
+			lcd.print(enegyWsTokWh(energyADay)); //Ws -> kWh (show it in kWh)
 			
 			lcd.setCursor(TIMEX,TIMEY);
 			p=(int)(msDayON/1000/60);
@@ -1091,7 +1108,7 @@ void lcdShow() {
 			lcd.setCursor(0,0);
       lcd.print("Total Energy");
 			lcd.setCursor(0,1);
-      lcd.print(totalEnegyWsTokWh(totalEnergy));
+      lcd.print(enegyWsTokWh(totalEnergy));
       lcd.print(" kWh     ");
     } else if (display==2) { //TempDiffON
       //lcd.clear();
@@ -1156,10 +1173,10 @@ void lcdShow() {
     } else if (display>=100 && display<200) { //Save energy to EEPROM
 			lcd.setCursor(0,0);
       //lcd.clear();
-      lcd.print("Energy saved!   ");
+      lcd.print("Energy saved!  ");
 			lcd.setCursor(0,1);
-      lcd.print(totalEnegyWsTokWh(totalEnergy));
-      lcd.print(" Ws     ");
+      lcd.print(enegyWsTokWh(totalEnergy));
+      lcd.print(" Ws       ");
       delay(500);
       lcd.clear();
       display = display - 100;
@@ -1178,6 +1195,6 @@ void lcdShow() {
 
 }
 
-float totalEnegyWsTokWh(float te) {
-  return te/3600.f/1000.f;
+float enegyWsTokWh(float e) {
+  return e/3600.f/1000.f;
 }
