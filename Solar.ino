@@ -7,6 +7,8 @@ Petr Fory pfory@seznam.cz
 SVN  - https://code.google.com/p/solar-heating/
 
 Version history:
+0.76 - 7.8.2014
+0.75 - 31.7.2014  funkcni pocitani totalSec a totalPower
 0.74 - 30.7.2014  add delay after ON, prevent cyclic switch ON-OFF-ON....
 0.73 - 29.7.2014  add totalSec, oprava posilani totalPower
 0.72 - 14.6.2013  zmena spinani teplot
@@ -132,113 +134,116 @@ DeviceAddress tempDeviceAddress;
 #define NUMBER_OF_DEVICES 4
 #endif
 DeviceAddress tempDeviceAddresses[NUMBER_OF_DEVICES];
-//int  resolution = 12;
-unsigned int numberOfDevices; // Number of temperature devices found
-unsigned long lastDsMeasStartTime;
-bool dsMeasStarted=false;
+unsigned int numberOfDevices              = 0; // Number of temperature devices found
+unsigned long lastDsMeasStartTime         = 0;
+bool dsMeasStarted                        = false;
 float sensor[NUMBER_OF_DEVICES];
-float tempDiffON            = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
-float tempDiffOFF           = 15.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
+float tempDiffON                          = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
+float tempDiffOFF                         = 15.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
 //diferences in normal mode (power for pump is ready)
-float tempDiffONNormal      = tempDiffON;
-float tempDiffOFFNormal     = tempDiffOFF;
+float tempDiffONNormal                    = tempDiffON;
+float tempDiffOFFNormal                   = tempDiffOFF;
 //diferences in power save mode (power for pump is OFF)
-float tempDiffONPowerSave   = 90.0; 
-float tempDiffOFFPowerSave  = 50.0; 
-unsigned long const dsMeassureInterval=750; //inteval between meassurements
-unsigned long lastMeasTime=0;
-unsigned long msDayON = 0;  //kolik ms uz jsem za aktualni den byl ve stavu ON
-unsigned long lastOn=0;     //ms posledniho behu ve stavu ON
-unsigned long const delayAfterON = 1000*60*2; //2 min
-unsigned long lastOffOn = 0;
-unsigned long lastOff = 0;  //ms posledniho vypnuti rele
-unsigned long const dayInterval=43200000; //1000*60*60*12; //
-unsigned long const delayON=120000; //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
-unsigned long lastOn4Delay = 0;
-unsigned long const lastWriteEEPROMDelay = 1000*60*60; //in ms = 1 hod
-unsigned long lastWriteEEPROM = 0;
-unsigned long totalEnergy = 0; //total enery in Ws. To kWh ->> totalEnergy/1000.f/3600.f
-unsigned long totalSec = 0; //total time for pump ON in sec. To hours ->> totalSec/60/60
-unsigned long msDiff = 0; //pocet ms ve stavu ON od posledniho ulozeni do EEPROM
-unsigned int  power = 0; //actual power in W
-unsigned int  maxPower = 0; //maximal power in W
-unsigned long energyADay = 0; //energy a day in Ws
-float energyDiff = 0.f; //difference in Ws
-unsigned int const energyKoef = 343; //Ws TODO - read from configuration
+float tempDiffONPowerSave                 = 90.0; 
+float tempDiffOFFPowerSave                = 50.0; 
+unsigned long const dsMeassureInterval    = 750; //inteval between meassurements
+unsigned long lastMeasTime                = 0;
+unsigned long msDayON                     = 0;  //number of miliseconds in ON state per day
+unsigned long lastOn                      = 0;     //ms posledniho behu ve stavu ON
+unsigned long const delayAfterON          = 120000; //2 min
+unsigned long lastOffOn                   = 0;
+unsigned long lastOff                     = 0;  //ms posledniho vypnuti rele
+unsigned long const dayInterval           = 43200000; //1000*60*60*12; //
+unsigned long const delayON               = 120000; //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
+unsigned long lastOn4Delay                = 0;
+unsigned long const lastWriteEEPROMDelay  = 3600000; //in ms = 1 hod
+unsigned long lastWriteEEPROM             = 0;
+unsigned long totalEnergy                 = 0; //total enery in Ws. To kWh ->> totalEnergy/1000.f/3600.f
+unsigned long totalSec                    = 0; //total time for pump ON in sec. To hours ->> totalSec/60/60
+unsigned long msDiff                      = 0; //pocet ms ve stavu ON od posledniho ulozeni do EEPROM
+unsigned int  power                       = 0; //actual power in W
+unsigned int  maxPower                    = 0; //maximal power in W
+unsigned long energyADay                  = 0; //energy a day in Ws
+float energyDiff                          = 0.f; //difference in Ws
+unsigned int const energyKoef             = 343; //Ws TODO - read from configuration
 
 //MODE
-byte modeSolar=0;
-bool manualSetFromKeyboard=false;
-bool firstMeasComplete=false;
-bool manualON = false;
+byte modeSolar                            = 0;
+bool manualSetFromKeyboard                = false;
+bool firstMeasComplete                    = false;
+bool manualON                             = false;
 
-float tIn		  = 0; //input medium temperature to solar panel
-float tOut	  = 0; //output medium temperature to solar panel
-float tRoom	  = 0; //room temperature
-float tBojler	= 0; //boiler temperature
-float tDir    = 0; //temperature which is used as control temperature
+float tIn		                              = 0; //input medium temperature to solar panel
+float tOut	                              = 0; //output medium temperature to solar panel
+float tRoom	                              = 0; //room temperature
+float tBojler                             = 0; //boiler temperature
+float tDir                                = 0; //temperature which is used as control temperature
 
 //maximal temperatures
-float tMaxIn			= 0; //maximal input temperature (just for statistics)
-float tMaxOut			= 0; //maximal output temperature (just for statistics)
-float tMaxBojler 	= 0; //maximal boiler temperature (just for statistics)
+float tMaxIn			                        = 0; //maximal input temperature (just for statistics)
+float tMaxOut			                        = 0; //maximal output temperature (just for statistics)
+float tMaxBojler 	                        = 0; //maximal boiler temperature (just for statistics)
 
-byte ridiciCidlo = 0; //sensor of directing index
+byte ridiciCidlo                          = 0; //sensor of directing index
 
-//int powerOff = 200;     //minimalni vykon, pokud je vykon nizssi, rele vzdy vypne
-float safetyON = 80.0; //teplota, pri niz rele vzdy sepne
+//int powerOff                            = 200;     //minimalni vykon, pokud je vykon nizssi, rele vzdy vypne
+float safetyON                            = 80.0; //teplota, pri niz rele vzdy sepne
 
 enum mode {NORMAL, POWERSAVE};
-mode powerMode=NORMAL;
+mode powerMode                            = NORMAL;
 
-byte display=0;
+byte display                              = 0;
+//status  0/1 - normal
+//        2 - after start
+//        3 - write total to EEPROM
+byte status                               = 0;
 
 //0123456789012345
 //15.6 15.8 15.8 V
 //1234 0.12 624
-#define TEMP1X 		0
-#define TEMP1Y 		0
-#define TEMP2X 		5
-#define TEMP2Y 		0
-#define TEMP3X 		10
-#define TEMP3Y 		0
-//#define TEMP4X 	9
-//#define TEMP4Y 	1
-#define POWERX 		0
-#define POWERY 		1
-#define ENERGYX 	7
-#define ENERGYY 	1
-#define TIMEX 		12
-#define TIMEY 		1
-
-
-#define RELAY1X 	15
-#define RELAY1Y 	0
-/*#define RELAY2X 15
-#define RELAY2Y 	1
-*/
-
-#define RELAY1PIN A1
-#define RELAY2PIN A2
+#define TEMP1X 		                          0
+#define TEMP1Y 		                          0
+#define TEMP2X 		                          5
+#define TEMP2Y 		                          0
+#define TEMP3X 		                          10
+#define TEMP3Y 		                          0
+//#define TEMP4X 	                          9
+//#define TEMP4Y 	                          1
+#define POWERX 		                          0
+#define POWERY 		                          1
+#define ENERGYX 	                          7
+#define ENERGYY 	                          1
+#define TIMEX 		                          12
+#define TIMEY 		                          1
+                          
+                          
+#define RELAY1X 	                          15
+#define RELAY1Y 	                          0
+/*#define RELAY2X                           15
+#define RELAY2Y 	                          1
+*/                          
+                          
+#define RELAY1PIN                           A1
+#define RELAY2PIN                           A2
 
 //HIGH - relay OFF, LOW - relay ON
-bool relay1=HIGH; 
-bool relay2=HIGH;
+bool relay1                               = HIGH; 
+bool relay2                               = HIGH;
 
 #define keypad
 #ifdef keypad
 #include <Keypad.h>
-const byte ROWS = 4; //four rows
-const byte COLS = 4; //four columns
+const byte ROWS                           = 4; //four rows
+const byte COLS                           = 4; //four columns
 //define the symbols on the buttons of the keypads
-char hexaKeys[ROWS][COLS] = {
-  {'1','4','7','*'},
-  {'2','5','8','0'},
-  {'3','6','9','#'},
-  {'A','B','C','D'}
+char hexaKeys[ROWS][COLS]                 = {
+                                            {'1','4','7','*'},
+                                            {'2','5','8','0'},
+                                            {'3','6','9','#'},
+                                            {'A','B','C','D'}
 };
-byte rowPins[ROWS] = {5,4,3,2}; //connect to the row pinouts of the keypad
-byte colPins[COLS] = {9,8,7,6}; //connect to the column pinouts of the keypad
+byte rowPins[ROWS]                        = {5,4,3,2}; //connect to the row pinouts of the keypad
+byte colPins[COLS]                        = {9,8,7,6}; //connect to the column pinouts of the keypad
 
 //initialize an instance of class NewKeypad
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
@@ -246,23 +251,23 @@ Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS
 
 //EEPROM
 #include <EEPROM.h>
-byte const tempDiffONEEPROMAdrH		=0;
-byte const tempDiffONEEPROMAdrL		=1;
-byte const tempDiffOFFEEPROMAdrH	=2;
-byte const tempDiffOFFEEPROMAdrL	=3;
-byte const totalEnergyEEPROMAdrH	=4;
-byte const totalEnergyEEPROMAdrM	=5;
-byte const totalEnergyEEPROMAdrS	=6;
-byte const totalEnergyEEPROMAdrL	=7;
-byte const ridiciCidloEEPROMAdr	  =8;
-byte const totalSecEEPROMAdrH	    =9;
-byte const totalSecEEPROMAdrM	    =10;
-byte const totalSecEEPROMAdrS	    =11;
-byte const totalSecEEPROMAdrL	    =12;
+byte const tempDiffONEEPROMAdrH	        	= 0;
+byte const tempDiffONEEPROMAdrL	        	= 1;
+byte const tempDiffOFFEEPROMAdrH        	= 2; 
+byte const tempDiffOFFEEPROMAdrL        	= 3;
+byte const totalEnergyEEPROMAdrH        	= 4;
+byte const totalEnergyEEPROMAdrM        	= 5;
+byte const totalEnergyEEPROMAdrS        	= 6;
+byte const totalEnergyEEPROMAdrL        	= 7;
+byte const ridiciCidloEEPROMAdr	          = 8;
+byte const totalSecEEPROMAdrH	            = 9;
+byte const totalSecEEPROMAdrM	            = 10;
+byte const totalSecEEPROMAdrS	            = 11;
+byte const totalSecEEPROMAdrL	            = 12;
 
 //SW name & version
-float const   versionSW=0.74;
-char  const   versionSWString[] = "Solar v"; 
+float const   versionSW                   = 0.76;
+char  const   versionSWString[]           = "Solar v"; 
 
 //--------------------------------------------------------------------------------------------------------------------------
 void setup() {
@@ -317,8 +322,10 @@ void setup() {
   readTotalEEPROM();
   //#define setTE
 #ifdef setTE
-  totalEnergy = 310000 * 3600;
-  writeTotalEEPROM(totalEnergy);
+  totalEnergy = 315530 * 3600;
+  totalSec = 1134000;
+  Serial.println(totalSec);
+  writeTotalEEPROM();
   readTotalEEPROM();
 #endif
 
@@ -327,6 +334,7 @@ void setup() {
     ridiciCidlo=0;
     EEPROM.write(ridiciCidloEEPROMAdr, ridiciCidlo);
   }
+  status = 2;
 } //setup
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -347,16 +355,28 @@ void loop() {
     if (relay1==LOW) { 
       //save totalEnergy to EEPROM
       if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
-        writeTotalEEPROM(totalEnergy);
+        writeTotalEEPROM();
       }
       //if (((tOut - tDir) < tempDiffOFF && (tIn < tOut) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
       if (((tOut - tDir) < tempDiffOFF) && (millis() - delayAfterON >= lastOffOn)) { //switch pump ON->OFF
+#ifdef serial
+        Serial.print("millis()=");
+        Serial.print(millis());
+        Serial.print(" delayAfterON=");
+        Serial.print(delayAfterON);
+        Serial.print(" lastOffOn=");
+        Serial.print(lastOffOn);
+        Serial.print(" tOut=");
+        Serial.print(tOut);
+        Serial.print("tDir=");
+        Serial.println(tDir);
+#endif
         relay1=HIGH; //relay OFF = HIGH
         //digitalWrite(RELAY1PIN, relay1);
         lastOff=millis();
         lastOn4Delay=0;
         //save totalEnergy to EEPROM
-        writeTotalEEPROM(totalEnergy);
+        writeTotalEEPROM();
       }
     } else { //pump is OFF - relay OFF = HIGH
       //if ((((tOut - tDir) >= tempDiffON) || ((tIn - tDir) >= tempDiffON))) { //switch pump OFF->ON
@@ -463,22 +483,50 @@ void calcPowerAndEnergy() {
     if (tIn<tOut) {
       msDayON+=(millis()-lastOn);
       msDiff+=(millis()-lastOn);
+#ifdef serial
+      //Serial.print("msDiff=");
+      //Serial.println(msDiff);
+#endif
+      if (msDiff >= 1000) {
+#ifdef serial
+        //Serial.print("totalSec (before)=");
+        //Serial.println(totalSec);
+#endif
+        totalSec+=msDiff/1000;
+        msDiff=msDiff%1000;
+#ifdef serial
+        //Serial.print("totalSec (after)=");
+        //Serial.println(totalSec);
+        //Serial.print("msDiff (zbytek)=");
+        //Serial.println(msDiff);
+#endif
+      }
       power = getPower(); //in W
       if (power > maxPower) {
         maxPower = power;
       }
-      float diff = (float)((millis()-lastOn))*(float)power/1000.f; //in Ws
-      energyDiff += diff;
-      if (energyDiff >= 1.f) {
-        totalEnergy += (unsigned long)diff;
-        energyADay  += (unsigned long)diff;
-        energyDiff = 0.f;
+      energyDiff += (float)((millis()-lastOn))*(float)power/1000.f; //in Ws
+#ifdef serial
+      //Serial.print("energyDiff=");
+      //Serial.println(energyDiff);
+#endif
+      if (energyDiff >= 3600.f) { //Wh
+#ifdef serial
+        //Serial.print("TE (before)=");
+        //Serial.println(totalEnergy);
+        //Serial.print("energyDiff (before)=");
+        //Serial.println(energyDiff);
+#endif
+        totalEnergy += (unsigned long)energyDiff;
+        energyADay  += (unsigned long)energyDiff;
+        energyDiff = energyDiff - (long)energyDiff;
+#ifdef serial
+        //Serial.print("TE (after)=");
+        //Serial.println(totalEnergy);
+        //Serial.print("energyDiff (after)=");
+        //Serial.println(energyDiff);
+#endif
       }
-      /*Serial.print("ED=");
-      Serial.println(energyADay);
-      Serial.print("TE=");
-      Serial.println(totalEnergy);
-      */
     } else {
       power=0;
     }
@@ -730,8 +778,11 @@ void displayRelayStatus(void) {
 void sendDataSerial() {
   if (firstMeasComplete==false) return;
 
+#ifdef serial
+  Serial.print("DATA:");
+#endif
 	//data sended:
-	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#S;123456$3600177622*
+	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456;#A;0$3600177622*
 	digitalWrite(LEDPIN,HIGH);
 	crc = ~0L;
   for (byte i=0;i<numberOfDevices; i++) {
@@ -796,9 +847,19 @@ void sendDataSerial() {
 
   //total time in minutes
 	send(START_BLOCK);
-	send('S');
+	send('C');
 	send(DELIMITER);
-	send((totalSec+(msDiff/1000))/60);
+	send(totalSec/60);
+
+	send(START_BLOCK);
+	send('A');
+	send(DELIMITER);
+	send(status);
+  
+  if (status>0) {
+    status=0;
+  }
+
 	
 	send(END_BLOCK);
 #ifdef serial
@@ -822,7 +883,7 @@ void readDataSerial() {
   byte crcPointer=0;
   bool startCRC = false;
 #ifdef serial
-	Serial.println("Setup req.");
+	Serial.print("Setup req.:");
 #endif
 	//#ON (4digits, only >=0) OFF (4digits (ex 25.1...), only >=0) MODE 1 digit $CRC
 	//#25.115.50$541458114*
@@ -839,7 +900,7 @@ void readDataSerial() {
       crc_string(setOn);
 #ifdef serial
 			Serial.print("ON=");
-			Serial.println(setOn);
+			Serial.print(setOn);
 #endif
       //OFF
 			mySerial.readBytes(b,4);
@@ -847,16 +908,16 @@ void readDataSerial() {
 			setOff=atof(b);
       crc_string(setOff);
 #ifdef serial
-			Serial.print("OFF=");
-			Serial.println(setOff);
+			Serial.print(",OFF=");
+			Serial.print(setOff);
 #endif
 			mySerial.readBytes(b,1);
       //MODE 0 - auto, 1 - ON, 2 - OFF
       setModeSolar = b[0]-48;
       crc_string(setModeSolar);
 #ifdef serial
-			Serial.print("Mode=");
-			Serial.println(modeSolar);
+			Serial.print(",Mode=");
+			Serial.print(modeSolar);
 #endif
 		}
 
@@ -871,23 +932,19 @@ void readDataSerial() {
     if (incomingByte=='$') {
       startCRC = true;
 #ifdef serial
-      Serial.print("CRC-");
+      Serial.print(" CRC-");
 #endif
     }
 
   } while ((char)incomingByte!='*' && millis() < (timeOut + serialTimeout));
 
-#ifdef serial
-  Serial.println();
-#endif
-
   //validation with CRC
 #ifdef serial
-  Serial.print("CRC=");
+  Serial.print(" CRC=");
   Serial.println(crcBuffer);
 #endif
   //if (crc==atol(crcBuffer)) {
-  if (true) {
+  if (false) {
     //data valid
     //if any change -> save setup to EEPROM
     if (tempDiffON!=setOn) {
@@ -971,11 +1028,17 @@ void send(byte s, char type) {
 }
 
 void send(unsigned long s) {
+#ifdef serial
   Serial.print(s);
+#endif
+	mySerial.print(s);
 }
 
 void send(unsigned int s) {
+#ifdef serial
   Serial.print(s);
+#endif
+  mySerial.print(s);
 }
 
 void send(float s) {
@@ -1016,25 +1079,26 @@ void crc_string(byte s)
 }
 
 void writeTotalEEPROM() {
-  writeTotalEEPROM(totalEnergy);
-}
-
-void writeTotalEEPROM(unsigned long e) {
-	EEPROM.write(totalEnergyEEPROMAdrL, e & 0xFF);
-	EEPROM.write(totalEnergyEEPROMAdrS, (e >> 8) & 0xFF);
-	EEPROM.write(totalEnergyEEPROMAdrM, (e >> 16) & 0xFF);
-	EEPROM.write(totalEnergyEEPROMAdrH, (e >> 24) & 0xFF); 
+	EEPROM.write(totalEnergyEEPROMAdrL, totalEnergy & 0xFF);
+	EEPROM.write(totalEnergyEEPROMAdrS, (totalEnergy >> 8) & 0xFF);
+	EEPROM.write(totalEnergyEEPROMAdrM, (totalEnergy >> 16) & 0xFF);
+	EEPROM.write(totalEnergyEEPROMAdrH, (totalEnergy >> 24) & 0xFF); 
+#ifdef serial
   Serial.print("Save totalEnergy to EEPROM:");
   Serial.print(totalEnergy);
   Serial.println("Ws");
-
-  totalSec+=msDiff;
+#endif
 	EEPROM.write(totalSecEEPROMAdrL, totalSec & 0xFF);
 	EEPROM.write(totalSecEEPROMAdrS, (totalSec >> 8) & 0xFF);
 	EEPROM.write(totalSecEEPROMAdrM, (totalSec >> 16) & 0xFF);
 	EEPROM.write(totalSecEEPROMAdrH, (totalSec >> 24) & 0xFF); 
+#ifdef serial
+  Serial.print("Save totalSec to EEPROM:");
+  Serial.print(totalSec);
+  Serial.println("s");
+#endif
   lastWriteEEPROM = millis();
-  msDiff = 0;
+  status=3;
 }
 
 void readTotalEEPROM() {
@@ -1043,6 +1107,7 @@ void readTotalEEPROM() {
 	int valueIM = EEPROM.read(totalEnergyEEPROMAdrM);
 	int valueIS = EEPROM.read(totalEnergyEEPROMAdrS);
 	int valueIL = EEPROM.read(totalEnergyEEPROMAdrL);
+#ifdef serial
 	/*Serial.print("H:");
 	Serial.println(valueIH); //18
 	Serial.print("M:");
@@ -1052,19 +1117,23 @@ void readTotalEEPROM() {
 	Serial.print("L:");
 	Serial.println(valueIL);  //0
 	*/
+#endif
 	totalEnergy = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
+#ifdef serial
 	Serial.print("TotalEnergy from EEPROM:");
 	Serial.print(totalEnergy);
   Serial.println("Ws");
-
+#endif
 	valueIH = EEPROM.read(totalSecEEPROMAdrH);
 	valueIM = EEPROM.read(totalSecEEPROMAdrM);
 	valueIS = EEPROM.read(totalSecEEPROMAdrS);
 	valueIL = EEPROM.read(totalSecEEPROMAdrL);
 	totalSec = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
+#ifdef serial
 	Serial.print("TotalSec from EEPROM:");
 	Serial.print(totalSec);
   Serial.println("s");
+#endif
 }
 
 unsigned int getPower() {
