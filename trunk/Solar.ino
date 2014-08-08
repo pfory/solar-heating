@@ -177,14 +177,14 @@ float tIn		                              = 0; //input medium temperature to sola
 float tOut	                              = 0; //output medium temperature to solar panel
 float tRoom	                              = 0; //room temperature
 float tBojler                             = 0; //boiler temperature
-float tDir                                = 0; //temperature which is used as control temperature
+float tControl                            = 0; //temperature which is used as control temperature
 
 //maximal temperatures
 float tMaxIn			                        = 0; //maximal input temperature (just for statistics)
 float tMaxOut			                        = 0; //maximal output temperature (just for statistics)
 float tMaxBojler 	                        = 0; //maximal boiler temperature (just for statistics)
 
-byte ridiciCidlo                          = 0; //sensor of directing index
+byte controlSensor                          = 0; //control sensor index
 
 //int powerOff                            = 200;     //minimalni vykon, pokud je vykon nizssi, rele vzdy vypne
 float safetyON                            = 80.0; //teplota, pri niz rele vzdy sepne
@@ -259,7 +259,7 @@ byte const totalEnergyEEPROMAdrH        	= 4;
 byte const totalEnergyEEPROMAdrM        	= 5;
 byte const totalEnergyEEPROMAdrS        	= 6;
 byte const totalEnergyEEPROMAdrL        	= 7;
-byte const ridiciCidloEEPROMAdr	          = 8;
+byte const controlSensorEEPROMAdr	          = 8;
 byte const totalSecEEPROMAdrH	            = 9;
 byte const totalSecEEPROMAdrM	            = 10;
 byte const totalSecEEPROMAdrS	            = 11;
@@ -271,6 +271,10 @@ char  const   versionSWString[]           = "Solar v";
 
 //--------------------------------------------------------------------------------------------------------------------------
 void setup() {
+#ifdef watchdog
+	wdt_enable(WDTO_8S);
+#endif
+
 	lcd.begin(LCDCOLS,LCDROWS);               // initialize the lcd 
   // Switch on the backlight
   pinMode(BACKLIGHT, OUTPUT);
@@ -299,45 +303,20 @@ void setup() {
   digitalWrite(RELAY1PIN, relay1);
   lastOn=millis();
 
-#ifdef watchdog
-	wdt_enable(WDTO_8S);
-#endif
-
-  //25.5 -> 25 5
-  int valueIH = EEPROM.read(tempDiffONEEPROMAdrH);
-  int valueIL = EEPROM.read(tempDiffONEEPROMAdrL);
-  float valueF = (float)valueIH + (float)valueIL / 10;
-  if (valueF<200) {
-    tempDiffON = valueF;
-  }
-  else {} //use default value=25.0 see variable initialization
-  valueIH = EEPROM.read(tempDiffOFFEEPROMAdrH);
-  valueIL = EEPROM.read(tempDiffOFFEEPROMAdrL);
-  valueF = (float)valueIH + (float)valueIL / 10;
-  if (valueF<200) {
-    tempDiffOFF = valueF;
-  }
-  else {} //use default value=15.0 see variable initialization
-
+  readAndSetONOFFFromEEPROM();
   readTotalEEPROM();
+
   //#define setTE
 #ifdef setTE
-  totalEnergy = 315530 * 3600;
-  totalSec = 1134000;
-  Serial.println(totalSec);
-  writeTotalEEPROM();
-  readTotalEEPROM();
+  setTE();
 #endif
 
-  ridiciCidlo = EEPROM.read(ridiciCidloEEPROMAdr);
-  if (ridiciCidlo!=0 || ridiciCidlo!=3) {
-    ridiciCidlo=0;
-    EEPROM.write(ridiciCidloEEPROMAdr, ridiciCidlo);
-  }
+  readAndSetControlSensorFromEEPROM();
+ 
   status = 2;
+
 } //setup
 
-//--------------------------------------------------------------------------------------------------------------------------
 void loop() {
 #ifdef watchdog
 	wdt_reset();
@@ -345,7 +324,20 @@ void loop() {
   
   tempMeas();
   calcPowerAndEnergy();
+  mainControl();
+  lcdShow(); //show display
+  
+  if (lastOff > 0 && (millis() - lastOff>dayInterval)) {
+      lastOff = 0;
+  }
 
+  communication();
+
+  keyBoard();
+} //loop
+
+
+void mainControl() {
   //safety function
   if ((tOut || tIn) >= safetyON) {
     relay1=LOW; //relay ON
@@ -357,8 +349,8 @@ void loop() {
       if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
         writeTotalEEPROM();
       }
-      //if (((tOut - tDir) < tempDiffOFF && (tIn < tOut) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
-      if (((tOut - tDir) < tempDiffOFF) && (millis() - delayAfterON >= lastOffOn)) { //switch pump ON->OFF
+      //if (((tOut - tControl) < tempDiffOFF && (tIn < tOut) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
+      if (((tOut - tControl) < tempDiffOFF) && (millis() - delayAfterON >= lastOffOn)) { //switch pump ON->OFF
 #ifdef serial
         Serial.print("millis()=");
         Serial.print(millis());
@@ -368,8 +360,8 @@ void loop() {
         Serial.print(lastOffOn);
         Serial.print(" tOut=");
         Serial.print(tOut);
-        Serial.print("tDir=");
-        Serial.println(tDir);
+        Serial.print("tControl=");
+        Serial.println(tControl);
 #endif
         relay1=HIGH; //relay OFF = HIGH
         //digitalWrite(RELAY1PIN, relay1);
@@ -379,8 +371,8 @@ void loop() {
         writeTotalEEPROM();
       }
     } else { //pump is OFF - relay OFF = HIGH
-      //if ((((tOut - tDir) >= tempDiffON) || ((tIn - tDir) >= tempDiffON))) { //switch pump OFF->ON
-      if ((tOut - tDir) >= tempDiffON) { //switch pump OFF->ON
+      //if ((((tOut - tControl) >= tempDiffON) || ((tIn - tControl) >= tempDiffON))) { //switch pump OFF->ON
+      if ((tOut - tControl) >= tempDiffON) { //switch pump OFF->ON
         relay1=LOW; //relay ON = LOW
         //digitalWrite(RELAY1PIN, relay1);
         lastOn = millis();
@@ -400,23 +392,8 @@ void loop() {
     }
   }
   digitalWrite(RELAY1PIN, relay1);
-  
-  lcdShow(); //show display
-  
-/*#ifdef serial		
-  Serial.print("tempDiffON=");
-  Serial.println(tempDiffON);
-  Serial.print("tempDiffOFF=");
-  Serial.println(tempDiffOFF);
-#endif*/
-  if (lastOff > 0 && (millis() - lastOff>dayInterval)) {
-      lastOff = 0;
-  }
+}
 
-  communication();
-
-  keyBoard();
-} //loop
 
 void tempMeas() {
  if (!dsMeasStarted) {
@@ -443,11 +420,11 @@ void tempMeas() {
 
       sensor[i] = tempTemp;
     } 
-		tOut 	  = sensor[1];
-		tIn	 	  = sensor[2];
-		tRoom   = sensor[3];
-		tBojler = sensor[0];
-    tDir    = sensor[ridiciCidlo];
+		tOut 	    = sensor[1];
+		tIn	 	    = sensor[2];
+		tRoom     = sensor[3];
+		tBojler   = sensor[0];
+    tControl  = sensor[controlSensor];
 		
 		if (tOut>tMaxOut) 			tMaxOut 		= tOut;
 		if (tIn>tMaxIn) 				tMaxIn  		= tIn;
@@ -462,7 +439,7 @@ void tempMeas() {
 		Serial.print(" tBojler:");
     Serial.print(tBojler);
 		Serial.print(" Ridici teplota:");
-    Serial.println(tDir);
+    Serial.println(tControl);
 #endif*/
 		//obcas se vyskytne chyba a vsechna cidla prestanou merit
 		//zkusim restartovat sbernici
@@ -569,12 +546,12 @@ void keyBoard() {
     6 - Max bojler
     B - BACKLIGHT ON
     7 - Max power today
-    8 - Directing sensor
-    9 -
+    8 - Control sensor
+    9 - total time
     C - DISPLAY CLEAR
     * - Save total energy to EEPROM
     0 -
-    # - Select directing sensor
+    # - Select control sensor
     D - manual/auto
 		*/
 		if (customKey=='D') {
@@ -603,21 +580,21 @@ void keyBoard() {
       lcd.clear();
 			display=0;
     }
-		else if (customKey=='1') { //total energy or save directing sensor to EEPROM
+		else if (customKey=='1') { //total energy or save control sensor to EEPROM
       lcd.clear();
       if (display>=200 && display<300) {
-        ridiciCidlo=3; //ROOM
-        EEPROM.write(ridiciCidloEEPROMAdr, ridiciCidlo);
+        controlSensor=3; //ROOM
+        EEPROM.write(controlSensorEEPROMAdr, controlSensor);
         display=200-display;
       } else {
         display=1;
       }
     }
-		else if (customKey=='2') { //TempDiffON or save directing sensor to EEPROM
+		else if (customKey=='2') { //TempDiffON or save control sensor to EEPROM
       lcd.clear();
       if (display>=200 && display<300) {
-        ridiciCidlo=0; //Bojler
-        EEPROM.write(ridiciCidloEEPROMAdr, ridiciCidlo);
+        controlSensor=0; //Bojler
+        EEPROM.write(controlSensorEEPROMAdr, controlSensor);
         display=200-display;
       } else {
         display=2;
@@ -643,15 +620,19 @@ void keyBoard() {
       lcd.clear();
       display=7;
     }
-		else if (customKey=='8') { //Directing sensor
+		else if (customKey=='8') { //Control sensor
       lcd.clear();
       display=8;
+    }
+		else if (customKey=='9') { //Toatal time
+      lcd.clear();
+      display=9;
     }
 		else if (customKey=='*') { //Save total energy to EEPROM
       writeTotalEEPROM();
       display=100 + display;
     }
-		else if (customKey=='#') { //Select directing sensor
+		else if (customKey=='#') { //Select control sensor
       display=200 + display;
     }
   }
@@ -1136,6 +1117,24 @@ void readTotalEEPROM() {
 #endif
 }
 
+void readAndSetONOFFFromEEPROM() {
+  //25.5 -> 25 5
+  int valueIH = EEPROM.read(tempDiffONEEPROMAdrH);
+  int valueIL = EEPROM.read(tempDiffONEEPROMAdrL);
+  float valueF = (float)valueIH + (float)valueIL / 10;
+  if (valueF<200) {
+    tempDiffON = valueF;
+  }
+  else {} //use default value=25.0 see variable initialization
+  valueIH = EEPROM.read(tempDiffOFFEEPROMAdrH);
+  valueIL = EEPROM.read(tempDiffOFFEEPROMAdrL);
+  valueF = (float)valueIH + (float)valueIL / 10;
+  if (valueF<200) {
+    tempDiffOFF = valueF;
+  }
+  else {} //use default value=15.0 see variable initialization
+}
+
 unsigned int getPower() {
   return (float)energyKoef*(tOut-tIn); //in W
 }
@@ -1145,7 +1144,7 @@ void lcdShow() {
 			//display OUT  IN  ROOM
 			displayTemp(TEMP1X,TEMP1Y, tOut);
 			displayTemp(TEMP2X,TEMP2Y, tIn);
-			displayTemp(TEMP3X,TEMP3Y, tDir);
+			displayTemp(TEMP3X,TEMP3Y, tControl);
 			//zobrazeni okamziteho vykonu ve W
 			//zobrazeni celkoveho vykonu za den v kWh
 			//zobrazeni poctu minut behu cerpadla za aktualni den
@@ -1175,7 +1174,7 @@ void lcdShow() {
 		} else if (display==1) { //total Energy
       //lcd.clear();
 			lcd.setCursor(0,0);
-      lcd.print("Total Energy");
+      lcd.print("Total energy");
 			lcd.setCursor(0,1);
       lcd.print(enegyWsTokWh(totalEnergy));
       lcd.print(" kWh     ");
@@ -1224,21 +1223,28 @@ void lcdShow() {
 			lcd.setCursor(0,1);
       lcd.print(maxPower);
       lcd.print(" W     ");
-    } else if (display==8) { //Directing sensor
+    } else if (display==8) { //Control sensor
 			lcd.setCursor(0,0);
       //lcd.clear();
-      lcd.print("Directing sensor");
+      lcd.print("Control sensor");
 			lcd.setCursor(0,1);
-      if (ridiciCidlo==3) {
+      if (controlSensor==3) {
         lcd.print("Room");
-      } else if (ridiciCidlo==0) {
+      } else if (controlSensor==0) {
         lcd.print("Bojler");
       } else {
         lcd.print("Unknown");
 			}
       lcd.print(" [");
-      lcd.print(sensor[ridiciCidlo]);
+      lcd.print(sensor[controlSensor]);
       lcd.print("]   ");
+		} else if (display==9) { //total time
+      //lcd.clear();
+			lcd.setCursor(0,0);
+      lcd.print("Total time");
+			lcd.setCursor(0,1);
+      lcd.print(totalSec/60/60));
+      lcd.print(" hours   ");
     } else if (display>=100 && display<200) { //Save energy to EEPROM
 			lcd.setCursor(0,0);
       //lcd.clear();
@@ -1252,7 +1258,7 @@ void lcdShow() {
     } else if (display>=200 && display<300) { //Vyber ridiciho cidla
 			lcd.setCursor(0,0);
       //lcd.clear();
-      lcd.print("Directing sensor");
+      lcd.print("Control sensor");
 			lcd.setCursor(0,1);
       lcd.print("Room=1 Bojler=2");
     }
@@ -1262,6 +1268,23 @@ void lcdShow() {
     //Save Energy EEPR
     //Yes = 1
 
+}
+
+#ifdef setTE
+void setTE() {
+  totalEnergy = 315530 * 3600;
+  totalSec = 1134000;
+  writeTotalEEPROM();
+  readTotalEEPROM();
+}
+#endif
+
+void readAndSetControlSensorFromEEPROM() {
+  controlSensor = EEPROM.read(controlSensorEEPROMAdr);
+  if (controlSensor!=0 || controlSensor!=3) {
+    controlSensor=0;
+    EEPROM.write(controlSensorEEPROMAdr, controlSensor);
+  }
 }
 
 float enegyWsTokWh(float e) {
