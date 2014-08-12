@@ -195,7 +195,9 @@ mode powerMode                            = NORMAL;
 byte display                              = 0;
 //status  0/1 - normal
 //        2 - after start
-//        3 - write total to EEPROM
+//        3 - write total to EEPROM - delay
+//        4 - write total to EEPROM - ON->OFF
+//        5 - write total to EEPROM - manual
 byte status                               = 0;
 
 //0123456789012345
@@ -347,7 +349,7 @@ void mainControl() {
     if (relay1==LOW) { 
       //save totalEnergy to EEPROM
       if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
-        writeTotalEEPROM();
+        writeTotalEEPROM(3);
       }
       //if (((tOut - tControl) < tempDiffOFF && (tIn < tOut) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
       if (((tOut - tControl) < tempDiffOFF) && (millis() - delayAfterON >= lastOffOn)) { //switch pump ON->OFF
@@ -368,7 +370,7 @@ void mainControl() {
         lastOff=millis();
         lastOn4Delay=0;
         //save totalEnergy to EEPROM
-        writeTotalEEPROM();
+        writeTotalEEPROM(4);
       }
     } else { //pump is OFF - relay OFF = HIGH
       //if ((((tOut - tControl) >= tempDiffON) || ((tIn - tControl) >= tempDiffON))) { //switch pump OFF->ON
@@ -629,7 +631,7 @@ void keyBoard() {
       display=9;
     }
 		else if (customKey=='*') { //Save total energy to EEPROM
-      writeTotalEEPROM();
+      writeTotalEEPROM(5);
       display=100 + display;
     }
 		else if (customKey=='#') { //Select control sensor
@@ -1059,7 +1061,7 @@ void crc_string(byte s)
   crc = ~crc;
 }
 
-void writeTotalEEPROM() {
+void writeTotalEEPROM(byte typ) {
 	EEPROM.write(totalEnergyEEPROMAdrL, totalEnergy & 0xFF);
 	EEPROM.write(totalEnergyEEPROMAdrS, (totalEnergy >> 8) & 0xFF);
 	EEPROM.write(totalEnergyEEPROMAdrM, (totalEnergy >> 16) & 0xFF);
@@ -1079,7 +1081,7 @@ void writeTotalEEPROM() {
   Serial.println("s");
 #endif
   lastWriteEEPROM = millis();
-  status=3;
+  status=typ;
 }
 
 void readTotalEEPROM() {
@@ -1274,7 +1276,7 @@ void lcdShow() {
 void setTE() {
   totalEnergy = 315530 * 3600;
   totalSec = 1134000;
-  writeTotalEEPROM();
+  writeTotalEEPROM(5);
   readTotalEEPROM();
 }
 #endif
