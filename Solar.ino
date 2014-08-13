@@ -839,7 +839,10 @@ void sendDataSerial() {
 	send(DELIMITER);
 	send(status);
   
-  if (status>0) {
+  if (status==0) {
+    status=1;
+  }
+  else {
     status=0;
   }
 
@@ -1245,7 +1248,7 @@ void lcdShow() {
 			lcd.setCursor(0,0);
       lcd.print("Total time");
 			lcd.setCursor(0,1);
-      lcd.print(totalSec/60/60));
+      lcd.print(totalSec/60/60);
       lcd.print(" hours   ");
     } else if (display>=100 && display<200) { //Save energy to EEPROM
 			lcd.setCursor(0,0);
