@@ -82,21 +82,22 @@ unsigned int const  updateTimeSolarDelay        = 60000; //to send to xively.com
 unsigned int const	readDataTemperatureDelay  	= 15000; //read data from temperature satelite
 unsigned int const 	sendTimeHouseDelay					= 15000; //to send to xively.com
 
-float tIn   				= 0;
-float tOut  				= 0;
-float tRoom 				= 0;
-float tBojler2			= 0;
-
-float tBedRoomOld   = 0;
-float tBedRoomNew   = 0;
-float tBojler   		= 0;
-float tHall   			=	0;
-float tLivingRoom   = 0;
-float tCorridor   	= 0;
-float tWorkRoom   	= 0;
+float tIn   				    = 0;
+float tOut  				    = 0;
+float tRoom 				    = 0;
+float tBojler2			    = 0;
+    
+float tBedRoomOld       = 0;
+float tBedRoomNew       = 0;
+float tBojler   		    = 0;
+float tHall   			    =	0;
+float tLivingRoom       = 0;
+float tCorridor   	    = 0;
+float tWorkRoom   	    = 0;
 float versionSolar;
 byte modeSolar;
-
+unsigned long timeSolar = 0; //minutes
+byte statusSolar        = 0;
 
 unsigned int const SERIAL_SPEED=9600;
 
@@ -148,13 +149,13 @@ char PowerID[] 					= "Power";
 char EnergyID[] 				= "EnergyAday";
 char EnergyTotalID[] 		= "EnergyTotal";
 char ModeID[] 		      = "_Mode";
+char timeSolarID[] 		  = "Time";
 
 //setup feed
 char setTempDiffONID[]  = "setDiffON";
 char setTempDiffOFFID[] = "setDiffOFF";
 char setModeID[]        = "setMode";
 
-bool statusSolar=0;
 bool statusHouse=0;
 byte setModeSolar;
 float setTempDiffOFF;
@@ -174,7 +175,8 @@ XivelyDatastream datastreamsSolar[] = {
 	XivelyDatastream(PowerID, 					strlen(PowerID), 					DATASTREAM_FLOAT),
 	XivelyDatastream(EnergyID, 					strlen(EnergyID), 				DATASTREAM_FLOAT),
 	XivelyDatastream(EnergyTotalID, 		strlen(EnergyTotalID), 		DATASTREAM_FLOAT),
-	XivelyDatastream(ModeID, 		        strlen(ModeID), 		      DATASTREAM_INT)
+	XivelyDatastream(ModeID, 		        strlen(ModeID), 		      DATASTREAM_INT),
+	XivelyDatastream(timeSolarID, 		  strlen(timeSolarID), 		  DATASTREAM_INT)
 };
 
 XivelyDatastream datastreamsSolarSetup[] = {
@@ -183,7 +185,7 @@ XivelyDatastream datastreamsSolarSetup[] = {
 	XivelyDatastream(setModeID, 	      strlen(setModeID),        DATASTREAM_INT)
 };
 
-XivelyFeed feedSolar(xivelyFeedSolar, 			datastreamsSolar, 			13);
+XivelyFeed feedSolar(xivelyFeedSolar, 			datastreamsSolar, 			14);
 XivelyFeed feedSetup(xivelyFeedSetupSolar, 	datastreamsSolarSetup, 	3);
 
 EthernetClient client;
@@ -222,7 +224,7 @@ XivelyFeed feedHouse(xivelyFeedHouse, 						datastreamsHouse, 			9);
 XivelyClient xivelyclientHouse(client);
 
 //--------------ALARM
-char xivelyKeyAlarm[] 			= "9fA2YgbOt7jhEkSR3BUiePAu1WSBTO90uGoiKie0ueIFP157";
+/*char xivelyKeyAlarm[] 			= "9fA2YgbOt7jhEkSR3BUiePAu1WSBTO90uGoiKie0ueIFP157";
 #define xivelyFeedAlarm 				1912511577
 
 bool statusAlarm=0;
@@ -237,6 +239,9 @@ byte delayIn[numberOfZones];
 byte delayOut[numberOfZones];
 
 byte sensorZone[numberOfSensors];
+
+
+float versionAlarm = 0.01;
 
 char VersionAlarmID[] 			= "_V";
 char StatusAlarmID[] 				= "_S";
@@ -306,7 +311,7 @@ XivelyDatastream datastreamsAlarm[] = {
 XivelyFeed feedAlarm(xivelyFeedAlarm, 						datastreamsAlarm, 			30);
 
 XivelyClient xivelyclientAlarm(client);
-
+*/
  
 IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
 // IPAddress timeServer(132, 163, 4, 102); // time-b.timefreq.bldrdoc.gov
@@ -485,7 +490,7 @@ void sendDataSolarXively() {
 		versionSolar=0.59;
 	datastreamsSolar[0].setFloat(versionSolar);
   datastreamsSolar[1].setInt(statusSolar);  
-  if (statusSolar==0) statusSolar=1; else statusSolar=0;
+  //if (statusSolar==0) statusSolar=1; else statusSolar=0;
   datastreamsSolar[2].setFloat(tOut);
   datastreamsSolar[3].setFloat(tIn);  
   datastreamsSolar[4].setFloat(tRoom);  
@@ -496,6 +501,7 @@ void sendDataSolarXively() {
   datastreamsSolar[10].setFloat(energy);  
   datastreamsSolar[11].setFloat(energyTotal);  
   datastreamsSolar[12].setInt(modeSolar);  
+  datastreamsSolar[13].setInt(timeSolar);  
   
   if (relay1==LOW)
     datastreamsSolar[8].setInt(1);  
@@ -552,7 +558,7 @@ void sendDataHouseXively() {
 #endif
 
 }
-
+/*
 void sendDataAlarmXively() {
 	if (versionAlarm==0)
 		versionAlarm=0.01;
@@ -579,7 +585,7 @@ void sendDataAlarmXively() {
   Serial.println(ret);
 #endif
 }
-
+*/
 
 void readDataSolarUART() {
   //read data from Solar unit UART1
@@ -592,7 +598,7 @@ void readDataSolarUART() {
 	byte i=0;
 	char flag=' ';
 	byte status=0;
-	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69M;0$3600177622*
+	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456;#A;$3600177622*
 	char incomingByte = 0;   // for incoming serial data
 	do {
 		incomingByte = Serial1.read();
@@ -660,8 +666,14 @@ void readDataSolarUART() {
 				if (flag=='V') { //Version
 					versionSolar=atof(b);
 				}
-				if (flag=='M') { //Version
+				if (flag=='M') { //Mode
 					modeSolar=atof(b);
+				}
+				if (flag=='C') { //Total time
+					timeSolar=atof(b);
+				}
+				if (flag=='A') { //Status
+					statusSolar=atoi(b);
 				}
 
 				status=1;
@@ -1006,6 +1018,8 @@ void saveDataToSD(char rep) {
 		dataFile.print(energy);
     dataFile.print(";");
 		dataFile.print(energyTotal);
+    dataFile.print(";");
+		dataFile.print(timeSolar);
     dataFile.print(";");
     dataFile.print(versionSolar);
 		
