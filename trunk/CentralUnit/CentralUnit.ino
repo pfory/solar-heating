@@ -94,6 +94,7 @@ float tHall   			    =	0;
 float tLivingRoom       = 0;
 float tCorridor   	    = 0;
 float tWorkRoom   	    = 0;
+float tAttic   	        = 0;
 float versionSolar;
 byte modeSolar;
 unsigned long timeSolar = 0; //minutes
@@ -205,6 +206,7 @@ char TempCorridorID[] 			= "Corridor";
 char TempHallID[] 					= "Hall";
 char TempLivingRoomID[] 		= "LivingRoom";
 char TempWorkRoomID[] 			= "WorkRoom";
+char TempAtticID[] 			    = "Attic";
 bool dataHouseReaded=false;
 
 XivelyDatastream datastreamsHouse[] = {
@@ -216,10 +218,11 @@ XivelyDatastream datastreamsHouse[] = {
 	XivelyDatastream(TempCorridorID, 		strlen(TempCorridorID), 	DATASTREAM_FLOAT),
 	XivelyDatastream(TempHallID,				strlen(TempHallID), 			DATASTREAM_FLOAT),
 	XivelyDatastream(TempLivingRoomID, 	strlen(TempLivingRoomID), DATASTREAM_FLOAT),
-	XivelyDatastream(TempWorkRoomID, 		strlen(TempWorkRoomID), 	DATASTREAM_FLOAT)
+	XivelyDatastream(TempWorkRoomID, 		strlen(TempWorkRoomID), 	DATASTREAM_FLOAT),
+	XivelyDatastream(TempAtticID, 		  strlen(TempAtticID), 	    DATASTREAM_FLOAT)
 };
 
-XivelyFeed feedHouse(xivelyFeedHouse, 						datastreamsHouse, 			9);
+XivelyFeed feedHouse(xivelyFeedHouse, 						datastreamsHouse, 			10);
 
 XivelyClient xivelyclientHouse(client);
 
@@ -352,20 +355,31 @@ unsigned long lastSaveTime;
 unsigned long getNtpTime();
 void sendNTPpacket(IPAddress &address);
 
-float versionSW=0.3;
+float versionSW=0.31;
 char versionSWString[] = "CentralUnit v"; //SW name & version
+
 
 
 void setup() {
   Serial.begin(SERIAL_SPEED);
-	Serial.println("CentralUnit START");
+	Serial.print(versionSWString);
+  Serial.println(versionSW);
 	Serial1.begin(SERIAL_SPEED);
 	Serial2.begin(SERIAL_SPEED);
 	
 	datastreamsHouse[0].setFloat(0.02);
 	
-#ifdef verbose
-	delay(5000);
+  /*delay(5000);
+
+	Serial.println("restart ethernet module");
+  
+  pinMode(22, OUTPUT);
+  digitalWrite(22, LOW);
+  delay(100);
+  digitalWrite(22,HIGH);
+  */
+  
+  #ifdef verbose
   Serial.println("waiting for net connection...");
 #endif
 	//lcd.setCursor(0,0);
@@ -399,11 +413,12 @@ void setup() {
     Serial.println("No internet!");
   }
 #endif
+  /*delay(5000);
 	if (ethOK) {
 		readDataSolarXively(); //read setup from xively for Solar
     sendDataSolarUART(); //send setup data to Solar unit
 	}
-
+  */
 	lastSendDataSolarXivelyTime = lastUpdateSolarTime = lastReadDataSolarUARTTime = lastReadDataHouseUARTTime = millis();
 	
 #ifdef SDdef
@@ -537,6 +552,7 @@ void sendDataHouseXively() {
   datastreamsHouse[6].setFloat(tHall);  
   datastreamsHouse[7].setFloat(tLivingRoom);  
   datastreamsHouse[8].setFloat(tWorkRoom);  
+  datastreamsHouse[9].setFloat(tAttic);  
 
   
 #ifdef verbose
@@ -749,16 +765,19 @@ void readDataHouseUART() {
 				if (flag=='1') { //tBedRoomOld
 					tBedRoomOld=atof(b);
 				}
-				if (flag=='2') { //tLivingRoom
+				if (flag=='2') { //tAttic
+					tAttic=atof(b);
+				}
+				if (flag=='3') { //tLivingRoom
 					tLivingRoom=atof(b);
 				}
-				if (flag=='3') { //tWorkRoom
+				if (flag=='4') { //tWorkRoom
 					tWorkRoom=atof(b);
 				}
-				if (flag=='4') { //tCorridor
+				if (flag=='5') { //tCorridor
 					tCorridor=atof(b);
 				}
-				if (flag=='5') { //tBojler
+				if (flag=='6') { //tBojler
 					tBojler=atof(b);
 				}
 				status=1;
@@ -770,6 +789,8 @@ void readDataHouseUART() {
 	} while ((char)incomingByte!='*' && millis() < (timeOut + 2000));
 
 	Serial.println("\nDATA:");
+	Serial.print("tAttic=");
+	Serial.println(tAttic);
 	Serial.print("tBedRoomNew=");
 	Serial.println(tBedRoomNew);
 	Serial.print("tBedRoomOld=");
