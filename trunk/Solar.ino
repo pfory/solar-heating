@@ -929,7 +929,15 @@ void readDataSerial() {
   Serial.print(" CRC=");
   Serial.println(crcBuffer);
 #endif
-  //if (crc==atol(crcBuffer)) {
+
+  char crcBufferCount [10+1];
+  unsigned long ret = snprintf(crcBufferCount, sizeof(crcBufferCount), "%ld", crc);
+
+  Serial.print(crcBuffer);
+  Serial.print(crcBufferCount);
+  if (crcBuffer==crcBufferCount) {
+  }
+    
   if (false) {
     //data valid
     //if any change -> save setup to EEPROM
