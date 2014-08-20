@@ -780,6 +780,9 @@ void readDataHouseUART() {
 				if (flag=='6') { //tBojler
 					tBojler=atof(b);
 				}
+				if (flag=='?') { //tHall
+					tHall=atof(b);
+				}
 				status=1;
 			}
 			else {
@@ -803,6 +806,8 @@ void readDataHouseUART() {
 	Serial.println(tCorridor);
 	Serial.print("tBojler=");
 	Serial.println(tBojler);
+	Serial.print("tHall=");
+	Serial.println(tHall);
 	Serial.println("Data end");
 #ifdef SDdef
     saveDataToSD('T');
