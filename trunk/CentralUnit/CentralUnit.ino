@@ -76,11 +76,11 @@ unsigned long       lastSendDataSolarXivelyTime;
 unsigned long       lastUpdateSolarTime;
 unsigned long 			lastReadDataHouseUARTTime;
 unsigned long				lastSendDataHouseXivelyTime;
-unsigned int const  readDataSolarDelay          = 5000; //read data from solar unit
-unsigned int const  sendTimeSolarDelay          = 5000; //to send to xively.com
+unsigned int const  readDataSolarDelay          = 20000; //read data from solar unit
+unsigned int const  sendTimeSolarDelay          = 20000; //to send to xively.com
 unsigned int const  updateTimeSolarDelay        = 60000; //to send to xively.com
-unsigned int const	readDataTemperatureDelay  	= 15000; //read data from temperature satelite
-unsigned int const 	sendTimeHouseDelay					= 15000; //to send to xively.com
+unsigned int const	readDataTemperatureDelay  	= 20000; //read data from temperature satelite
+unsigned int const 	sendTimeHouseDelay					= 20000; //to send to xively.com
 
 float tIn   				    = 0;
 float tOut  				    = 0;
@@ -126,6 +126,7 @@ byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x6E};
 //IPAddress gateway(192, 168, 1, 1);
 //IPAddress subnet(255, 255, 255, 0);
 //IPAddress ip(192, 168, 1,89);
+IPAddress ip(192,168,1,101);
 
 //XIVELY
 #include <Xively.h>
@@ -355,7 +356,7 @@ unsigned long lastSaveTime;
 unsigned long getNtpTime();
 void sendNTPpacket(IPAddress &address);
 
-float versionSW=0.31;
+float versionSW=0.32;
 char versionSWString[] = "CentralUnit v"; //SW name & version
 
 
@@ -385,16 +386,8 @@ void setup() {
 	//lcd.setCursor(0,0);
   //lcd.print("waiting for net");
 	//Ethernet.begin(mac, ip, dnServer, gateway, subnet);
-  byte cyklus=0;
-  while (ethOK==false && cyklus++<10) {
-    if (Ethernet.begin(mac) == 1) {
-      ethOK = true;
-    }
-#ifdef verbose
-    Serial.println("Error getting IP address via DHCP, trying again...");
-#endif
-    delay(2000);
-  }
+  Ethernet.begin(mac, ip);
+  ethOK = true;
 
 
 #ifdef verbose
