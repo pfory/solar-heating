@@ -7,6 +7,7 @@ Petr Fory pfory@seznam.cz
 SVN  - https://code.google.com/p/solar-heating/
 
 Version history:
+0.77 - 14.8.2014
 0.76 - 7.8.2014
 0.75 - 31.7.2014  funkcni pocitani totalSec a totalPower
 0.74 - 30.7.2014  add delay after ON, prevent cyclic switch ON-OFF-ON....
@@ -268,7 +269,7 @@ byte const totalSecEEPROMAdrS	            = 11;
 byte const totalSecEEPROMAdrL	            = 12;
 
 //SW name & version
-float const   versionSW                   = 0.76;
+float const   versionSW                   = 0.77;
 char  const   versionSWString[]           = "Solar v"; 
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -865,7 +866,8 @@ void readDataSerial() {
 	unsigned long timeOut = millis();
 	char b[4+1];
   crc = ~0L;
-  char crcBuffer[10+1]; //long = 10digits
+  byte const bufLen=10;
+  char crcBuffer[bufLen+1]; //long = 10digits
   byte crcPointer=0;
   bool startCRC = false;
 #ifdef serial
@@ -911,8 +913,10 @@ void readDataSerial() {
 #ifdef serial
       Serial.print(incomingByte);
 #endif
-      crcBuffer[crcPointer++]=incomingByte;
-      crcBuffer[crcPointer]='\0';
+      if (crcPointer<=bufLen) {
+        crcBuffer[crcPointer++]=incomingByte;
+        crcBuffer[crcPointer]='\0';
+      }
     }
     
     if (incomingByte=='$') {
@@ -1153,133 +1157,133 @@ unsigned int getPower() {
 }
 
 void lcdShow() {
-		if (display==0) { //main display
-			//display OUT  IN  ROOM
-			displayTemp(TEMP1X,TEMP1Y, tOut);
-			displayTemp(TEMP2X,TEMP2Y, tIn);
-			displayTemp(TEMP3X,TEMP3Y, tControl);
-			//zobrazeni okamziteho vykonu ve W
-			//zobrazeni celkoveho vykonu za den v kWh
-			//zobrazeni poctu minut behu cerpadla za aktualni den
-			//0123456789012345
-			// 636 0.1234 720T
-			unsigned int p=(int)power;
-			lcd.setCursor(POWERX,POWERY);
-			if (p<10000) lcd.print(" ");
-			if (p<1000) lcd.print(" ");
-			if (p<100) lcd.print(" ");
-			if (p<10) lcd.print(" ");
-			if (power<=99999) {
-				lcd.print(p);
-			}
-			
-			lcd.setCursor(ENERGYX,ENERGYY);
-			lcd.print(enegyWsTokWh(energyADay)); //Ws -> kWh (show it in kWh)
-			
-			lcd.setCursor(TIMEX,TIMEY);
-			p=(int)(msDayON/1000/60);
-			if (p<100) lcd.print(" ");
-			if (p<10) lcd.print(" ");
-			if (p<=999) {
-				lcd.print(p); //ms->min (show it in minutes)
-			}
-      displayRelayStatus();
-		} else if (display==1) { //total Energy
-      //lcd.clear();
-			lcd.setCursor(0,0);
-      lcd.print("Total energy");
-			lcd.setCursor(0,1);
-      lcd.print(enegyWsTokWh(totalEnergy));
-      lcd.print(" kWh     ");
-    } else if (display==2) { //TempDiffON
-      //lcd.clear();
-			lcd.setCursor(0,0);
-      lcd.print("TempDiffON");
-			lcd.setCursor(0,1);
-      lcd.print(tempDiffON);
-      lcd.print("     ");
-    } else if (display==3) { //TempDiffOFF
-      //lcd.clear();
-			lcd.setCursor(0,0);
-      lcd.print("TempDiffOFF");
-			lcd.setCursor(0,1);
-      lcd.print(tempDiffOFF);
-      lcd.print("     ");
-    } else if (display==4) { //Energy koef
-      //lcd.clear();
-			lcd.setCursor(0,0);
-      lcd.print("Energy koef.");
-			lcd.setCursor(0,1);
-      lcd.print(energyKoef);
-      lcd.print(" W/K    ");
-    } else if (display==5) { //Max IN OUT temp
-			lcd.setCursor(0,0);
-      //lcd.clear();
-      lcd.print("Max IN:");
-      lcd.print(tMaxIn);
-      lcd.print("     ");
-			lcd.setCursor(0,1);
-      lcd.print("Max OUT:");
-      lcd.print(tMaxOut);
-      lcd.print("     ");
-    } else if (display==6) { //Max bojler
-			lcd.setCursor(0,0);
-      //lcd.clear();
-      lcd.print("Max bojler");
-			lcd.setCursor(0,1);
-      lcd.print(tMaxBojler);
-      lcd.print("     ");
-    } else if (display==7) { //Max power today
-			lcd.setCursor(0,0);
-      //lcd.clear();
-      lcd.print("Max power today");
-			lcd.setCursor(0,1);
-      lcd.print(maxPower);
-      lcd.print(" W     ");
-    } else if (display==8) { //Control sensor
-			lcd.setCursor(0,0);
-      //lcd.clear();
-      lcd.print("Control sensor");
-			lcd.setCursor(0,1);
-      if (controlSensor==3) {
-        lcd.print("Room");
-      } else if (controlSensor==0) {
-        lcd.print("Bojler");
-      } else {
-        lcd.print("Unknown");
-			}
-      lcd.print(" [");
-      lcd.print(sensor[controlSensor]);
-      lcd.print("]   ");
-		} else if (display==9) { //total time
-      //lcd.clear();
-			lcd.setCursor(0,0);
-      lcd.print("Total time");
-			lcd.setCursor(0,1);
-      lcd.print(totalSec/60/60);
-      lcd.print(" hours   ");
-    } else if (display>=100 && display<200) { //Save energy to EEPROM
-			lcd.setCursor(0,0);
-      //lcd.clear();
-      lcd.print("Energy saved!  ");
-			lcd.setCursor(0,1);
-      lcd.print(enegyWsTokWh(totalEnergy));
-      lcd.print(" Ws       ");
-      delay(500);
-      lcd.clear();
-      display = display - 100;
-    } else if (display>=200 && display<300) { //Vyber ridiciho cidla
-			lcd.setCursor(0,0);
-      //lcd.clear();
-      lcd.print("Control sensor");
-			lcd.setCursor(0,1);
-      lcd.print("Room=1 Bojler=2");
+  if (display==0) { //main display
+    //display OUT  IN  ROOM
+    displayTemp(TEMP1X,TEMP1Y, tOut);
+    displayTemp(TEMP2X,TEMP2Y, tIn);
+    displayTemp(TEMP3X,TEMP3Y, tControl);
+    //zobrazeni okamziteho vykonu ve W
+    //zobrazeni celkoveho vykonu za den v kWh
+    //zobrazeni poctu minut behu cerpadla za aktualni den
+    //0123456789012345
+    // 636 0.1234 720T
+    unsigned int p=(int)power;
+    lcd.setCursor(POWERX,POWERY);
+    if (p<10000) lcd.print(" ");
+    if (p<1000) lcd.print(" ");
+    if (p<100) lcd.print(" ");
+    if (p<10) lcd.print(" ");
+    if (power<=99999) {
+      lcd.print(p);
     }
     
+    lcd.setCursor(ENERGYX,ENERGYY);
+    lcd.print(enegyWsTokWh(energyADay)); //Ws -> kWh (show it in kWh)
     
-    //1234567890123456
-    //Save Energy EEPR
-    //Yes = 1
+    lcd.setCursor(TIMEX,TIMEY);
+    p=(int)(msDayON/1000/60);
+    if (p<100) lcd.print(" ");
+    if (p<10) lcd.print(" ");
+    if (p<=999) {
+      lcd.print(p); //ms->min (show it in minutes)
+    }
+    displayRelayStatus();
+  } else if (display==1) { //total Energy
+    //lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Total energy");
+    lcd.setCursor(0,1);
+    lcd.print(enegyWsTokWh(totalEnergy));
+    lcd.print(" kWh     ");
+  } else if (display==2) { //TempDiffON
+    //lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("TempDiffON");
+    lcd.setCursor(0,1);
+    lcd.print(tempDiffON);
+    lcd.print("     ");
+  } else if (display==3) { //TempDiffOFF
+    //lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("TempDiffOFF");
+    lcd.setCursor(0,1);
+    lcd.print(tempDiffOFF);
+    lcd.print("     ");
+  } else if (display==4) { //Energy koef
+    //lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Energy koef.");
+    lcd.setCursor(0,1);
+    lcd.print(energyKoef);
+    lcd.print(" W/K    ");
+  } else if (display==5) { //Max IN OUT temp
+    lcd.setCursor(0,0);
+    //lcd.clear();
+    lcd.print("Max IN:");
+    lcd.print(tMaxIn);
+    lcd.print("     ");
+    lcd.setCursor(0,1);
+    lcd.print("Max OUT:");
+    lcd.print(tMaxOut);
+    lcd.print("     ");
+  } else if (display==6) { //Max bojler
+    lcd.setCursor(0,0);
+    //lcd.clear();
+    lcd.print("Max bojler");
+    lcd.setCursor(0,1);
+    lcd.print(tMaxBojler);
+    lcd.print("     ");
+  } else if (display==7) { //Max power today
+    lcd.setCursor(0,0);
+    //lcd.clear();
+    lcd.print("Max power today");
+    lcd.setCursor(0,1);
+    lcd.print(maxPower);
+    lcd.print(" W     ");
+  } else if (display==8) { //Control sensor
+    lcd.setCursor(0,0);
+    //lcd.clear();
+    lcd.print("Control sensor");
+    lcd.setCursor(0,1);
+    if (controlSensor==3) {
+      lcd.print("Room");
+    } else if (controlSensor==0) {
+      lcd.print("Bojler");
+    } else {
+      lcd.print("Unknown");
+    }
+    lcd.print(" [");
+    lcd.print(sensor[controlSensor]);
+    lcd.print("]   ");
+  } else if (display==9) { //total time
+    //lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Total time");
+    lcd.setCursor(0,1);
+    lcd.print(totalSec/60/60);
+    lcd.print(" hours   ");
+  } else if (display>=100 && display<200) { //Save energy to EEPROM
+    lcd.setCursor(0,0);
+    //lcd.clear();
+    lcd.print("Energy saved!  ");
+    lcd.setCursor(0,1);
+    lcd.print(enegyWsTokWh(totalEnergy));
+    lcd.print(" Ws       ");
+    delay(500);
+    lcd.clear();
+    display = display - 100;
+  } else if (display>=200 && display<300) { //Vyber ridiciho cidla
+    lcd.setCursor(0,0);
+    //lcd.clear();
+    lcd.print("Control sensor");
+    lcd.setCursor(0,1);
+    lcd.print("Room=1 Bojler=2");
+  }
+  
+  
+  //1234567890123456
+  //Save Energy EEPR
+  //Yes = 1
 
 }
 
