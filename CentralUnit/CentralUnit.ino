@@ -178,7 +178,7 @@ XivelyDatastream datastreamsSolar[] = {
 	XivelyDatastream(EnergyID, 					strlen(EnergyID), 				DATASTREAM_FLOAT),
 	XivelyDatastream(EnergyTotalID, 		strlen(EnergyTotalID), 		DATASTREAM_FLOAT),
 	XivelyDatastream(ModeID, 		        strlen(ModeID), 		      DATASTREAM_INT),
-	XivelyDatastream(timeSolarID, 		  strlen(timeSolarID), 		  DATASTREAM_INT)
+	XivelyDatastream(timeSolarID, 		  strlen(timeSolarID), 		  DATASTREAM_FLOAT)
 };
 
 XivelyDatastream datastreamsSolarSetup[] = {
@@ -509,7 +509,7 @@ void sendDataSolarXively() {
   datastreamsSolar[10].setFloat(energy);  
   datastreamsSolar[11].setFloat(energyTotal);  
   datastreamsSolar[12].setInt(modeSolar);  
-  datastreamsSolar[13].setInt(timeSolar);  
+  datastreamsSolar[13].setFloat(timeSolar);  
   
   if (relay1==LOW)
     datastreamsSolar[8].setInt(1);  
