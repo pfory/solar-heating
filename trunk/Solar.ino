@@ -7,6 +7,7 @@ Petr Fory pfory@seznam.cz
 SVN  - https://code.google.com/p/solar-heating/
 
 Version history:
+0.78 - 27.9.2014  pridano zobrazeni dnu bez slunce, zap/vyp podsviceni
 0.77 - 14.8.2014
 0.76 - 7.8.2014
 0.75 - 31.7.2014  funkcni pocitani totalSec a totalPower
@@ -269,7 +270,7 @@ byte const totalSecEEPROMAdrS	            = 11;
 byte const totalSecEEPROMAdrL	            = 12;
 
 //SW name & version
-float const   versionSW                   = 0.77;
+float const   versionSW                   = 0.78;
 char  const   versionSWString[]           = "Solar v"; 
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -280,8 +281,9 @@ void setup() {
 
 	lcd.begin(LCDCOLS,LCDROWS);               // initialize the lcd 
   // Switch on the backlight
-  pinMode(BACKLIGHT, OUTPUT);
-  digitalWrite(BACKLIGHT, HIGH);
+  //pinMode(BACKLIGHT, OUTPUT);
+  //digitalWrite(BACKLIGHT, HIGH);
+  lcd.setBacklight(5);
 	mySerial.begin(SERIAL_SPEED);
 	pinMode(LEDPIN,OUTPUT);
 	
@@ -574,11 +576,11 @@ void keyBoard() {
 			lcd.begin(LCDCOLS,LCDROWS);               // reinitialize the lcd 
 		}
 		else if (customKey=='B') {
-		  digitalWrite(BACKLIGHT, HIGH);
+      lcd.setBacklight(5);
 		}
 		else if (customKey=='A') {
-		  digitalWrite(BACKLIGHT, LOW);
-		}
+      lcd.setBacklight(0);
+      }
 		else if (customKey=='0') { //main display
       lcd.clear();
 			display=0;
@@ -1162,32 +1164,40 @@ void lcdShow() {
     displayTemp(TEMP1X,TEMP1Y, tOut);
     displayTemp(TEMP2X,TEMP2Y, tIn);
     displayTemp(TEMP3X,TEMP3Y, tControl);
-    //zobrazeni okamziteho vykonu ve W
-    //zobrazeni celkoveho vykonu za den v kWh
-    //zobrazeni poctu minut behu cerpadla za aktualni den
-    //0123456789012345
-    // 636 0.1234 720T
-    unsigned int p=(int)power;
-    lcd.setCursor(POWERX,POWERY);
-    if (p<10000) lcd.print(" ");
-    if (p<1000) lcd.print(" ");
-    if (p<100) lcd.print(" ");
-    if (p<10) lcd.print(" ");
-    if (power<=99999) {
-      lcd.print(p);
+    if ((millis() - lastOff)>43200000) { //12 hours
+      lcd.setCursor(0,1);
+      lcd.print("Bez slunce ");
+      lcd.print((millis() - lastOff)/1000/3600);
+      lcd.print(" hod");
+    } 
+    else {
+      //zobrazeni okamziteho vykonu ve W
+      //zobrazeni celkoveho vykonu za den v kWh
+      //zobrazeni poctu minut behu cerpadla za aktualni den
+      //0123456789012345
+      // 636 0.1234 720T
+      unsigned int p=(int)power;
+      lcd.setCursor(POWERX,POWERY);
+      if (p<10000) lcd.print(" ");
+      if (p<1000) lcd.print(" ");
+      if (p<100) lcd.print(" ");
+      if (p<10) lcd.print(" ");
+      if (power<=99999) {
+        lcd.print(p);
+      }
+      
+      lcd.setCursor(ENERGYX,ENERGYY);
+      lcd.print(enegyWsTokWh(energyADay)); //Ws -> kWh (show it in kWh)
+      
+      lcd.setCursor(TIMEX,TIMEY);
+      p=(int)(msDayON/1000/60);
+      if (p<100) lcd.print(" ");
+      if (p<10) lcd.print(" ");
+      if (p<=999) {
+        lcd.print(p); //ms->min (show it in minutes)
+      }
+      displayRelayStatus();
     }
-    
-    lcd.setCursor(ENERGYX,ENERGYY);
-    lcd.print(enegyWsTokWh(energyADay)); //Ws -> kWh (show it in kWh)
-    
-    lcd.setCursor(TIMEX,TIMEY);
-    p=(int)(msDayON/1000/60);
-    if (p<100) lcd.print(" ");
-    if (p<10) lcd.print(" ");
-    if (p<=999) {
-      lcd.print(p); //ms->min (show it in minutes)
-    }
-    displayRelayStatus();
   } else if (display==1) { //total Energy
     //lcd.clear();
     lcd.setCursor(0,0);
