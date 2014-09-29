@@ -248,6 +248,7 @@ char hexaKeys[ROWS][COLS]                 = {
 };
 byte rowPins[ROWS]                        = {5,4,3,2}; //connect to the row pinouts of the keypad
 byte colPins[COLS]                        = {9,8,7,6}; //connect to the column pinouts of the keypad
+bool backLight                            = false;
 
 //initialize an instance of class NewKeypad
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
@@ -283,7 +284,12 @@ void setup() {
   // Switch on the backlight
   //pinMode(BACKLIGHT, OUTPUT);
   //digitalWrite(BACKLIGHT, HIGH);
-  lcd.setBacklight(5);
+  if (backLight==true) {
+    lcd.setBacklight(255);
+  }
+  else {
+    lcd.setBacklight(0);
+  }
 	mySerial.begin(SERIAL_SPEED);
 	pinMode(LEDPIN,OUTPUT);
 	
@@ -545,11 +551,11 @@ void keyBoard() {
     1 - total energy
     2 - TempDiffON
     3 - TempDiffOFF
-    A - BACKLIGHT OFF
+    A - BACKLIGHT ON/OFF
     4 - Energy koef
     5 - Max IN OUT temp
     6 - Max bojler
-    B - BACKLIGHT ON
+    B - 
     7 - Max power today
     8 - Control sensor
     9 - total time
@@ -575,12 +581,16 @@ void keyBoard() {
 		if (customKey=='C') {
 			lcd.begin(LCDCOLS,LCDROWS);               // reinitialize the lcd 
 		}
-		else if (customKey=='B') {
-      lcd.setBacklight(5);
-		}
 		else if (customKey=='A') {
-      lcd.setBacklight(0);
+      if (backLight==true) {
+        lcd.setBacklight(0);
+        backLight=false;
       }
+      else {
+        lcd.setBacklight(255);
+        backLight=true;
+      }
+    }
 		else if (customKey=='0') { //main display
       lcd.clear();
 			display=0;
