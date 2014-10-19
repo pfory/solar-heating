@@ -4,7 +4,7 @@
                SOLAR - control system for solar unit
 
 Petr Fory pfory@seznam.cz
-SVN  - https://code.google.com/p/solar-heating/
+SVN  - https://solar-heating.googlecode.com/svn/trunk/
 
 Version history:
 0.78 - 27.9.2014  pridano zobrazeni dnu bez slunce, zap/vyp podsviceni
@@ -338,9 +338,10 @@ void loop() {
   mainControl();
   lcdShow(); //show display
   
-  if (lastOff > 0 && (millis() - lastOff>dayInterval)) {
+  /*if (lastOff > 0 && ((millis() - lastOff)>dayInterval)) {
       lastOff = 0;
   }
+  */
 
   communication();
 
@@ -391,7 +392,9 @@ void mainControl() {
         if (lastOn4Delay==0) {
           lastOn4Delay = lastOn;
         }
-        if (lastOff==0) { //first ON in actual day
+        if ((millis()-lastOff)>=dayInterval) { //first ON in actual day
+          lcd.clear();
+          lastOff=millis();
           energyADay=0;
           //energyDiff=0.0;
           msDayON=0;
@@ -551,11 +554,19 @@ void keyBoard() {
     1 - total energy
     2 - TempDiffON
     3 - TempDiffOFF
+<<<<<<< .mine
+    A - BACKLIGHT ON
+=======
     A - BACKLIGHT ON/OFF
+>>>>>>> .r88
     4 - Energy koef
     5 - Max IN OUT temp
     6 - Max bojler
+<<<<<<< .mine
+    B - BACKLIGHT OFF
+=======
     B - 
+>>>>>>> .r88
     7 - Max power today
     8 - Control sensor
     9 - total time
@@ -581,7 +592,13 @@ void keyBoard() {
 		if (customKey=='C') {
 			lcd.begin(LCDCOLS,LCDROWS);               // reinitialize the lcd 
 		}
+<<<<<<< .mine
 		else if (customKey=='A') {
+      lcd.setBacklight(5);
+		}
+=======
+>>>>>>> .r88
+		else if (customKey=='B') {
       if (backLight==true) {
         lcd.setBacklight(0);
         backLight=false;
@@ -1174,11 +1191,11 @@ void lcdShow() {
     displayTemp(TEMP1X,TEMP1Y, tOut);
     displayTemp(TEMP2X,TEMP2Y, tIn);
     displayTemp(TEMP3X,TEMP3Y, tControl);
-    if ((millis() - lastOff)>43200000) { //12 hours
+    if ((millis()-lastOff)>=dayInterval) {
       lcd.setCursor(0,1);
       lcd.print("Bez slunce ");
       lcd.print((millis() - lastOff)/1000/3600);
-      lcd.print(" hod");
+      lcd.print(" h");
     } 
     else {
       //zobrazeni okamziteho vykonu ve W
@@ -1206,8 +1223,8 @@ void lcdShow() {
       if (p<=999) {
         lcd.print(p); //ms->min (show it in minutes)
       }
-      displayRelayStatus();
     }
+    displayRelayStatus();
   } else if (display==1) { //total Energy
     //lcd.clear();
     lcd.setCursor(0,0);
