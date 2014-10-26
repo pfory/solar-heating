@@ -7,6 +7,7 @@ Petr Fory pfory@seznam.cz
 SVN  - https://solar-heating.googlecode.com/svn/trunk/
 
 Version history:
+0.79 - 24.10.2014 zachyceni stavu po resetu
 0.78 - 27.9.2014  pridano zobrazeni dnu bez slunce, zap/vyp podsviceni
 0.77 - 14.8.2014
 0.76 - 7.8.2014
@@ -269,9 +270,10 @@ byte const totalSecEEPROMAdrH	            = 9;
 byte const totalSecEEPROMAdrM	            = 10;
 byte const totalSecEEPROMAdrS	            = 11;
 byte const totalSecEEPROMAdrL	            = 12;
+byte const backLightEEPROMAdr	            = 13;
 
 //SW name & version
-float const   versionSW                   = 0.78;
+float const   versionSW                   = 0.79;
 char  const   versionSWString[]           = "Solar v"; 
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -281,9 +283,8 @@ void setup() {
 #endif
 
 	lcd.begin(LCDCOLS,LCDROWS);               // initialize the lcd 
-  // Switch on the backlight
-  //pinMode(BACKLIGHT, OUTPUT);
-  //digitalWrite(BACKLIGHT, HIGH);
+  // Switch on the backligckLight
+  backLight = EEPROM.read(backLightEEPROMAdr);
   if (backLight==true) {
     lcd.setBacklight(255);
   }
@@ -554,19 +555,11 @@ void keyBoard() {
     1 - total energy
     2 - TempDiffON
     3 - TempDiffOFF
-<<<<<<< .mine
-    A - BACKLIGHT ON
-=======
     A - BACKLIGHT ON/OFF
->>>>>>> .r88
     4 - Energy koef
     5 - Max IN OUT temp
     6 - Max bojler
-<<<<<<< .mine
-    B - BACKLIGHT OFF
-=======
     B - 
->>>>>>> .r88
     7 - Max power today
     8 - Control sensor
     9 - total time
@@ -592,13 +585,7 @@ void keyBoard() {
 		if (customKey=='C') {
 			lcd.begin(LCDCOLS,LCDROWS);               // reinitialize the lcd 
 		}
-<<<<<<< .mine
 		else if (customKey=='A') {
-      lcd.setBacklight(5);
-		}
-=======
->>>>>>> .r88
-		else if (customKey=='B') {
       if (backLight==true) {
         lcd.setBacklight(0);
         backLight=false;
@@ -607,6 +594,7 @@ void keyBoard() {
         lcd.setBacklight(255);
         backLight=true;
       }
+      EEPROM.write(backLightEEPROMAdr,backLight);
     }
 		else if (customKey=='0') { //main display
       lcd.clear();
