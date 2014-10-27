@@ -196,12 +196,18 @@ enum mode {NORMAL, POWERSAVE};
 mode powerMode                            = NORMAL;
 
 byte display                              = 0;
-//status  0/1 - normal
-//        2 - after start
-//        3 - write total to EEPROM - delay
-//        4 - write total to EEPROM - ON->OFF
-//        5 - write total to EEPROM - manual
-byte status                               = 0;
+
+#define STATUS_NORMAL0                        0
+#define STATUS_NORMAL1                        1
+#define STATUS_AFTER_START                    2
+#define STATUS_WRITETOTALTOEEPROM_DELAY       3
+#define STATUS_WRITETOTALTOEEPROM_ONOFF       4
+#define STATUS_WRITETOTALTOEEPROM_MANUAL      5
+#define STATUS_STARTAFTER_BROWNOUT            6
+#define STATUS_STARTAFTER_POWERON             7
+#define STATUS_STARTAFTER_WATCHDOGOREXTERNAL  8
+
+byte status                               = STATUS_NORMAL0;
 
 //0123456789012345
 //15.6 15.8 15.8 V
@@ -255,6 +261,14 @@ bool backLight                            = false;
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
 #endif
 
+uint8_t MyRstFlags __attribute__ ((section(".noinit")));
+void SaveResetFlags(void) __attribute__ ((naked))
+                          __attribute__ ((section (".init0")));
+void SaveResetFlags(void)
+{
+  __asm__ __volatile__ ("mov %0, r2\n" : "=r" (MyRstFlags) :);
+}
+
 //EEPROM
 #include <EEPROM.h>
 byte const tempDiffONEEPROMAdrH	        	= 0;
@@ -265,12 +279,14 @@ byte const totalEnergyEEPROMAdrH        	= 4;
 byte const totalEnergyEEPROMAdrM        	= 5;
 byte const totalEnergyEEPROMAdrS        	= 6;
 byte const totalEnergyEEPROMAdrL        	= 7;
-byte const controlSensorEEPROMAdr	          = 8;
+byte const controlSensorEEPROMAdr	        = 8;
 byte const totalSecEEPROMAdrH	            = 9;
 byte const totalSecEEPROMAdrM	            = 10;
 byte const totalSecEEPROMAdrS	            = 11;
 byte const totalSecEEPROMAdrL	            = 12;
-byte const backLightEEPROMAdr	            = 13;
+<<<<<<< .minebyte const backLightEEPROMAdrL	          = 13;
+=======byte const backLightEEPROMAdr	            = 13;
+>>>>>>> .theirs
 
 //SW name & version
 float const   versionSW                   = 0.79;
@@ -325,7 +341,10 @@ void setup() {
 
   readAndSetControlSensorFromEEPROM();
  
-  status = 2;
+  if (MyRstFlags==4) status = STATUS_STARTAFTER_BROWNOUT;
+  if (MyRstFlags==5) status = STATUS_STARTAFTER_POWERON;
+  if (MyRstFlags==8) status = STATUS_STARTAFTER_WATCHDOGOREXTERNAL;
+  else status = STATUS_AFTER_START;
 
 } //setup
 
@@ -360,7 +379,7 @@ void mainControl() {
     if (relay1==LOW) { 
       //save totalEnergy to EEPROM
       if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
-        writeTotalEEPROM(3);
+        writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_DELAY);
       }
       //if (((tOut - tControl) < tempDiffOFF && (tIn < tOut) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
       if (((tOut - tControl) < tempDiffOFF) && (millis() - delayAfterON >= lastOffOn)) { //switch pump ON->OFF
@@ -381,7 +400,7 @@ void mainControl() {
         lastOff=millis();
         lastOn4Delay=0;
         //save totalEnergy to EEPROM
-        writeTotalEEPROM(4);
+        writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_ONOFF);
       }
     } else { //pump is OFF - relay OFF = HIGH
       //if ((((tOut - tControl) >= tempDiffON) || ((tIn - tControl) >= tempDiffON))) { //switch pump OFF->ON
@@ -649,7 +668,7 @@ void keyBoard() {
       display=9;
     }
 		else if (customKey=='*') { //Save total energy to EEPROM
-      writeTotalEEPROM(5);
+      writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_MANUAL);
       display=100 + display;
     }
 		else if (customKey=='#') { //Select control sensor
@@ -857,11 +876,11 @@ void sendDataSerial() {
 	send(DELIMITER);
 	send(status);
   
-  if (status==0) {
-    status=1;
+  if (status==STATUS_NORMAL0) {
+    status=STATUS_NORMAL1;
   }
   else {
-    status=0;
+    status=STATUS_NORMAL0;
   }
 
 	
@@ -1316,7 +1335,7 @@ void lcdShow() {
 void setTE() {
   totalEnergy = 315530 * 3600;
   totalSec = 1134000;
-  writeTotalEEPROM(5);
+  writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_MANUAL);
   readTotalEEPROM();
 }
 #endif
