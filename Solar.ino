@@ -284,9 +284,7 @@ byte const totalSecEEPROMAdrH	            = 9;
 byte const totalSecEEPROMAdrM	            = 10;
 byte const totalSecEEPROMAdrS	            = 11;
 byte const totalSecEEPROMAdrL	            = 12;
-<<<<<<< .minebyte const backLightEEPROMAdrL	          = 13;
-=======byte const backLightEEPROMAdr	            = 13;
->>>>>>> .theirs
+byte const backLightEEPROMAdr	            = 13;
 
 //SW name & version
 float const   versionSW                   = 0.79;
