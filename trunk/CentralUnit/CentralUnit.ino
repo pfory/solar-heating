@@ -7,18 +7,18 @@
 // A1 			- 
 // A2 			- 
 // A3 			- 
-// A4         	- 
-// A5        	- 
-// A6        	- 
-// A7        	- 
-// A8        	- 
-// A9        	- 
-// A10        	- 
-// A11        	- 
-// A12        	- 
-// A13        	- 
-// A14        	- 
-// A15        	- 
+// A4      	- 
+// A5      	- 
+// A6      	- 
+// A7      	- 
+// A8      	- 
+// A9      	- 
+// A10     	- 
+// A11     	- 
+// A12     	- 
+// A13     	- 
+// A14     	- 
+// A15     	- 
 // D0 			- Serial monitor (Serial 0 Rx)
 // D1 			- Serial monitor (Serial 0 Tx)
 // D2 			- 
@@ -33,19 +33,19 @@
 // D11 			- Ethernet shield
 // D12 			- Ethernet shield
 // D13 			- Ethernet shield
-// D14      - Alarm (Serial 3 Tx)
-// D15      - Alarm (Serial 3 Rx)
-// D16      - Temperature (Serial 2 Tx)
-// D17      - Temperature (Serial 2 Rx)
-// D18      - Solar (Serial 1 Tx)
-// D19      - Solar (Serial 1 Rx)
-// D20      - (SDA)
-// D21      - (SCL)
-// D22-D49  - reserved for Alarm sensors 26x
-// D50      - MISO
-// D51      - MOSI
-// D52      - SCK
-// D53      - SS
+// D14     	- Alarm (Serial 3 Tx)
+// D15     	- Alarm (Serial 3 Rx)
+// D16     	- Temperature (Serial 2 Tx)
+// D17     	- Temperature (Serial 2 Rx)
+// D18     	- Solar (Serial 1 Tx)
+// D19     	- Solar (Serial 1 Rx)
+// D20     	- (SDA)
+// D21     	- (SCL)
+// D22-D49 	- reserved for Alarm sensors 26x
+// D50     	- MISO
+// D51     	- MOSI
+// D52     	- SCK
+// D53     	- SS
 // D53			- SD card on Ethernet shield
 
 #ifndef dummy //this section prevent from error while program is compiling without Ethernetdef
@@ -63,24 +63,24 @@ char a[0]; //do not delete this dummy variable
 #define SDdef
 
 float sensor[NUMBER_OF_DEVICES];
-float tempDiffON = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
+float tempDiffON  = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
 float tempDiffOFF = 15.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
-bool relay1=HIGH; 
-bool relay2=HIGH; 
-float power = 0.0;
-float energy = 0.0;
+bool relay1       = HIGH; 
+bool relay2       = HIGH; 
+float power       = 0.0;
+float energy      = 0.0;
 float energyTotal = 0.0;
 
 unsigned long       lastReadDataSolarUARTTime;
 unsigned long       lastSendDataSolarXivelyTime;
 unsigned long       lastUpdateSolarTime;
-unsigned long 			lastReadDataHouseUARTTime;
-unsigned long				lastSendDataHouseXivelyTime;
-unsigned int const  readDataSolarDelay          = 20000; //read data from solar unit
-unsigned int const  sendTimeSolarDelay          = 20000; //to send to xively.com
-unsigned int const  updateTimeSolarDelay        = 60000; //to send to xively.com
-unsigned int const	readDataTemperatureDelay  	= 20000; //read data from temperature satelite
-unsigned int const 	sendTimeHouseDelay					= 20000; //to send to xively.com
+unsigned long 		  lastReadDataHouseUARTTime;
+unsigned long		    lastSendDataHouseXivelyTime;
+unsigned int const  readDataSolarDelay                  = 20000; //read data from solar unit
+unsigned int const  sendTimeSolarDelay                  = 20000; //to send to xively.com
+unsigned int const  updateTimeSolarDelay                = 60000; //to send to xively.com
+unsigned int const	readDataTemperatureDelay  	        = 20000; //read data from temperature satelite
+unsigned int const 	sendTimeHouseDelay					        = 20000; //to send to xively.com
 
 float tIn   				    = 0;
 float tOut  				    = 0;
@@ -341,6 +341,8 @@ static PROGMEM prog_uint32_t crc_table[16] = {
     0x9b64c2b0, 0x86d3d2d4, 0xa00ae278, 0xbdbdf21c
 };
 
+EthernetServer server(80);
+
 #ifdef SDdef
 #include <SD.h>
 const int chipSelect = 4;
@@ -356,7 +358,7 @@ unsigned long lastSaveTime;
 unsigned long getNtpTime();
 void sendNTPpacket(IPAddress &address);
 
-float versionSW=0.32;
+float versionSW=0.40;
 char versionSWString[] = "CentralUnit v"; //SW name & version
 
 
@@ -380,7 +382,7 @@ void setup() {
   digitalWrite(22,HIGH);
   */
   
-  #ifdef verbose
+#ifdef verbose
   Serial.println("waiting for net connection...");
 #endif
 	//lcd.setCursor(0,0);
@@ -406,6 +408,14 @@ void setup() {
     Serial.println("No internet!");
   }
 #endif
+
+  server.begin();
+#ifdef verbose
+  Serial.print("server is at ");
+  Serial.println(Ethernet.localIP());
+#endif
+
+
   /*delay(5000);
 	if (ethOK) {
 		readDataSolarXively(); //read setup from xively for Solar
@@ -475,7 +485,103 @@ void loop() {
       }
     }
   }
+  if (ethOK) {
+    checkServer();
+  }
 }
+
+void checkServer(void) {
+  EthernetClient client = server.available();
+  if (client) {
+    Serial.println("new client");
+    // an http request ends with a blank line
+    boolean currentLineIsBlank = true;
+    while (client.connected()) {
+      if (client.available()) {
+        char c = client.read();
+        Serial.write(c);
+        // if you've gotten to the end of the line (received a newline
+        // character) and the line is blank, the http request has ended,
+        // so you can send a reply
+        if (c == '\n' && currentLineIsBlank) {
+          // send a standard http response header
+          client.println("HTTP/1.1 200 OK");
+          client.println("Content-Type: text/html");
+          client.println("Connection: close");  // the connection will be closed after completion of the response
+          client.println("Refresh: 2");  // refresh the page automatically every 5 sec
+          client.println();
+          client.println("<!DOCTYPE HTML>");
+          client.println("<html>");
+
+          client.println("SOLAR:");
+          client.println("<br />");       
+          client.print("Version - ");
+          client.println(versionSolar);
+          client.println("<br />");       
+          client.print("Status - ");
+          client.println(statusSolar);  
+          client.println("<br />");       
+          client.print("tOUT - ");
+          client.println(tOut);
+          client.println("<br />");       
+          client.print("tIN - ");
+          client.println(tIn);  
+          client.println("<br />");       
+          client.print("tROOM - ");
+          client.println(tRoom);  
+          client.println("<br />");       
+          client.print("tBOJLER - ");
+          client.println(tBojler2);  
+          client.println("<br />");       
+          client.print("tempDiffON - ");
+          client.println(tempDiffON);  
+          client.println("<br />");       
+          client.print("tempDiffOFF - ");
+          client.println(tempDiffOFF);  
+          client.println("<br />");       
+          client.print("Power - ");
+          client.println(power);  
+          client.println("<br />");       
+          client.print("Energy - ");
+          client.println(energy);  
+          client.println("<br />");       
+          client.print("Energy total - ");
+          client.println(energyTotal);  
+          client.println("<br />");       
+          client.print("Mode - ");
+          client.println(modeSolar);  
+          client.println("<br />");       
+          client.print("Time - ");
+          client.println(timeSolar);
+          client.println("<br />");   
+          
+  
+          if (relay1==LOW)
+            client.println(1);  
+          else
+            client.println(0);  
+          
+          client.println("</html>");
+          break;
+        }
+        if (c == '\n') {
+          // you're starting a new line
+          currentLineIsBlank = true;
+        } 
+        else if (c != '\r') {
+          // you've gotten a character on the current line
+          currentLineIsBlank = false;
+        }
+      }
+    }
+    // give the web browser time to receive the data
+    delay(1);
+    // close the connection:
+    client.stop();
+    Serial.println("client disconnected");
+  }
+}
+
 
 void sendDataSolarUART() {
 	//#ON (4digits, only >=0) OFF (4digits, only >=0) MODE 1 digit $CRC
@@ -1099,9 +1205,8 @@ void printDigits(int digits){
   // utility function for digital clock display: prints preceding colon and leading 0
   if(digits < 10) {
     Serial.print('0');
-  } else {
-    Serial.print(digits);
   }
+  Serial.print(digits);
 }
 
 
