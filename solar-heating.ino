@@ -53,7 +53,6 @@ D7 						 - keyboard
 D8 						 - keyboard
 D9 						 - keyboard
 D10 					 - free
-D10 					 - free
 D11 					 - free
 D12 					 - free
 D13 					 - free
@@ -71,7 +70,7 @@ unsigned int const SERIAL_SPEED=9600;
 
 #include <avr/pgmspace.h>
 unsigned long crc;
-static PROGMEM prog_uint32_t crc_table[16] = {
+const PROGMEM uint32_t crc_table[16] = {
     0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac,
     0x76dc4190, 0x6b6b51f4, 0x4db26158, 0x5005713c,
     0xedb88320, 0xf00f9344, 0xd6d6a3e8, 0xcb61b38c,
@@ -93,7 +92,7 @@ SoftwareSerial mySerial(RX, TX);
 const unsigned int serialTimeout=2000;
 
 #include <LiquidCrystal_I2C.h>
-#define LCDADDRESS 0x20
+#define LCDADDRESS  0x20
 #define EN 					2
 #define RW 					1
 #define RS 					0
@@ -105,7 +104,7 @@ const unsigned int serialTimeout=2000;
 #define POL 				POSITIVE
 #define LCDROWS			2
 #define LCDCOLS			16
-LiquidCrystal_I2C lcd(LCDADDRESS,EN,RW,RS,D4,D5,D6,D7,BACKLIGHT, POL);  // set the LCD
+LiquidCrystal_I2C lcd(LCDADDRESS,EN,RW,RS,D4,D5,D6,D7,BACKLIGHT,POL);  // set the LCD
 
 // Create a set of new characters
 /*const uint8_t charBitmap[][8] = {
@@ -1331,7 +1330,7 @@ void lcdShow() {
 
 #ifdef setTE
 void setTE() {
-  totalEnergy = 315530 * 3600;
+  totalEnergy = 315530 * 3600; //1274,58
   totalSec = 1134000;
   writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_MANUAL);
   readTotalEEPROM();
