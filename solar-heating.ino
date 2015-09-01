@@ -286,7 +286,7 @@ byte const totalSecEEPROMAdrL	            = 12;
 byte const backLightEEPROMAdr	            = 13;
 
 //SW name & version
-float const   versionSW                   = 0.79;
+float const   versionSW                   = 0.80;
 char  const   versionSWString[]           = "Solar v"; 
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -367,12 +367,12 @@ void loop() {
   keyBoard();
   
   //read from power consumption unit
-  Wire.requestFrom(2, 6);    // request 6 bytes from slave device #2
+/*  Wire.requestFrom(2, 10);    // request 6 bytes from slave device #2
   while(Wire.available())    // slave may send less than requested
   {
     char c = Wire.read();    // receive a byte as character
     Serial.print(c);         // print the character
-  }
+  }*/
 } //loop
 
 
