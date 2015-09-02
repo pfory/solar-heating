@@ -169,6 +169,13 @@ unsigned int  maxPower                    = 0; //maximal power in W
 unsigned long energyADay                  = 0; //energy a day in Ws
 float energyDiff                          = 0.f; //difference in Ws
 unsigned int const energyKoef             = 343; //Ws TODO - read from configuration
+unsigned int pulseCount                   = 0; //
+unsigned long pulseTotal                  = 0;
+unsigned long pulseHour                   = 0;
+unsigned long pulseDay                    = 0;
+unsigned long consumption                 = 0;
+unsigned long lastPulse                   = 0;
+unsigned int cycles                       = 0;
 
 //MODE
 byte modeSolar                            = 0;
@@ -367,22 +374,8 @@ void loop() {
 
   keyBoard();
   
-  //read from power consumption unit
-  bool first = true;
-  Wire.requestFrom(2, 10);    // request 6 bytes from slave device #2
-  while(Wire.available())    // slave may send less than requested
-  {
-    char c = Wire.read();    // receive a byte as character
-    if (c=="-") {
-      break;
-    } else {
-      if (first) {
-        Serial.print("Data from I2C:");
-        firsta=false;
-      }
-      Serial.print(c);         // print the character
-    }
-  }
+  powerMeter();
+  
 } //loop
 
 
@@ -819,7 +812,7 @@ void sendDataSerial() {
   Serial.print("DATA:");
 #endif
 	//data sended:
-	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456;#A;0$3600177622*
+	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12564.56#H;12.41#D;45.12#C;1245$3600177622*
 	digitalWrite(LEDPIN,HIGH);
 	crc = ~0L;
   for (byte i=0;i<numberOfDevices; i++) {
@@ -893,6 +886,35 @@ void sendDataSerial() {
 	send(DELIMITER);
 	send(status);
   
+  pulseTotal+=pulseCount;
+  pulseHour+=pulseCount;
+  pulseDay+=pulseCount;
+  pulseCount=0;
+
+ 	send(START_BLOCK);
+	send('W');
+	send(DELIMITER);
+	send(Wh2kWh(pulseTotal)); //kWh
+
+ 	send(START_BLOCK);
+	send('H');
+	send(DELIMITER);
+	send(Wh2kWh(pulseHour)); //kWh/hod
+
+ 	send(START_BLOCK);
+	send('D');
+	send(DELIMITER);
+	send(Wh2kWh(pulseDay)); //kWh/den
+
+ 	send(START_BLOCK);
+	send('C');
+	send(DELIMITER);
+  if (cycles>0) {
+    send(consumption/cycles); //spotreba W
+  } else {
+    send(0); //spotreba W
+  }
+
   if (status==STATUS_NORMAL0) {
     status=STATUS_NORMAL1;
   }
@@ -900,7 +922,6 @@ void sendDataSerial() {
     status=STATUS_NORMAL0;
   }
 
-	
 	send(END_BLOCK);
 #ifdef serial
 	Serial.print(crc);
@@ -1367,4 +1388,39 @@ void readAndSetControlSensorFromEEPROM() {
 
 float enegyWsTokWh(float e) {
   return e/3600.f/1000.f;
+}
+
+
+void powerMeter() {
+  //read from power consumption unit
+  bool first = true;
+  char c;
+  Wire.requestFrom(2, 10);    // request 6 bytes from slave device #2
+  while(Wire.available())    // slave may send less than requested
+  {
+    c = Wire.read();    // receive a byte as character
+    if (c=="-") {
+      break;
+    } else {
+      if (first) {
+        Serial.print("Data from I2C:");
+        first=false;
+      }
+      Serial.print(c);         // print the character
+    }
+  }
+  
+  if (c!="-") {
+    pulseCount++;
+    if (lastPulse>0) {
+      consumption+=3600000/(millis()-lastPulse);
+      cycles++;
+#ifdef verbose
+      Serial.print("Prikon:");
+      Serial.print(3600000/(millis()-lastPulse));
+      Serial.println(" W");
+#endif
+    }
+    lastPulse=millis();
+  }
 }
