@@ -27,6 +27,8 @@ Version history:
 0.50 - 1.12.2013
 0.41 - 20.10.2013
 
+compilated by Arduino 1.6.4
+
 --------------------------------------------------------------------------------------------------------------------------
 HW
 Pro Mini 328 data are sent via serial line to comunication unit
@@ -886,6 +888,7 @@ void sendDataSerial() {
 	send(DELIMITER);
 	send(status);
   
+  //powerMeter
   pulseTotal+=pulseCount;
   pulseHour+=pulseCount;
   pulseDay+=pulseCount;
@@ -912,9 +915,20 @@ void sendDataSerial() {
   if (cycles>0) {
     send(consumption/cycles); //spotreba W
   } else {
-    send(0); //spotreba W
+    send((unsigned int)0); //spotreba W
   }
-
+  
+  if (cycles>0) {
+    cycles=0;
+    consumption=0;
+  }
+  /*if (minute()==0) {
+    pulseHour=0;
+  }
+  if (minute()==5 && hour()==0) {
+    pulseDay=0;
+  }
+  */  
   if (status==STATUS_NORMAL0) {
     status=STATUS_NORMAL1;
   }
@@ -1386,6 +1400,7 @@ void readAndSetControlSensorFromEEPROM() {
   }
 }
 
+
 float enegyWsTokWh(float e) {
   return e/3600.f/1000.f;
 }
@@ -1395,32 +1410,35 @@ void powerMeter() {
   //read from power consumption unit
   bool first = true;
   char c;
-  Wire.requestFrom(2, 10);    // request 6 bytes from slave device #2
+  Wire.requestFrom(2, 1);    // request 1 byte from slave device #2
   while(Wire.available())    // slave may send less than requested
   {
     c = Wire.read();    // receive a byte as character
-    if (c=="-") {
+    if (c=='-') {
       break;
     } else {
       if (first) {
         Serial.print("Data from I2C:");
         first=false;
+        c='1';
       }
-      Serial.print(c);         // print the character
+      Serial.println(c);         // print the character
     }
   }
   
-  if (c!="-") {
+  if (c!='-') {
     pulseCount++;
     if (lastPulse>0) {
       consumption+=3600000/(millis()-lastPulse);
       cycles++;
-#ifdef verbose
       Serial.print("Prikon:");
       Serial.print(3600000/(millis()-lastPulse));
       Serial.println(" W");
-#endif
     }
     lastPulse=millis();
   }
+}
+
+float Wh2kWh(unsigned long Wh) {
+  return (float)Wh/1000.f;
 }
