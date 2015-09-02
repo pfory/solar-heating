@@ -99,6 +99,11 @@ float versionSolar;
 byte modeSolar;
 unsigned long timeSolar = 0; //minutes
 byte statusSolar        = 0;
+float energyHouse       = 0;  
+float energyHour               = 0;
+float energyDay                = 0;
+float consumption             = 0;
+
 
 unsigned int const SERIAL_SPEED=9600;
 
@@ -148,7 +153,7 @@ char TempDiffONID[] 		= "_DiffON";
 char TempDiffOFFID[] 		= "_DiffOFF";
 char StatusID[] 				= "Status";
 char PowerID[] 					= "Power";
-char EnergyID[] 				= "EnergyAday";
+char EnergyID[] 		= "EnergyAday";
 char EnergyTotalID[] 		= "EnergyTotal";
 char ModeID[] 		      = "_Mode";
 char timeSolarID[] 		  = "Time";
@@ -208,6 +213,10 @@ char TempHallID[] 					= "Hall";
 char TempLivingRoomID[] 		= "LivingRoom";
 char TempWorkRoomID[] 			= "WorkRoom";
 char TempAtticID[] 			    = "Attic";
+char EnergyHouseID[] 			      = "Energy";
+char EnergyHourID[] 			  = "EnergyHour";
+char EnergyDayID[] 			    = "EnergyDay";
+char ConsumptionID[] 			  = "Consumption";
 bool dataHouseReaded=false;
 
 XivelyDatastream datastreamsHouse[] = {
@@ -220,10 +229,14 @@ XivelyDatastream datastreamsHouse[] = {
 	XivelyDatastream(TempHallID,				strlen(TempHallID), 			DATASTREAM_FLOAT),
 	XivelyDatastream(TempLivingRoomID, 	strlen(TempLivingRoomID), DATASTREAM_FLOAT),
 	XivelyDatastream(TempWorkRoomID, 		strlen(TempWorkRoomID), 	DATASTREAM_FLOAT),
-	XivelyDatastream(TempAtticID, 		  strlen(TempAtticID), 	    DATASTREAM_FLOAT)
+	XivelyDatastream(TempAtticID, 		  strlen(TempAtticID), 	    DATASTREAM_FLOAT),
+	XivelyDatastream(EnergyHouseID, 		strlen(EnergyHouseID), 		    DATASTREAM_FLOAT),
+	XivelyDatastream(EnergyHourID, 		  strlen(EnergyHourID), 		DATASTREAM_FLOAT),
+	XivelyDatastream(EnergyDayID, 		  strlen(EnergyDayID), 		  DATASTREAM_FLOAT),
+	XivelyDatastream(ConsumptionID, 		strlen(ConsumptionID), 		DATASTREAM_INT)
 };
 
-XivelyFeed feedHouse(xivelyFeedHouse, 						datastreamsHouse, 			10);
+XivelyFeed feedHouse(xivelyFeedHouse, 						datastreamsHouse, 			14);
 
 XivelyClient xivelyclientHouse(client);
 
@@ -334,7 +347,7 @@ unsigned int localPort = 8888;  // local port to listen for UDP packets
 
 #include <avr/pgmspace.h>
 unsigned long crc;
-static PROGMEM prog_uint32_t crc_table[16] = {
+const PROGMEM uint32_t crc_table[16] = {
     0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac,
     0x76dc4190, 0x6b6b51f4, 0x4db26158, 0x5005713c,
     0xedb88320, 0xf00f9344, 0xd6d6a3e8, 0xcb61b38c,
@@ -616,6 +629,10 @@ void sendDataSolarXively() {
   datastreamsSolar[11].setFloat(energyTotal);  
   datastreamsSolar[12].setInt(modeSolar);  
   datastreamsSolar[13].setFloat(timeSolar);  
+  datastreamsSolar[14].setFloat(energyHouse);  
+  datastreamsSolar[15].setFloat(energyHour);  
+  datastreamsSolar[16].setFloat(energyDay);  
+  datastreamsSolar[17].setFloat(consumption);  
   
   if (relay1==LOW)
     datastreamsSolar[8].setInt(1);  
@@ -713,7 +730,7 @@ void readDataSolarUART() {
 	byte i=0;
 	char flag=' ';
 	byte status=0;
-	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456;#A;$3600177622*
+  //#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12564.56#H;12.41#D;45.12#C;1245$3600177622*
 	char incomingByte = 0;   // for incoming serial data
 	do {
 		incomingByte = Serial1.read();
@@ -791,6 +808,20 @@ void readDataSolarUART() {
 					statusSolar=atoi(b);
 				}
 
+				if (flag=='W') { //kWh
+					energy=atoi(b);
+				}
+				if (flag=='H') { //kWh/hod
+					energyHour=atoi(b);
+				}
+				if (flag=='D') { //kWh/day
+					energyDay=atoi(b);
+				}
+				if (flag=='C') { //Consumption
+					consumption=atoi(b);
+				}
+
+        
 				status=1;
 			}
 			else {
