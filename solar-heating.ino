@@ -7,6 +7,7 @@ Petr Fory pfory@seznam.cz
 SVN  - https://solar-heating.googlecode.com/svn/trunk/
 
 Version history:
+0.80 -            I2C komunikace s powerMeter unit
 0.79 - 24.10.2014 zachyceni stavu po resetu
 0.78 - 27.9.2014  pridano zobrazeni dnu bez slunce, zap/vyp podsviceni
 0.77 - 14.8.2014
@@ -367,12 +368,21 @@ void loop() {
   keyBoard();
   
   //read from power consumption unit
-/*  Wire.requestFrom(2, 10);    // request 6 bytes from slave device #2
+  bool first = true;
+  Wire.requestFrom(2, 10);    // request 6 bytes from slave device #2
   while(Wire.available())    // slave may send less than requested
   {
     char c = Wire.read();    // receive a byte as character
-    Serial.print(c);         // print the character
-  }*/
+    if (c=="-") {
+      break;
+    } else {
+      if (first) {
+        Serial.print("Data from I2C:");
+        firsta=false;
+      }
+      Serial.print(c);         // print the character
+    }
+  }
 } //loop
 
 
