@@ -100,9 +100,9 @@ byte modeSolar;
 unsigned long timeSolar = 0; //minutes
 byte statusSolar        = 0;
 float energyHouse       = 0;  
-float energyHour               = 0;
-float energyDay                = 0;
-float consumption             = 0;
+float energyHour        = 0;
+float energyDay         = 0;
+float consumption       = 0;
 
 
 unsigned int const SERIAL_SPEED=9600;
@@ -121,6 +121,7 @@ unsigned int const SERIAL_SPEED=9600;
 int ethOK=false;
 
 //Ethernet
+#include <SPI.h>
 #include <Ethernet.h>
 #include <HttpClient.h>
 #include <Time.h> 
@@ -230,7 +231,7 @@ XivelyDatastream datastreamsHouse[] = {
 	XivelyDatastream(TempLivingRoomID, 	strlen(TempLivingRoomID), DATASTREAM_FLOAT),
 	XivelyDatastream(TempWorkRoomID, 		strlen(TempWorkRoomID), 	DATASTREAM_FLOAT),
 	XivelyDatastream(TempAtticID, 		  strlen(TempAtticID), 	    DATASTREAM_FLOAT),
-	XivelyDatastream(EnergyHouseID, 		strlen(EnergyHouseID), 		    DATASTREAM_FLOAT),
+	XivelyDatastream(EnergyHouseID, 		strlen(EnergyHouseID), 		DATASTREAM_FLOAT),
 	XivelyDatastream(EnergyHourID, 		  strlen(EnergyHourID), 		DATASTREAM_FLOAT),
 	XivelyDatastream(EnergyDayID, 		  strlen(EnergyDayID), 		  DATASTREAM_FLOAT),
 	XivelyDatastream(ConsumptionID, 		strlen(ConsumptionID), 		DATASTREAM_INT)
@@ -669,7 +670,10 @@ void sendDataHouseXively() {
   datastreamsHouse[7].setFloat(tLivingRoom);  
   datastreamsHouse[8].setFloat(tWorkRoom);  
   datastreamsHouse[9].setFloat(tAttic);  
-
+  datastreamsHouse[10].setFloat(energyHouse);  
+  datastreamsHouse[11].setFloat(energyHour);  
+  datastreamsHouse[12].setFloat(energyDay);  
+  datastreamsHouse[13].setFloat(consumption);
   
 #ifdef verbose
   Serial.println("Uploading temperature to Xively");
