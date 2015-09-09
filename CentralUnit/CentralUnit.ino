@@ -2,6 +2,7 @@
 //Arduino Mega 2560
 //Ethernet shield
 
+//kompilovat v 1.5.6 r2
 
 // A0 			- 230V present
 // A1 			- 
@@ -154,7 +155,7 @@ char TempDiffONID[] 		= "_DiffON";
 char TempDiffOFFID[] 		= "_DiffOFF";
 char StatusID[] 				= "Status";
 char PowerID[] 					= "Power";
-char EnergyID[] 		= "EnergyAday";
+char EnergyID[] 		    = "EnergyAday";
 char EnergyTotalID[] 		= "EnergyTotal";
 char ModeID[] 		      = "_Mode";
 char timeSolarID[] 		  = "Time";
