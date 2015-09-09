@@ -100,9 +100,9 @@ byte modeSolar;
 unsigned long timeSolar = 0; //minutes
 byte statusSolar        = 0;
 float energyHouse       = 0;  
-float energyHour               = 0;
-float energyDay                = 0;
-float consumption             = 0;
+float energyHour        = 0;
+float energyDay         = 0;
+float consumption       = 0;
 
 
 unsigned int const SERIAL_SPEED=9600;
@@ -125,6 +125,7 @@ int ethOK=false;
 #include <HttpClient.h>
 #include <Time.h> 
 #include <EthernetUdp.h>
+//#include <SPI.h>
 
 byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x6E};
 //IPAddress dnServer(192, 168, 1, 1);
@@ -213,7 +214,7 @@ char TempHallID[] 					= "Hall";
 char TempLivingRoomID[] 		= "LivingRoom";
 char TempWorkRoomID[] 			= "WorkRoom";
 char TempAtticID[] 			    = "Attic";
-char EnergyHouseID[] 			      = "Energy";
+char EnergyHouseID[] 	      = "Energy";
 char EnergyHourID[] 			  = "EnergyHour";
 char EnergyDayID[] 			    = "EnergyDay";
 char ConsumptionID[] 			  = "Consumption";
@@ -230,7 +231,7 @@ XivelyDatastream datastreamsHouse[] = {
 	XivelyDatastream(TempLivingRoomID, 	strlen(TempLivingRoomID), DATASTREAM_FLOAT),
 	XivelyDatastream(TempWorkRoomID, 		strlen(TempWorkRoomID), 	DATASTREAM_FLOAT),
 	XivelyDatastream(TempAtticID, 		  strlen(TempAtticID), 	    DATASTREAM_FLOAT),
-	XivelyDatastream(EnergyHouseID, 		strlen(EnergyHouseID), 		    DATASTREAM_FLOAT),
+	XivelyDatastream(EnergyHouseID, 		strlen(EnergyHouseID), 		DATASTREAM_FLOAT),
 	XivelyDatastream(EnergyHourID, 		  strlen(EnergyHourID), 		DATASTREAM_FLOAT),
 	XivelyDatastream(EnergyDayID, 		  strlen(EnergyDayID), 		  DATASTREAM_FLOAT),
 	XivelyDatastream(ConsumptionID, 		strlen(ConsumptionID), 		DATASTREAM_INT)
@@ -371,7 +372,7 @@ unsigned long lastSaveTime;
 unsigned long getNtpTime();
 void sendNTPpacket(IPAddress &address);
 
-float versionSW=0.40;
+float versionSW=0.50;
 char versionSWString[] = "CentralUnit v"; //SW name & version
 
 
@@ -629,10 +630,6 @@ void sendDataSolarXively() {
   datastreamsSolar[11].setFloat(energyTotal);  
   datastreamsSolar[12].setInt(modeSolar);  
   datastreamsSolar[13].setFloat(timeSolar);  
-  datastreamsSolar[14].setFloat(energyHouse);  
-  datastreamsSolar[15].setFloat(energyHour);  
-  datastreamsSolar[16].setFloat(energyDay);  
-  datastreamsSolar[17].setFloat(consumption);  
   
   if (relay1==LOW)
     datastreamsSolar[8].setInt(1);  
@@ -669,7 +666,14 @@ void sendDataHouseXively() {
   datastreamsHouse[7].setFloat(tLivingRoom);  
   datastreamsHouse[8].setFloat(tWorkRoom);  
   datastreamsHouse[9].setFloat(tAttic);  
+  datastreamsHouse[10].setFloat(energyHouse);  
+  datastreamsHouse[11].setFloat(energyHour);  
+  datastreamsHouse[12].setFloat(energyDay);  
+  datastreamsHouse[13].setInt(consumption);  
 
+Serial.println();
+Serial.print("Consumption:");
+Serial.println(consumption);
   
 #ifdef verbose
   Serial.println("Uploading temperature to Xively");
@@ -730,7 +734,7 @@ void readDataSolarUART() {
 	byte i=0;
 	char flag=' ';
 	byte status=0;
-  //#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12564.56#H;12.41#D;45.12#C;1245$3600177622*
+  //#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12564.56#H;12.41#D;45.12#O;1245$3600177622*
 	char incomingByte = 0;   // for incoming serial data
 	do {
 		incomingByte = Serial1.read();
@@ -809,15 +813,15 @@ void readDataSolarUART() {
 				}
 
 				if (flag=='W') { //kWh
-					energy=atoi(b);
+					energyHouse=atof(b);
 				}
 				if (flag=='H') { //kWh/hod
-					energyHour=atoi(b);
+					energyHour=atof(b);
 				}
 				if (flag=='D') { //kWh/day
-					energyDay=atoi(b);
+					energyDay=atof(b);
 				}
-				if (flag=='C') { //Consumption
+				if (flag=='O') { //Consumption
 					consumption=atoi(b);
 				}
 

@@ -341,10 +341,7 @@ void setup() {
   readAndSetONOFFFromEEPROM();
   readTotalEEPROM();
 
-  //#define setTE
-#ifdef setTE
-  setTE();
-#endif
+  //setEEPROM();
 
   readAndSetControlSensorFromEEPROM();
  
@@ -814,7 +811,7 @@ void sendDataSerial() {
   Serial.print("DATA:");
 #endif
 	//data sended:
-	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12564.56#H;12.41#D;45.12#C;1245$3600177622*
+	//#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12564.56#H;12.41#D;45.12#O;1245$3600177622*
 	digitalWrite(LEDPIN,HIGH);
 	crc = ~0L;
   for (byte i=0;i<numberOfDevices; i++) {
@@ -910,7 +907,7 @@ void sendDataSerial() {
 	send(Wh2kWh(pulseDay)); //kWh/den
 
  	send(START_BLOCK);
-	send('C');
+	send('O');
 	send(DELIMITER);
   if (cycles>0) {
     send(consumption/cycles); //spotreba W
@@ -1383,14 +1380,19 @@ void lcdShow() {
 
 }
 
-#ifdef setTE
-void setTE() {
-  totalEnergy = 315530 * 3600; //1274,58
-  totalSec = 1134000;
+void setEEPROM() {
+  totalEnergy = 162091 * 3600; //1274,58
+  totalSec = 5820180;
   writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_MANUAL);
   readTotalEEPROM();
+  tempDiffON=5;
+  tempDiffOFF=2;
+  EEPROM.write(tempDiffONEEPROMAdrH, (char)tempDiffON);
+  EEPROM.write(tempDiffONEEPROMAdrL, (int)(tempDiffON * 10) % 10);
+  EEPROM.write(tempDiffOFFEEPROMAdrH, (char)tempDiffOFF);
+  EEPROM.write(tempDiffOFFEEPROMAdrL, (int)(tempDiffOFF * 10) % 10);
+
 }
-#endif
 
 void readAndSetControlSensorFromEEPROM() {
   controlSensor = EEPROM.read(controlSensorEEPROMAdr);
