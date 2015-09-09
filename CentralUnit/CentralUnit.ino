@@ -672,10 +672,6 @@ void sendDataHouseXively() {
   datastreamsHouse[12].setFloat(energyDay);  
   datastreamsHouse[13].setInt(consumption);  
 
-Serial.println();
-Serial.print("Consumption:");
-Serial.println(consumption);
-  
 #ifdef verbose
   Serial.println("Uploading temperature to Xively");
 #endif
