@@ -29,6 +29,8 @@ Version history:
 
 compilated by Arduino 1.6.4
 
+TODO - odladit CRC kod
+
 --------------------------------------------------------------------------------------------------------------------------
 HW
 Pro Mini 328 data are sent via serial line to comunication unit
