@@ -112,6 +112,7 @@ byte modeSolar;
 unsigned long timeSolar = 0; //minutes
 byte statusSolar        = 0;
 float energyHouse       = 0;  
+float energyHouseDiff   = 0;  
 float energyHour        = 0;
 float energyDay         = 0;
 float consumption       = 0;
@@ -477,10 +478,19 @@ void setup() {
   printDateTime();
   Serial.println(" UTC.");
 
+  int ret = xivelyclient.get(feedHouse, xivelyFeedHouse);
+  Serial.println(ret);
+  if (ret > 0) {
+		energyHouse = datastreamsHouse[10].getFloat()*1000;
+		Serial.print("Nacteno Energy:");
+		Serial.print(energyHouse);
+		Serial.println("Wh");
+  }
 }
 
 //----------------------------------------L O O P ----------------------------------------------------------------------------------
 void loop() {
+  //UART
   if(millis() - lastReadDataSolarUARTTime > readDataSolarDelay) { //20 sec
     lastReadDataSolarUARTTime = millis();
     readDataSolarUART();                  //read data from solar
@@ -489,6 +499,7 @@ void loop() {
     lastReadDataHouseUARTTime = millis();
     readDataHouseUART();                  //read data from temperature satellite
   }   
+  //XIVELY
   if (ethOK) {
     if (!client.connected()) {
       if((millis() - lastSendDataSolarXivelyTime > sendTimeSolarDelay) && dataSolarReaded) { //20 sec
@@ -678,7 +689,7 @@ void sendDataHouseXively() {
   datastreamsHouse[11].setFloat(energyHour);  
   datastreamsHouse[12].setFloat(energyDay);  
   datastreamsHouse[13].setInt(consumption);  
-
+  
 #ifdef verbose
   Serial.println("Uploading temperature to Xively");
 #endif
@@ -687,6 +698,15 @@ void sendDataHouseXively() {
 #endif
 
   int ret = xivelyclientHouse.put(feedHouse, xivelyKeyHouse);
+  
+  if (ret==200) {
+      if (minute()==0) {
+      energyHour=0;
+    }
+    if (minute()==5 && hour()==0) {
+      energyDay=0;
+    }
+  }
   
 #ifdef watchdog
   wdt_enable(WDTO_8S);
@@ -738,7 +758,7 @@ void readDataSolarUART() {
   byte i=0;
   char flag=' ';
   byte status=0;
-  //#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12564.56#H;12.41#D;45.12#O;1245$3600177622*
+  //#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12564.56#O;1245$3600177622*
   char incomingByte = 0;   // for incoming serial data
   do {
     incomingByte = Serial1.read();
@@ -817,14 +837,11 @@ void readDataSolarUART() {
         }
 
         if (flag=='W') { //kWh
-          energyHouse=atof(b);
+          energyHouseDiff=atof(b);
         }
-        if (flag=='H') { //kWh/hod
-          energyHour=atof(b);
-        }
-        if (flag=='D') { //kWh/day
-          energyDay=atof(b);
-        }
+        energyHouse+=energyHouseDiff;
+        energyHour+=energyHouse;
+        energyDay+=energyHouse;
         if (flag=='O') { //Consumption
           consumption=atoi(b);
         }

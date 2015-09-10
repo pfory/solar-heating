@@ -174,9 +174,6 @@ unsigned long energyADay                  = 0; //energy a day in Ws
 float energyDiff                          = 0.f; //difference in Ws
 unsigned int const energyKoef             = 343; //Ws TODO - read from configuration
 unsigned int pulseCount                   = 0; //
-unsigned long pulseTotal                  = 0;
-unsigned long pulseHour                   = 0;
-unsigned long pulseDay                    = 0;
 unsigned long consumption                 = 0;
 unsigned long lastPulse                   = 0;
 unsigned int cycles                       = 0;
@@ -758,7 +755,7 @@ void sendDataSerial() {
   Serial.print("DATA:");
 #endif
   //data sended:
-  //#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12564.56#H;12.41#D;45.12#O;1245$3600177622*
+  //#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12564.56#O;1245$3600177622*
   digitalWrite(LEDPIN,HIGH);
   crc = ~0L;
   for (byte i=0;i<numberOfDevices; i++) {
@@ -833,17 +830,13 @@ void sendDataSerial() {
   send(status);
   
   //powerMeter
-  pulseTotal+=pulseCount;
-  pulseHour+=pulseCount;
-  pulseDay+=pulseCount;
-  pulseCount=0;
-
-   send(START_BLOCK);
+  send(START_BLOCK);
   send('W');
   send(DELIMITER);
-  send(Wh2kWh(pulseTotal)); //kWh
+  send(Wh2kWh(pulseCount)); //kWh
+  pulseCount=0;
 
-   send(START_BLOCK);
+  /*send(START_BLOCK);
   send('H');
   send(DELIMITER);
   send(Wh2kWh(pulseHour)); //kWh/hod
@@ -852,7 +845,7 @@ void sendDataSerial() {
   send('D');
   send(DELIMITER);
   send(Wh2kWh(pulseDay)); //kWh/den
-
+*/
    send(START_BLOCK);
   send('O');
   send(DELIMITER);
