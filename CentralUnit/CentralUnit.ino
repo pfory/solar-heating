@@ -1,60 +1,71 @@
-//HW
-//Arduino Mega 2560
-//Ethernet shield
+/*
+Petr Fory pfory@seznam.cz
+GIT - https://github.com/pfory/solar-heating/tree/master/CentralUnit
 
-//kompilovat v 1.5.6 r2
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Je nutno stahnout i spravnou knihovnu HttpClient z https://github.com/amcewen/HttpClient
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-// A0 			- 230V present
-// A1 			- 
-// A2 			- 
-// A3 			- 
-// A4      	- 
-// A5      	- 
-// A6      	- 
-// A7      	- 
-// A8      	- 
-// A9      	- 
-// A10     	- 
-// A11     	- 
-// A12     	- 
-// A13     	- 
-// A14     	- 
-// A15     	- 
-// D0 			- Serial monitor (Serial 0 Rx)
-// D1 			- Serial monitor (Serial 0 Tx)
-// D2 			- 
-// D3 			- 
-// D4 			- 
-// D5 			- 
-// D6 			- 
-// D7 			- 
-// D8 			- 
-// D9 			- 
-// D10 			- Ethernet shield
-// D11 			- Ethernet shield
-// D12 			- Ethernet shield
-// D13 			- Ethernet shield
-// D14     	- Alarm (Serial 3 Tx)
-// D15     	- Alarm (Serial 3 Rx)
-// D16     	- Temperature (Serial 2 Tx)
-// D17     	- Temperature (Serial 2 Rx)
-// D18     	- Solar (Serial 1 Tx)
-// D19     	- Solar (Serial 1 Rx)
-// D20     	- (SDA)
-// D21     	- (SCL)
-// D22-D49 	- reserved for Alarm sensors 26x
-// D50     	- MISO
-// D51     	- MOSI
-// D52     	- SCK
-// D53     	- SS
-// D53			- SD card on Ethernet shield
+Version history:
+0.80 - 9.9.2015   I2C komunikace s powerMeter unit
+0.79 - 24.10.2014 zachyceni stavu po resetu
+
+TODO:
+
+HW
+Arduino Mega 2560
+Ethernet shield
+
+A0        - 
+A1        - 
+A2        - 
+A3        - 
+A4        - 
+A5        - 
+A6        - 
+A7        - 
+A8        - 
+A9        - 
+A10       - 
+A11       - 
+A12       - 
+A13       - 
+A14       - 
+A15       - 
+D0        - Serial monitor (Serial 0 Rx)
+D1        - Serial monitor (Serial 0 Tx)
+D2        - 
+D3        - 
+D4        - 
+D5        - 
+D6        - 
+D7        - 
+D8        - 
+D9        - 
+D10       - Ethernet shield
+D11       - Ethernet shield
+D12       - Ethernet shield
+D13       - Ethernet shield
+D14       - Alarm (Serial 3 Tx)
+D15       - Alarm (Serial 3 Rx)
+D16       - Temperature (Serial 2 Tx)
+D17       - Temperature (Serial 2 Rx)
+D18       - Solar (Serial 1 Tx)
+D19       - Solar (Serial 1 Rx)
+D20       - (SDA)
+D21       - (SCL)
+D22-D49   - reserved for Alarm sensors 26x
+D50       - MISO
+D51       - MOSI
+D52       - SCK
+D53       - SS
+D53       - SD card on Ethernet shield
+-----------------------------------------------------------------------------------------------
+*/
 
 #ifndef dummy //this section prevent from error while program is compiling without Ethernetdef
 char a[0]; //do not delete this dummy variable
 #endif
-
-//TODO
-//support for data storage on SD card
 
 //Solar system variables
 #ifndef NUMBER_OF_DEVICES
@@ -75,27 +86,27 @@ float energyTotal = 0.0;
 unsigned long       lastReadDataSolarUARTTime;
 unsigned long       lastSendDataSolarXivelyTime;
 unsigned long       lastUpdateSolarTime;
-unsigned long 		  lastReadDataHouseUARTTime;
-unsigned long		    lastSendDataHouseXivelyTime;
+unsigned long       lastReadDataHouseUARTTime;
+unsigned long       lastSendDataHouseXivelyTime;
 unsigned int const  readDataSolarDelay                  = 20000; //read data from solar unit
 unsigned int const  sendTimeSolarDelay                  = 20000; //to send to xively.com
 unsigned int const  updateTimeSolarDelay                = 60000; //to send to xively.com
-unsigned int const	readDataTemperatureDelay  	        = 20000; //read data from temperature satelite
-unsigned int const 	sendTimeHouseDelay					        = 20000; //to send to xively.com
+unsigned int const  readDataTemperatureDelay            = 20000; //read data from temperature satelite
+unsigned int const  sendTimeHouseDelay                  = 20000; //to send to xively.com
 
-float tIn   				    = 0;
-float tOut  				    = 0;
-float tRoom 				    = 0;
-float tBojler2			    = 0;
+float tIn               = 0;
+float tOut              = 0;
+float tRoom             = 0;
+float tBojler2          = 0;
     
 float tBedRoomOld       = 0;
 float tBedRoomNew       = 0;
-float tBojler   		    = 0;
-float tHall   			    =	0;
+float tBojler           = 0;
+float tHall             =  0;
 float tLivingRoom       = 0;
-float tCorridor   	    = 0;
-float tWorkRoom   	    = 0;
-float tAttic   	        = 0;
+float tCorridor         = 0;
+float tWorkRoom         = 0;
+float tAttic            = 0;
 float versionSolar;
 byte modeSolar;
 unsigned long timeSolar = 0; //minutes
@@ -106,27 +117,21 @@ float energyDay         = 0;
 float consumption       = 0;
 
 
-unsigned int const SERIAL_SPEED=9600;
+unsigned int const SERIAL_SPEED = 9600;
 
-#define START_BLOCK 			'#'
-#define DELIMITER 				';'
-#define END_BLOCK 				'$'
-#define END_TRANSMITION 	'*'
-
-// #define testOnProMini
-// #ifdef testOnProMini
-// #include <SoftwareSerial.h>
-// SoftwareSerial mySerial(10, 11); // RX, TX
-// #endif
+#define START_BLOCK       '#'
+#define DELIMITER         ';'
+#define END_BLOCK         '$'
+#define END_TRANSMITION   '*'
 
 int ethOK=false;
 
 //Ethernet
+#include <SPI.h>
 #include <Ethernet.h>
 #include <HttpClient.h>
 #include <Time.h> 
 #include <EthernetUdp.h>
-//#include <SPI.h>
 
 byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x6E};
 //IPAddress dnServer(192, 168, 1, 1);
@@ -139,112 +144,112 @@ IPAddress ip(192,168,1,101);
 #include <Xively.h>
 
 //--------------SOLAR
-char xivelyKeySolar[] 			= "azCLxsU4vKepKymGFFWVnXCvTQ6Ilze3euIsNrRKRRXuSPO8";
-char xivelyKeySetupSolar[] 	= "xabE5tkgkDbMBSn6k60NUqCP4WGpVvp2AMqsL36rWSx6y3Bv";
+char xivelyKeySolar[]         = "azCLxsU4vKepKymGFFWVnXCvTQ6Ilze3euIsNrRKRRXuSPO8";
+char xivelyKeySetupSolar[]    = "xabE5tkgkDbMBSn6k60NUqCP4WGpVvp2AMqsL36rWSx6y3Bv";
 
-#define xivelyFeedSolar 				538561447
-#define xivelyFeedSetupSolar 		2020049288
+#define xivelyFeedSolar        538561447
+#define xivelyFeedSetupSolar   2020049288
 
-char VersionSolarID[]	 	= "V";
-char StatusSolarID[]	 	= "S";
-char TempOUTID[]			 	= "OUT";
-char TempINID[] 				= "IN";
-char TempROOMID[] 			= "ROOM";
-char TempBojler2ID[] 		= "Bojler2";
-char TempDiffONID[] 		= "_DiffON";
-char TempDiffOFFID[] 		= "_DiffOFF";
-char StatusID[] 				= "Status";
-char PowerID[] 					= "Power";
-char EnergyID[] 		    = "EnergyAday";
-char EnergyTotalID[] 		= "EnergyTotal";
-char ModeID[] 		      = "_Mode";
-char timeSolarID[] 		  = "Time";
+char VersionSolarID[]     = "V";
+char StatusSolarID[]      = "S";
+char TempOUTID[]          = "OUT";
+char TempINID[]           = "IN";
+char TempROOMID[]         = "ROOM";
+char TempBojler2ID[]      = "Bojler2";
+char TempDiffONID[]       = "_DiffON";
+char TempDiffOFFID[]      = "_DiffOFF";
+char StatusID[]           = "Status";
+char PowerID[]            = "Power";
+char EnergyID[]           = "EnergyAday";
+char EnergyTotalID[]      = "EnergyTotal";
+char ModeID[]             = "_Mode";
+char timeSolarID[]        = "Time";
 
 //setup feed
 char setTempDiffONID[]  = "setDiffON";
 char setTempDiffOFFID[] = "setDiffOFF";
 char setModeID[]        = "setMode";
 
-bool statusHouse=0;
+bool statusHouse      = 0;
 byte setModeSolar;
 float setTempDiffOFF;
 float setTempDiffON;
-bool dataSolarReaded=false;
+bool dataSolarReaded  = false;
 
 XivelyDatastream datastreamsSolar[] = {
-	XivelyDatastream(VersionSolarID, 		strlen(VersionSolarID), 	DATASTREAM_FLOAT),
-	XivelyDatastream(StatusSolarID, 		strlen(StatusSolarID), 		DATASTREAM_INT),
-	XivelyDatastream(TempOUTID, 				strlen(TempOUTID), 				DATASTREAM_FLOAT),
-	XivelyDatastream(TempINID, 					strlen(TempINID), 				DATASTREAM_FLOAT),
-	XivelyDatastream(TempROOMID, 				strlen(TempROOMID), 			DATASTREAM_FLOAT),
-	XivelyDatastream(TempBojler2ID, 		strlen(TempBojler2ID), 		DATASTREAM_FLOAT),
-	XivelyDatastream(TempDiffONID, 			strlen(TempDiffONID), 		DATASTREAM_FLOAT),
-	XivelyDatastream(TempDiffOFFID, 		strlen(TempDiffOFFID), 		DATASTREAM_FLOAT),
-	XivelyDatastream(StatusID, 					strlen(StatusID), 				DATASTREAM_INT),
-	XivelyDatastream(PowerID, 					strlen(PowerID), 					DATASTREAM_FLOAT),
-	XivelyDatastream(EnergyID, 					strlen(EnergyID), 				DATASTREAM_FLOAT),
-	XivelyDatastream(EnergyTotalID, 		strlen(EnergyTotalID), 		DATASTREAM_FLOAT),
-	XivelyDatastream(ModeID, 		        strlen(ModeID), 		      DATASTREAM_INT),
-	XivelyDatastream(timeSolarID, 		  strlen(timeSolarID), 		  DATASTREAM_FLOAT)
+  XivelyDatastream(VersionSolarID,    strlen(VersionSolarID),   DATASTREAM_FLOAT),
+  XivelyDatastream(StatusSolarID,     strlen(StatusSolarID),    DATASTREAM_INT),
+  XivelyDatastream(TempOUTID,         strlen(TempOUTID),        DATASTREAM_FLOAT),
+  XivelyDatastream(TempINID,          strlen(TempINID),         DATASTREAM_FLOAT),
+  XivelyDatastream(TempROOMID,        strlen(TempROOMID),       DATASTREAM_FLOAT),
+  XivelyDatastream(TempBojler2ID,     strlen(TempBojler2ID),    DATASTREAM_FLOAT),
+  XivelyDatastream(TempDiffONID,      strlen(TempDiffONID),     DATASTREAM_FLOAT),
+  XivelyDatastream(TempDiffOFFID,     strlen(TempDiffOFFID),    DATASTREAM_FLOAT),
+  XivelyDatastream(StatusID,          strlen(StatusID),         DATASTREAM_INT),
+  XivelyDatastream(PowerID,           strlen(PowerID),          DATASTREAM_FLOAT),
+  XivelyDatastream(EnergyID,          strlen(EnergyID),         DATASTREAM_FLOAT),
+  XivelyDatastream(EnergyTotalID,     strlen(EnergyTotalID),    DATASTREAM_FLOAT),
+  XivelyDatastream(ModeID,            strlen(ModeID),           DATASTREAM_INT),
+  XivelyDatastream(timeSolarID,       strlen(timeSolarID),      DATASTREAM_FLOAT)
 };
 
 XivelyDatastream datastreamsSolarSetup[] = {
-	XivelyDatastream(setTempDiffONID, 	strlen(setTempDiffONID), 	DATASTREAM_FLOAT),
-	XivelyDatastream(setTempDiffOFFID, 	strlen(setTempDiffOFFID), DATASTREAM_FLOAT),
-	XivelyDatastream(setModeID, 	      strlen(setModeID),        DATASTREAM_INT)
+  XivelyDatastream(setTempDiffONID,   strlen(setTempDiffONID),  DATASTREAM_FLOAT),
+  XivelyDatastream(setTempDiffOFFID,  strlen(setTempDiffOFFID), DATASTREAM_FLOAT),
+  XivelyDatastream(setModeID,         strlen(setModeID),        DATASTREAM_INT)
 };
 
-XivelyFeed feedSolar(xivelyFeedSolar, 			datastreamsSolar, 			14);
-XivelyFeed feedSetup(xivelyFeedSetupSolar, 	datastreamsSolarSetup, 	3);
+XivelyFeed feedSolar(xivelyFeedSolar,         datastreamsSolar,       14);
+XivelyFeed feedSetup(xivelyFeedSetupSolar,    datastreamsSolarSetup,   3);
 
 EthernetClient client;
 XivelyClient xivelyclientSolar(client);
 XivelyClient xivelyclientSetup(client);
 
 //--------------HOUSE
-char xivelyKeyHouse[] 			= "I88WA1Y8x01WFUthoFJjhk5PD2xZIsTh1XMzAN6YeAA46teR";
-#define xivelyFeedHouse 				740319992
+char xivelyKeyHouse[]       = "I88WA1Y8x01WFUthoFJjhk5PD2xZIsTh1XMzAN6YeAA46teR";
+#define xivelyFeedHouse         740319992
 
-char VersionHouseID[] 			= "V";
-char StatusHouseID[] 				= "S";
-char TempBedRoomNewID[] 		= "BedRoomNew";
-char TempBedRoomOldID[] 		= "BedRoomOld";
-char TempBojlerID[] 				= "Bojler";
-char TempCorridorID[] 			= "Corridor";
-char TempHallID[] 					= "Hall";
-char TempLivingRoomID[] 		= "LivingRoom";
-char TempWorkRoomID[] 			= "WorkRoom";
-char TempAtticID[] 			    = "Attic";
-char EnergyHouseID[] 	      = "Energy";
-char EnergyHourID[] 			  = "EnergyHour";
-char EnergyDayID[] 			    = "EnergyDay";
-char ConsumptionID[] 			  = "Consumption";
-bool dataHouseReaded=false;
+char VersionHouseID[]       = "V";
+char StatusHouseID[]        = "S";
+char TempBedRoomNewID[]     = "BedRoomNew";
+char TempBedRoomOldID[]     = "BedRoomOld";
+char TempBojlerID[]         = "Bojler";
+char TempCorridorID[]       = "Corridor";
+char TempHallID[]           = "Hall";
+char TempLivingRoomID[]     = "LivingRoom";
+char TempWorkRoomID[]       = "WorkRoom";
+char TempAtticID[]          = "Attic";
+char EnergyHouseID[]        = "Energy";
+char EnergyHourID[]         = "EnergyHour";
+char EnergyDayID[]          = "EnergyDay";
+char ConsumptionID[]        = "Consumption";
+bool dataHouseReaded        = false;
 
 XivelyDatastream datastreamsHouse[] = {
-	XivelyDatastream(VersionHouseID, 		strlen(VersionHouseID), 	DATASTREAM_FLOAT),
-	XivelyDatastream(StatusHouseID, 		strlen(StatusHouseID), 		DATASTREAM_INT),
-	XivelyDatastream(TempBedRoomNewID,	strlen(TempBedRoomNewID), DATASTREAM_FLOAT),
-	XivelyDatastream(TempBedRoomOldID,	strlen(TempBedRoomOldID),	DATASTREAM_FLOAT),
-	XivelyDatastream(TempBojlerID, 			strlen(TempBojlerID),			DATASTREAM_FLOAT),
-	XivelyDatastream(TempCorridorID, 		strlen(TempCorridorID), 	DATASTREAM_FLOAT),
-	XivelyDatastream(TempHallID,				strlen(TempHallID), 			DATASTREAM_FLOAT),
-	XivelyDatastream(TempLivingRoomID, 	strlen(TempLivingRoomID), DATASTREAM_FLOAT),
-	XivelyDatastream(TempWorkRoomID, 		strlen(TempWorkRoomID), 	DATASTREAM_FLOAT),
-	XivelyDatastream(TempAtticID, 		  strlen(TempAtticID), 	    DATASTREAM_FLOAT),
-	XivelyDatastream(EnergyHouseID, 		strlen(EnergyHouseID), 		DATASTREAM_FLOAT),
-	XivelyDatastream(EnergyHourID, 		  strlen(EnergyHourID), 		DATASTREAM_FLOAT),
-	XivelyDatastream(EnergyDayID, 		  strlen(EnergyDayID), 		  DATASTREAM_FLOAT),
-	XivelyDatastream(ConsumptionID, 		strlen(ConsumptionID), 		DATASTREAM_INT)
+  XivelyDatastream(VersionHouseID,    strlen(VersionHouseID),   DATASTREAM_FLOAT),
+  XivelyDatastream(StatusHouseID,     strlen(StatusHouseID),    DATASTREAM_INT),
+  XivelyDatastream(TempBedRoomNewID,  strlen(TempBedRoomNewID), DATASTREAM_FLOAT),
+  XivelyDatastream(TempBedRoomOldID,  strlen(TempBedRoomOldID), DATASTREAM_FLOAT),
+  XivelyDatastream(TempBojlerID,      strlen(TempBojlerID),     DATASTREAM_FLOAT),
+  XivelyDatastream(TempCorridorID,    strlen(TempCorridorID),   DATASTREAM_FLOAT),
+  XivelyDatastream(TempHallID,        strlen(TempHallID),       DATASTREAM_FLOAT),
+  XivelyDatastream(TempLivingRoomID,  strlen(TempLivingRoomID), DATASTREAM_FLOAT),
+  XivelyDatastream(TempWorkRoomID,    strlen(TempWorkRoomID),   DATASTREAM_FLOAT),
+  XivelyDatastream(TempAtticID,       strlen(TempAtticID),      DATASTREAM_FLOAT),
+  XivelyDatastream(EnergyHouseID,     strlen(EnergyHouseID),    DATASTREAM_FLOAT),
+  XivelyDatastream(EnergyHourID,      strlen(EnergyHourID),     DATASTREAM_FLOAT),
+  XivelyDatastream(EnergyDayID,       strlen(EnergyDayID),      DATASTREAM_FLOAT),
+  XivelyDatastream(ConsumptionID,     strlen(ConsumptionID),    DATASTREAM_INT)
 };
 
-XivelyFeed feedHouse(xivelyFeedHouse, 						datastreamsHouse, 			14);
+XivelyFeed feedHouse(xivelyFeedHouse,             datastreamsHouse,       14);
 
 XivelyClient xivelyclientHouse(client);
 
 //--------------ALARM
-/*char xivelyKeyAlarm[] 			= "9fA2YgbOt7jhEkSR3BUiePAu1WSBTO90uGoiKie0ueIFP157";
-#define xivelyFeedAlarm 				1912511577
+/*char xivelyKeyAlarm[]       = "9fA2YgbOt7jhEkSR3BUiePAu1WSBTO90uGoiKie0ueIFP157";
+#define xivelyFeedAlarm         1912511577
 
 bool statusAlarm=0;
 bool isArmed=false;
@@ -262,72 +267,72 @@ byte sensorZone[numberOfSensors];
 
 float versionAlarm = 0.01;
 
-char VersionAlarmID[] 			= "_V";
-char StatusAlarmID[] 				= "_S";
-char Sensor1ID[] 		        = "Sensor1";
-char Sensor2ID[] 		        = "Sensor2";
-char Sensor3ID[] 		        = "Sensor3";
-char Sensor4ID[] 		        = "Sensor4";
-char Sensor5ID[] 		        = "Sensor5";
-char Sensor6ID[] 		        = "Sensor6";
-char Sensor7ID[] 		        = "Sensor7";
-char Sensor8ID[] 		        = "Sensor8";
-char Sensor9ID[] 		        = "Sensor9";
-char Sensor10ID[] 		      = "Sensor10";
-char Sensor11ID[] 		      = "Sensor11";
-char Sensor12ID[] 		      = "Sensor12";
-char Sensor13ID[] 		      = "Sensor13";
-char Sensor14ID[] 		      = "Sensor14";
-char Sensor15ID[] 		      = "Sensor15";
-char Sensor16ID[] 		      = "Sensor16";
-char Sensor17ID[] 		      = "Sensor17";
-char Sensor18ID[] 		      = "Sensor18";
-char Sensor19ID[] 		      = "Sensor19";
-char Sensor20ID[] 		      = "Sensor20";
-char Sensor21ID[] 		      = "Sensor21";
-char Sensor22ID[] 		      = "Sensor22";
-char Sensor23ID[] 		      = "Sensor23";
-char Sensor24ID[] 		      = "Sensor24";
-char Sensor25ID[] 		      = "Sensor25";
-char Sensor26ID[] 		      = "Sensor26";
-char IsArmedID[] 		        = "isArmed";
-char IsAlarmID[] 		        = "isAlarm";
+char VersionAlarmID[]       = "_V";
+char StatusAlarmID[]         = "_S";
+char Sensor1ID[]             = "Sensor1";
+char Sensor2ID[]             = "Sensor2";
+char Sensor3ID[]             = "Sensor3";
+char Sensor4ID[]             = "Sensor4";
+char Sensor5ID[]             = "Sensor5";
+char Sensor6ID[]             = "Sensor6";
+char Sensor7ID[]             = "Sensor7";
+char Sensor8ID[]             = "Sensor8";
+char Sensor9ID[]             = "Sensor9";
+char Sensor10ID[]           = "Sensor10";
+char Sensor11ID[]           = "Sensor11";
+char Sensor12ID[]           = "Sensor12";
+char Sensor13ID[]           = "Sensor13";
+char Sensor14ID[]           = "Sensor14";
+char Sensor15ID[]           = "Sensor15";
+char Sensor16ID[]           = "Sensor16";
+char Sensor17ID[]           = "Sensor17";
+char Sensor18ID[]           = "Sensor18";
+char Sensor19ID[]           = "Sensor19";
+char Sensor20ID[]           = "Sensor20";
+char Sensor21ID[]           = "Sensor21";
+char Sensor22ID[]           = "Sensor22";
+char Sensor23ID[]           = "Sensor23";
+char Sensor24ID[]           = "Sensor24";
+char Sensor25ID[]           = "Sensor25";
+char Sensor26ID[]           = "Sensor26";
+char IsArmedID[]             = "isArmed";
+char IsAlarmID[]             = "isAlarm";
 
 
 XivelyDatastream datastreamsAlarm[] = {
-	XivelyDatastream(VersionAlarmID, 		strlen(VersionAlarmID), 	DATASTREAM_FLOAT),
-	XivelyDatastream(StatusAlarmID, 		strlen(StatusAlarmID), 		DATASTREAM_INT),
-	XivelyDatastream(Sensor1ID,	        strlen(Sensor1ID),        DATASTREAM_INT),
-	XivelyDatastream(Sensor2ID,	        strlen(Sensor2ID),        DATASTREAM_INT),
-	XivelyDatastream(Sensor3ID,	        strlen(Sensor3ID),        DATASTREAM_INT),
-	XivelyDatastream(Sensor4ID,	        strlen(Sensor4ID),        DATASTREAM_INT),
-	XivelyDatastream(Sensor5ID,	        strlen(Sensor5ID),        DATASTREAM_INT),
-	XivelyDatastream(Sensor6ID,	        strlen(Sensor6ID),        DATASTREAM_INT),
-	XivelyDatastream(Sensor7ID,	        strlen(Sensor7ID),        DATASTREAM_INT),
-	XivelyDatastream(Sensor8ID,	        strlen(Sensor8ID),        DATASTREAM_INT),
-	XivelyDatastream(Sensor9ID,	        strlen(Sensor9ID),        DATASTREAM_INT),
-	XivelyDatastream(Sensor10ID,	      strlen(Sensor10ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor11ID,	      strlen(Sensor11ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor12ID,	      strlen(Sensor12ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor13ID,	      strlen(Sensor13ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor14ID,	      strlen(Sensor14ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor15ID,	      strlen(Sensor15ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor16ID,	      strlen(Sensor16ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor17ID,	      strlen(Sensor17ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor18ID,	      strlen(Sensor18ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor19ID,	      strlen(Sensor19ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor20ID,	      strlen(Sensor20ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor21ID,	      strlen(Sensor21ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor22ID,	      strlen(Sensor22ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor23ID,	      strlen(Sensor23ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor24ID,	      strlen(Sensor24ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor25ID,	      strlen(Sensor25ID),       DATASTREAM_INT),
-	XivelyDatastream(Sensor26ID,	      strlen(Sensor26ID),       DATASTREAM_INT),
-	XivelyDatastream(IsArmedID,	        strlen(IsArmedID),        DATASTREAM_INT),
-	XivelyDatastream(IsAlarmID,	        strlen(IsAlarmID),        DATASTREAM_INT)
+  XivelyDatastream(VersionAlarmID,     strlen(VersionAlarmID),   DATASTREAM_FLOAT),
+  XivelyDatastream(StatusAlarmID,     strlen(StatusAlarmID),     DATASTREAM_INT),
+  XivelyDatastream(Sensor1ID,          strlen(Sensor1ID),        DATASTREAM_INT),
+  XivelyDatastream(Sensor2ID,          strlen(Sensor2ID),        DATASTREAM_INT),
+  XivelyDatastream(Sensor3ID,          strlen(Sensor3ID),        DATASTREAM_INT),
+  XivelyDatastream(Sensor4ID,          strlen(Sensor4ID),        DATASTREAM_INT),
+  XivelyDatastream(Sensor5ID,          strlen(Sensor5ID),        DATASTREAM_INT),
+  XivelyDatastream(Sensor6ID,          strlen(Sensor6ID),        DATASTREAM_INT),
+  XivelyDatastream(Sensor7ID,          strlen(Sensor7ID),        DATASTREAM_INT),
+  XivelyDatastream(Sensor8ID,          strlen(Sensor8ID),        DATASTREAM_INT),
+  XivelyDatastream(Sensor9ID,          strlen(Sensor9ID),        DATASTREAM_INT),
+  XivelyDatastream(Sensor10ID,        strlen(Sensor10ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor11ID,        strlen(Sensor11ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor12ID,        strlen(Sensor12ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor13ID,        strlen(Sensor13ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor14ID,        strlen(Sensor14ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor15ID,        strlen(Sensor15ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor16ID,        strlen(Sensor16ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor17ID,        strlen(Sensor17ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor18ID,        strlen(Sensor18ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor19ID,        strlen(Sensor19ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor20ID,        strlen(Sensor20ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor21ID,        strlen(Sensor21ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor22ID,        strlen(Sensor22ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor23ID,        strlen(Sensor23ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor24ID,        strlen(Sensor24ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor25ID,        strlen(Sensor25ID),       DATASTREAM_INT),
+  XivelyDatastream(Sensor26ID,        strlen(Sensor26ID),       DATASTREAM_INT),
+  XivelyDatastream(IsArmedID,          strlen(IsArmedID),        DATASTREAM_INT),
+  XivelyDatastream(IsAlarmID,          strlen(IsAlarmID),        DATASTREAM_INT)
 };
 
-XivelyFeed feedAlarm(xivelyFeedAlarm, 						datastreamsAlarm, 			30);
+XivelyFeed feedAlarm(xivelyFeedAlarm,             datastreamsAlarm,       30);
 
 XivelyClient xivelyclientAlarm(client);
 */
@@ -377,19 +382,19 @@ float versionSW=0.50;
 char versionSWString[] = "CentralUnit v"; //SW name & version
 
 
-
+//-------------------------------------------- S E T U P ------------------------------------------------------------------------------
 void setup() {
   Serial.begin(SERIAL_SPEED);
-	Serial.print(versionSWString);
+  Serial.print(versionSWString);
   Serial.println(versionSW);
-	Serial1.begin(SERIAL_SPEED);
-	Serial2.begin(SERIAL_SPEED);
-	
-	datastreamsHouse[0].setFloat(0.02);
-	
+  Serial1.begin(SERIAL_SPEED);
+  Serial2.begin(SERIAL_SPEED);
+  
+  datastreamsHouse[0].setFloat(0.1);
+  
   /*delay(5000);
 
-	Serial.println("restart ethernet module");
+  Serial.println("restart ethernet module");
   
   pinMode(22, OUTPUT);
   digitalWrite(22, LOW);
@@ -400,9 +405,9 @@ void setup() {
 #ifdef verbose
   Serial.println("waiting for net connection...");
 #endif
-	//lcd.setCursor(0,0);
+  //lcd.setCursor(0,0);
   //lcd.print("waiting for net");
-	//Ethernet.begin(mac, ip, dnServer, gateway, subnet);
+  //Ethernet.begin(mac, ip, dnServer, gateway, subnet);
   Ethernet.begin(mac, ip);
   ethOK = true;
 
@@ -432,13 +437,13 @@ void setup() {
 
 
   /*delay(5000);
-	if (ethOK) {
-		readDataSolarXively(); //read setup from xively for Solar
+  if (ethOK) {
+    readDataSolarXively(); //read setup from xively for Solar
     sendDataSolarUART(); //send setup data to Solar unit
-	}
+  }
   */
-	lastSendDataSolarXivelyTime = lastUpdateSolarTime = lastReadDataSolarUARTTime = lastReadDataHouseUARTTime = millis();
-	
+  lastSendDataSolarXivelyTime = lastUpdateSolarTime = lastReadDataSolarUARTTime = lastReadDataHouseUARTTime = millis();
+  
 #ifdef SDdef
   // make sure that the default chip select pin is set to
   // output, even if you don't use it:
@@ -474,29 +479,30 @@ void setup() {
 
 }
 
+//----------------------------------------L O O P ----------------------------------------------------------------------------------
 void loop() {
-  if(millis() - lastReadDataSolarUARTTime > readDataSolarDelay) {
+  if(millis() - lastReadDataSolarUARTTime > readDataSolarDelay) { //20 sec
     lastReadDataSolarUARTTime = millis();
-    readDataSolarUART(); //read data from solar
+    readDataSolarUART();                  //read data from solar
   } 
-  if(millis() - lastReadDataHouseUARTTime > readDataTemperatureDelay) {
+  if(millis() - lastReadDataHouseUARTTime > readDataTemperatureDelay) { //20 sec
     lastReadDataHouseUARTTime = millis();
-    readDataHouseUART(); //read data from temperature satellite
+    readDataHouseUART();                  //read data from temperature satellite
   }   
   if (ethOK) {
     if (!client.connected()) {
-      if((millis() - lastSendDataSolarXivelyTime > sendTimeSolarDelay) && dataSolarReaded) {
+      if((millis() - lastSendDataSolarXivelyTime > sendTimeSolarDelay) && dataSolarReaded) { //20 sec
         lastSendDataSolarXivelyTime = millis();
-        sendDataSolarXively();
+        sendDataSolarXively();            //send data to Xively SOLAR
       }
-      if((millis() - lastUpdateSolarTime > updateTimeSolarDelay)) {
+      if((millis() - lastUpdateSolarTime > updateTimeSolarDelay)) { //60 sec
         lastUpdateSolarTime = millis();
-        readDataSolarXively();  //read Setup data
-        sendDataSolarUART(); //send setup data to Solar unit
+        readDataSolarXively();            //read Setup data
+        sendDataSolarUART();              //send setup data to Solar unit
       }
-      if((millis() - lastSendDataHouseXivelyTime > sendTimeHouseDelay) && dataHouseReaded) {
+      if((millis() - lastSendDataHouseXivelyTime > sendTimeHouseDelay) && dataHouseReaded) { //20 sec
         lastSendDataHouseXivelyTime = millis();
-        sendDataHouseXively();
+        sendDataHouseXively();            //send data to Xively HOUSE (and POWERMETER)
       }
     }
   }
@@ -505,6 +511,7 @@ void loop() {
   }
 }
 
+//--------------------------------------- F U N C T I O N S -----------------------------------------------------------------------------------
 void checkServer(void) {
   EthernetClient client = server.available();
   if (client) {
@@ -599,25 +606,25 @@ void checkServer(void) {
 
 
 void sendDataSolarUART() {
-	//#ON (4digits, only >=0) OFF (4digits, only >=0) MODE 1 digit $CRC
-	//#25.115.50$541458114*
-	crc = ~0L;
-	send('S');
-	send(START_BLOCK);
-	send41(setTempDiffON);
-	send41(setTempDiffOFF);
-	send(setModeSolar);
-	send(END_BLOCK);
-	Serial1.print(crc);
-	Serial1.println("*");
-	Serial1.flush();
+  //#ON (4digits, only >=0) OFF (4digits, only >=0) MODE 1 digit $CRC
+  //#25.115.50$541458114*
+  crc = ~0L;
+  send('S');
+  send(START_BLOCK);
+  send41(setTempDiffON);
+  send41(setTempDiffOFF);
+  send(setModeSolar);
+  send(END_BLOCK);
+  Serial1.print(crc);
+  Serial1.println("*");
+  Serial1.flush();
 }
 
 //send data to xively
 void sendDataSolarXively() {
-	if (versionSolar==0)
-		versionSolar=0.59;
-	datastreamsSolar[0].setFloat(versionSolar);
+  if (versionSolar==0)
+    versionSolar=0.59;
+  datastreamsSolar[0].setFloat(versionSolar);
   datastreamsSolar[1].setInt(statusSolar);  
   //if (statusSolar==0) statusSolar=1; else statusSolar=0;
   datastreamsSolar[2].setFloat(tOut);
@@ -641,13 +648,13 @@ void sendDataSolarXively() {
   Serial.println("Uploading solar data to Xively");
 #endif
 #ifdef watchdog
-	wdt_disable();
+  wdt_disable();
 #endif
 
   int ret = xivelyclientSolar.put(feedSolar, xivelyKeySolar);
-	
+  
 #ifdef watchdog
-	wdt_enable(WDTO_8S);
+  wdt_enable(WDTO_8S);
 #endif
 
 #ifdef verbose
@@ -676,13 +683,13 @@ void sendDataHouseXively() {
   Serial.println("Uploading temperature to Xively");
 #endif
 #ifdef watchdog
-	wdt_disable();
+  wdt_disable();
 #endif
 
   int ret = xivelyclientHouse.put(feedHouse, xivelyKeyHouse);
-	
+  
 #ifdef watchdog
-	wdt_enable(WDTO_8S);
+  wdt_enable(WDTO_8S);
 #endif
 
 #ifdef verbose
@@ -693,9 +700,9 @@ void sendDataHouseXively() {
 }
 /*
 void sendDataAlarmXively() {
-	if (versionAlarm==0)
-		versionAlarm=0.01;
-	datastreamsAlarm[0].setFloat(versionAlarm);
+  if (versionAlarm==0)
+    versionAlarm=0.01;
+  datastreamsAlarm[0].setFloat(versionAlarm);
   datastreamsAlarm[1].setInt(statusAlarm);  
   if (statusAlarm==0) statusAlarm=1; else statusAlarm=0;
   datastreamsSolar[2].setInt(0);
@@ -704,13 +711,13 @@ void sendDataAlarmXively() {
   Serial.println("Uploading alarm data to Xively");
 #endif
 #ifdef watchdog
-	wdt_disable();
+  wdt_disable();
 #endif
 
   int ret = xivelyclientSolar.put(feedAlarm, xivelyKeyAlarm);
-	
+  
 #ifdef watchdog
-	wdt_enable(WDTO_8S);
+  wdt_enable(WDTO_8S);
 #endif
 
 #ifdef verbose
@@ -722,132 +729,132 @@ void sendDataAlarmXively() {
 
 void readDataSolarUART() {
   //read data from Solar unit UART1
-	unsigned long timeOut = millis();
-	Serial.println("Reading data from solar unit...");
-	Serial1.flush();
-	Serial1.println("R");
-	Serial.println("Data req.");
-	char b[10];
-	byte i=0;
-	char flag=' ';
-	byte status=0;
+  unsigned long timeOut = millis();
+  Serial.println("Reading data from solar unit...");
+  Serial1.flush();
+  Serial1.println("R");
+  Serial.println("Data req.");
+  char b[10];
+  byte i=0;
+  char flag=' ';
+  byte status=0;
   //#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12564.56#H;12.41#D;45.12#O;1245$3600177622*
-	char incomingByte = 0;   // for incoming serial data
-	do {
-		incomingByte = Serial1.read();
-		if (incomingByte > 0) {
-			Serial.print(incomingByte);
-			if (status==1) {
-				flag=incomingByte;
-				status++; //2
-			}
-			
-			if (incomingByte==START_BLOCK && status==0) {
-				status++; //1
-			}
-			else if (incomingByte==DELIMITER && status==2) {
-				i=0;
-				status++; //3
-			}
-			else if ((incomingByte==START_BLOCK || incomingByte==END_BLOCK) && status==3) {
+  char incomingByte = 0;   // for incoming serial data
+  do {
+    incomingByte = Serial1.read();
+    if (incomingByte > 0) {
+      Serial.print(incomingByte);
+      if (status==1) {
+        flag=incomingByte;
+        status++; //2
+      }
+      
+      if (incomingByte==START_BLOCK && status==0) {
+        status++; //1
+      }
+      else if (incomingByte==DELIMITER && status==2) {
+        i=0;
+        status++; //3
+      }
+      else if ((incomingByte==START_BLOCK || incomingByte==END_BLOCK) && status==3) {
         dataSolarReaded=true;
-				b[i]='\0';
-				if (flag=='0') { //sensor0 tBojler2
-					sensor[0]=atof(b);
-					tBojler2=sensor[0];
-				}
-				if (flag=='1') { //sensor1 tOut
-					sensor[1]=atof(b);
-					tOut=sensor[1];
-				}
-				if (flag=='2') { //sensor2 tIn
-					sensor[2]=atof(b);
-					tIn=sensor[2];
-				}
-				if (flag=='3') { //sensor3 tRoom
-					sensor[3]=atof(b);
-					tRoom=sensor[3];
-				}
-				if (flag=='N') { //temperature ON
-					tempDiffON=atof(b);
-				}
-				if (flag=='F') { //temperature OFF
-					tempDiffOFF=atof(b);
-				}
-				if (flag=='R') { //relay 1 status
-					if (atoi(b)==0)
-						relay1=HIGH; 
-					else
-						relay1=LOW; 
-				}
-				if (flag=='S') { //relay 2 status
-					if (atoi(b)==0)
-						relay2=HIGH; 
-					else
-						relay2=LOW; 
-				}
-				if (flag=='P') { //Power
-					power=atof(b);
-				}
-				if (flag=='E') { //Energy a day
-					energy=atof(b);
-				}
-				if (flag=='T') { //Total Energy
-					energyTotal=atof(b);
-					//energyTotal=82.5; 
-				}
-				if (flag=='V') { //Version
-					versionSolar=atof(b);
-				}
-				if (flag=='M') { //Mode
-					modeSolar=atof(b);
-				}
-				if (flag=='C') { //Total time
-					timeSolar=atof(b);
-				}
-				if (flag=='A') { //Status
-					statusSolar=atoi(b);
-				}
+        b[i]='\0';
+        if (flag=='0') { //sensor0 tBojler2
+          sensor[0]=atof(b);
+          tBojler2=sensor[0];
+        }
+        if (flag=='1') { //sensor1 tOut
+          sensor[1]=atof(b);
+          tOut=sensor[1];
+        }
+        if (flag=='2') { //sensor2 tIn
+          sensor[2]=atof(b);
+          tIn=sensor[2];
+        }
+        if (flag=='3') { //sensor3 tRoom
+          sensor[3]=atof(b);
+          tRoom=sensor[3];
+        }
+        if (flag=='N') { //temperature ON
+          tempDiffON=atof(b);
+        }
+        if (flag=='F') { //temperature OFF
+          tempDiffOFF=atof(b);
+        }
+        if (flag=='R') { //relay 1 status
+          if (atoi(b)==0)
+            relay1=HIGH; 
+          else
+            relay1=LOW; 
+        }
+        if (flag=='S') { //relay 2 status
+          if (atoi(b)==0)
+            relay2=HIGH; 
+          else
+            relay2=LOW; 
+        }
+        if (flag=='P') { //Power
+          power=atof(b);
+        }
+        if (flag=='E') { //Energy a day
+          energy=atof(b);
+        }
+        if (flag=='T') { //Total Energy
+          energyTotal=atof(b);
+          //energyTotal=82.5; 
+        }
+        if (flag=='V') { //Version
+          versionSolar=atof(b);
+        }
+        if (flag=='M') { //Mode
+          modeSolar=atof(b);
+        }
+        if (flag=='C') { //Total time
+          timeSolar=atof(b);
+        }
+        if (flag=='A') { //Status
+          statusSolar=atoi(b);
+        }
 
-				if (flag=='W') { //kWh
-					energyHouse=atof(b);
-				}
-				if (flag=='H') { //kWh/hod
-					energyHour=atof(b);
-				}
-				if (flag=='D') { //kWh/day
-					energyDay=atof(b);
-				}
-				if (flag=='O') { //Consumption
-					consumption=atoi(b);
-				}
+        if (flag=='W') { //kWh
+          energyHouse=atof(b);
+        }
+        if (flag=='H') { //kWh/hod
+          energyHour=atof(b);
+        }
+        if (flag=='D') { //kWh/day
+          energyDay=atof(b);
+        }
+        if (flag=='O') { //Consumption
+          consumption=atoi(b);
+        }
 
         
-				status=1;
-			}
-			else {
-				b[i++]=incomingByte;
-			}
-		}
-	} while ((char)incomingByte!='*' && millis() < (timeOut + 2000));
+        status=1;
+      }
+      else {
+        b[i++]=incomingByte;
+      }
+    }
+  } while ((char)incomingByte!='*' && millis() < (timeOut + 2000));
 
-	/*Serial.println("\nDATA:");
-	Serial.print("tOut=");
-	Serial.println(sensor[0]);*/
-	/*Serial.print("tIn=");
-	Serial.println(sensor[1]);*/
-	/*Serial.print("tRoom=");
-	Serial.println(sensor[2]);*/
-	/*Serial.print("tON=");
-	Serial.println(tempDiffON);
-	Serial.print("tOFF=");
-	Serial.println(tempDiffOFF);
-	Serial.print("R1=");
-	Serial.println(relay1);
-	Serial.print("R2=");
-	Serial.println(relay2);
-	Serial.println("Data end");
-	*/
+  /*Serial.println("\nDATA:");
+  Serial.print("tOut=");
+  Serial.println(sensor[0]);*/
+  /*Serial.print("tIn=");
+  Serial.println(sensor[1]);*/
+  /*Serial.print("tRoom=");
+  Serial.println(sensor[2]);*/
+  /*Serial.print("tON=");
+  Serial.println(tempDiffON);
+  Serial.print("tOFF=");
+  Serial.println(tempDiffOFF);
+  Serial.print("R1=");
+  Serial.println(relay1);
+  Serial.print("R2=");
+  Serial.println(relay2);
+  Serial.println("Data end");
+  */
 #ifdef SDdef
     saveDataToSD('S');
 #endif
@@ -855,95 +862,95 @@ void readDataSolarUART() {
 }
 
 void readDataHouseUART() {
-	//Reading data from temperature satelite UART2
-	//#0;28E8B84104000016;21.25#1;28A6B0410400004E;7.56#2;28CEB0410400002C;5.81#3;28C9B84104000097;4.19#4;285DF3CF0200007E;46.63$4140078876*
-	unsigned long timeOut = millis();
-	Serial.println("Reading data from temperature satellite...");
-	Serial2.flush();
-	Serial2.println("R");
-	Serial2.println("Data req.");
-	char b[10];
-	byte i=0;
-	char flag=' ';
-	char incomingByte = 0;   // for incoming serial data
-	byte status=0;
-	do {
-		incomingByte = Serial2.read();
-		if (incomingByte > 0) {
-			Serial.print(incomingByte);
-			if (status==1) {
-				flag=incomingByte;
-				status++; //2
-			}
-			
-			if (incomingByte==START_BLOCK && status==0) {
-				status++; //1
-			}
-			else if (incomingByte==DELIMITER && status==2) {
-				//sensor id
-				status++; //3
-			}
-			else if (incomingByte==DELIMITER && status==3) {
-				i=0;
-				status++; //4
-			}
-			else if ((incomingByte==START_BLOCK || incomingByte==END_BLOCK) && status==4) {
+  //Reading data from temperature satelite UART2
+  //#0;28E8B84104000016;21.25#1;28A6B0410400004E;7.56#2;28CEB0410400002C;5.81#3;28C9B84104000097;4.19#4;285DF3CF0200007E;46.63$4140078876*
+  unsigned long timeOut = millis();
+  Serial.println("Reading data from temperature satellite...");
+  Serial2.flush();
+  Serial2.println("R");
+  Serial2.println("Data req.");
+  char b[10];
+  byte i=0;
+  char flag=' ';
+  char incomingByte = 0;   // for incoming serial data
+  byte status=0;
+  do {
+    incomingByte = Serial2.read();
+    if (incomingByte > 0) {
+      Serial.print(incomingByte);
+      if (status==1) {
+        flag=incomingByte;
+        status++; //2
+      }
+      
+      if (incomingByte==START_BLOCK && status==0) {
+        status++; //1
+      }
+      else if (incomingByte==DELIMITER && status==2) {
+        //sensor id
+        status++; //3
+      }
+      else if (incomingByte==DELIMITER && status==3) {
+        i=0;
+        status++; //4
+      }
+      else if ((incomingByte==START_BLOCK || incomingByte==END_BLOCK) && status==4) {
         dataHouseReaded=true;
-				b[i]='\0';
-				if (flag=='0') { //tBedRoomNew
-					tBedRoomNew=atof(b);
-				}
-				if (flag=='1') { //tBedRoomOld
-					tBedRoomOld=atof(b);
-				}
-				if (flag=='2') { //tAttic
-					tAttic=atof(b);
-				}
-				if (flag=='3') { //tLivingRoom
-					tLivingRoom=atof(b);
-				}
-				if (flag=='4') { //tWorkRoom
-					tWorkRoom=atof(b);
-				}
-				if (flag=='5') { //tCorridor
-					tCorridor=atof(b);
-				}
-				if (flag=='6') { //tBojler
-					tBojler=atof(b);
-				}
-				if (flag=='?') { //tHall
-					tHall=atof(b);
-				}
-				status=1;
-			}
-			else {
-				b[i++]=incomingByte;
-			}
-		}
-	} while ((char)incomingByte!='*' && millis() < (timeOut + 2000));
+        b[i]='\0';
+        if (flag=='0') { //tBedRoomNew
+          tBedRoomNew=atof(b);
+        }
+        if (flag=='1') { //tBedRoomOld
+          tBedRoomOld=atof(b);
+        }
+        if (flag=='2') { //tAttic
+          tAttic=atof(b);
+        }
+        if (flag=='3') { //tLivingRoom
+          tLivingRoom=atof(b);
+        }
+        if (flag=='4') { //tWorkRoom
+          tWorkRoom=atof(b);
+        }
+        if (flag=='5') { //tCorridor
+          tCorridor=atof(b);
+        }
+        if (flag=='6') { //tBojler
+          tBojler=atof(b);
+        }
+        if (flag=='?') { //tHall
+          tHall=atof(b);
+        }
+        status=1;
+      }
+      else {
+        b[i++]=incomingByte;
+      }
+    }
+  } while ((char)incomingByte!='*' && millis() < (timeOut + 2000));
 
-	Serial.println("\nDATA:");
-	Serial.print("tAttic=");
-	Serial.println(tAttic);
-	Serial.print("tBedRoomNew=");
-	Serial.println(tBedRoomNew);
-	Serial.print("tBedRoomOld=");
-	Serial.println(tBedRoomOld);
-	Serial.print("tLivingRoom=");
-	Serial.println(tLivingRoom);
-	Serial.print("tWorkRoom=");
-	Serial.println(tWorkRoom);
-	Serial.print("tCorridor=");
-	Serial.println(tCorridor);
-	Serial.print("tBojler=");
-	Serial.println(tBojler);
-	Serial.print("tHall=");
-	Serial.println(tHall);
-	Serial.println("Data end");
+  Serial.println("\nDATA:");
+  Serial.print("tAttic=");
+  Serial.println(tAttic);
+  Serial.print("tBedRoomNew=");
+  Serial.println(tBedRoomNew);
+  Serial.print("tBedRoomOld=");
+  Serial.println(tBedRoomOld);
+  Serial.print("tLivingRoom=");
+  Serial.println(tLivingRoom);
+  Serial.print("tWorkRoom=");
+  Serial.println(tWorkRoom);
+  Serial.print("tCorridor=");
+  Serial.println(tCorridor);
+  Serial.print("tBojler=");
+  Serial.println(tBojler);
+  Serial.print("tHall=");
+  Serial.println(tHall);
+  Serial.println("Data end");
 #ifdef SDdef
     saveDataToSD('T');
 #endif
-	
+  
 }
 
 unsigned long crc_update(unsigned long crc, byte data) {
@@ -961,15 +968,15 @@ void crc_string(byte s) {
 }
 
 void readDataSolarXively() {
-	Serial.println("I am reading setup data from Xively...");
+  Serial.println("I am reading setup data from Xively...");
 #ifdef watchdog
-	wdt_disable();
+  wdt_disable();
 #endif
 
-	int ret = xivelyclientSetup.get(feedSetup, xivelyKeySetupSolar);
+  int ret = xivelyclientSetup.get(feedSetup, xivelyKeySetupSolar);
 
 #ifdef watchdog
-	wdt_enable(WDTO_8S);
+  wdt_enable(WDTO_8S);
 #endif
 
 #ifdef verbose
@@ -977,66 +984,66 @@ void readDataSolarXively() {
   Serial.println(ret);
 #endif
   if (ret > 0) {
-		setTempDiffON          = datastreamsSolarSetup[0].getFloat();
-		setTempDiffOFF         = datastreamsSolarSetup[1].getFloat();
-		setModeSolar           = datastreamsSolarSetup[2].getInt();
-		//if (setTempDiffOFF!=tempDiffOFF || setTempDiffON!=tempDiffON || setModeSolar!=modeSolar) {
+    setTempDiffON          = datastreamsSolarSetup[0].getFloat();
+    setTempDiffOFF         = datastreamsSolarSetup[1].getFloat();
+    setModeSolar           = datastreamsSolarSetup[2].getInt();
+    //if (setTempDiffOFF!=tempDiffOFF || setTempDiffON!=tempDiffON || setModeSolar!=modeSolar) {
 #ifdef verbose
-		Serial.print("ON is...");
-		Serial.println(setTempDiffON);
-		Serial.print("OFF is... ");
-		Serial.println(setTempDiffOFF);
-		Serial.print("Mode is... ");
-		Serial.println(setModeSolar);
-#endif	
-	}
+    Serial.print("ON is...");
+    Serial.println(setTempDiffON);
+    Serial.print("OFF is... ");
+    Serial.println(setTempDiffOFF);
+    Serial.print("Mode is... ");
+    Serial.println(setModeSolar);
+#endif  
+  }
 }
 
 void send(char s) {
-	send(s, ' ');
+  send(s, ' ');
 }
 
 
 void send(char s, char type) {
-	if (type=='X') {
-		Serial1.print(s, HEX);
-	} else {
-		Serial1.print(s);
-	}
-	crc_string(byte(s));
+  if (type=='X') {
+    Serial1.print(s, HEX);
+  } else {
+    Serial1.print(s);
+  }
+  crc_string(byte(s));
 }
 
 void send(byte s) {
-	send(s, ' ');
+  send(s, ' ');
 }
 
 void send(byte s, char type) {
-	if (type=='X') {
-		Serial1.print(s, HEX);
-	}
-	else {
-		Serial1.print(s);
-	}
-	crc_string(s);
+  if (type=='X') {
+    Serial1.print(s, HEX);
+  }
+  else {
+    Serial1.print(s);
+  }
+  crc_string(s);
 }
 
 void send(float s) {
-	char tBuffer[8];
-	dtostrf(s,0,2,tBuffer);
-	for (byte i=0; i<8; i++) {
-		if (tBuffer[i]==0) break;
-		send(tBuffer[i]);
-	}
+  char tBuffer[8];
+  dtostrf(s,0,2,tBuffer);
+  for (byte i=0; i<8; i++) {
+    if (tBuffer[i]==0) break;
+    send(tBuffer[i]);
+  }
 }
 
 void send41(float s) {
-	char tBuffer[4+1];
-	dtostrf(s,0,1,tBuffer);
+  char tBuffer[4+1];
+  dtostrf(s,0,1,tBuffer);
   if (tBuffer[1]=='.') send('0');
-	for (byte i=0; i<5; i++) {
-		if (tBuffer[i]==0) break;
-		send(tBuffer[i]);
-	}
+  for (byte i=0; i<5; i++) {
+    if (tBuffer[i]==0) break;
+    send(tBuffer[i]);
+  }
 }
 
 #ifdef SDdef
@@ -1102,7 +1109,7 @@ void cardInfo() {
   root.ls(LS_R | LS_DATE | LS_SIZE);
   Serial.println();
   Serial.println();
-	*/
+  */
 }
 #endif
 
@@ -1162,24 +1169,24 @@ void saveDataToSD(char rep) {
     dataFile.print(";");
     dataFile.print(tRoom);
     dataFile.print(";");
-		dataFile.print(tempDiffON);
+    dataFile.print(tempDiffON);
     dataFile.print(";");
-		dataFile.print(tempDiffOFF);
+    dataFile.print(tempDiffOFF);
     dataFile.print(";");
-		dataFile.print(relay1);
+    dataFile.print(relay1);
     dataFile.print(";");
-		dataFile.print(relay2);
+    dataFile.print(relay2);
     dataFile.print(";");
-		dataFile.print(power);
+    dataFile.print(power);
     dataFile.print(";");
-		dataFile.print(energy);
+    dataFile.print(energy);
     dataFile.print(";");
-		dataFile.print(energyTotal);
+    dataFile.print(energyTotal);
     dataFile.print(";");
-		dataFile.print(timeSolar);
+    dataFile.print(timeSolar);
     dataFile.print(";");
     dataFile.print(versionSolar);
-		
+    
     dataFile.print(tBedRoomOld);
     dataFile.print(";");
     dataFile.print(tBedRoomNew);
@@ -1220,17 +1227,17 @@ void saveDataToSD(char rep) {
 #endif
 
 void printDateTime() {
-	Serial.print(day());
-	Serial.print(DATE_DELIMITER);
-	Serial.print(month());
-	Serial.print(DATE_DELIMITER);
-	Serial.print(year());
-	Serial.print(DATE_TIME_DELIMITER);
-	printDigits(hour());
-	Serial.print(TIME_DELIMITER);
-	printDigits(minute());
-	Serial.print(TIME_DELIMITER);
-	printDigits(second());
+  Serial.print(day());
+  Serial.print(DATE_DELIMITER);
+  Serial.print(month());
+  Serial.print(DATE_DELIMITER);
+  Serial.print(year());
+  Serial.print(DATE_TIME_DELIMITER);
+  printDigits(hour());
+  Serial.print(TIME_DELIMITER);
+  printDigits(minute());
+  Serial.print(TIME_DELIMITER);
+  printDigits(second());
 }
 
 void printDigits(int digits){
@@ -1297,78 +1304,78 @@ void sendNTPpacket(IPAddress &address) {
 #ifdef serialMonitor
 void readDataUART() {
   //read data from UART
-	byte flag=0;
-	char[2+1] tempNo;
-	char[8+1] sensorId;
-	char[6+1] tempValue;
-	byte p=0;
-	bool resetP=false;
-	unsigned long timeOut = millis();
-	Serial1.flush();
-	Serial1.println("R");
-	Serial.println("Data req.");
-	//#0;28422E8104000097;21.44;#1;28EA676B05000089;21.38;$541458114*
-	do {
-//		if (Serial1.available() > 0) {
-			incomingByte = Serial1.read();
-			if (incomingByte=='#') {
-				flag=1;
-				resetP=true;
-			} else if (incomingByte==';') {
-				flag=++;
-				resetP=true;
-			}
-			else {
-				if (flag==1) { //read temp #
-					if (resetP) p=0;
-					tempNo[p++]=incomingByte;
-				}
-				else if (flag==2) { //read sensor id
-					if (resetP) {
-						tempNo[p]=0;
-						p=0;
-					}
-					sensorId[p++]=incomingByte;
-				}
-				else if (flag==3) { //read temp value
-					if (resetP) {
-						sensorId[p]=0;
-						p=0;
-					}
-					tempValue[p++]=incomingByte;
-				}
-				else if (flag==4) {
-					if (resetP) {
-						tempValue[p]=0;
-						p=0;
-					}
-				}
-			}
+  byte flag=0;
+  char[2+1] tempNo;
+  char[8+1] sensorId;
+  char[6+1] tempValue;
+  byte p=0;
+  bool resetP=false;
+  unsigned long timeOut = millis();
+  Serial1.flush();
+  Serial1.println("R");
+  Serial.println("Data req.");
+  //#0;28422E8104000097;21.44;#1;28EA676B05000089;21.38;$541458114*
+  do {
+//    if (Serial1.available() > 0) {
+      incomingByte = Serial1.read();
+      if (incomingByte=='#') {
+        flag=1;
+        resetP=true;
+      } else if (incomingByte==';') {
+        flag=++;
+        resetP=true;
+      }
+      else {
+        if (flag==1) { //read temp #
+          if (resetP) p=0;
+          tempNo[p++]=incomingByte;
+        }
+        else if (flag==2) { //read sensor id
+          if (resetP) {
+            tempNo[p]=0;
+            p=0;
+          }
+          sensorId[p++]=incomingByte;
+        }
+        else if (flag==3) { //read temp value
+          if (resetP) {
+            sensorId[p]=0;
+            p=0;
+          }
+          tempValue[p++]=incomingByte;
+        }
+        else if (flag==4) {
+          if (resetP) {
+            tempValue[p]=0;
+            p=0;
+          }
+        }
+      }
 
-			if (incomingByte > 0) {
-				Serial.print((char)incomingByte);
-			}
-	} while ((char)incomingByte!='*' && millis() < (
-	timeOut + 2000));
-	Serial.println("\nData end");
+      if (incomingByte > 0) {
+        Serial.print((char)incomingByte);
+      }
+  } while ((char)incomingByte!='*' && millis() < (
+  timeOut + 2000));
+  Serial.println("\nData end");
 }
 #endif
 
 #ifdef serial
 void checkSerial() {
-	if (Serial.available() > 0) {
-		incomingByte = Serial.read();
-		Serial.print("I received: ");
-		Serial.println(incomingByte, DEC);
+  if (Serial.available() > 0) {
+    incomingByte = Serial.read();
+    Serial.print("I received: ");
+    Serial.println(incomingByte, DEC);
 #ifdef watchdog
-		if (incomingByte=='R') {
-			Serial.println("\n\nRESET signal present, RESET will be in 2 second.");
-			wdt_enable(WDTO_2S);
-			wdt_reset();
-			for (;;) {}
-		}
+    if (incomingByte=='R') {
+      Serial.println("\n\nRESET signal present, RESET will be in 2 second.");
+      wdt_enable(WDTO_2S);
+      wdt_reset();
+      for (;;) {}
+    }
 #endif
-	}
+  }
 }
 #endif
 */
