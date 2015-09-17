@@ -4,6 +4,7 @@ GIT - https://github.com/pfory/solar-heating/tree/master/CentralUnit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 Je nutno stahnout i spravnou knihovnu HttpClient z https://github.com/amcewen/HttpClient
+Kompilovat 1.5.6 r2
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 Version history:
@@ -11,6 +12,7 @@ Version history:
 0.79 - 24.10.2014 zachyceni stavu po resetu
 
 TODO:
+když se kompiluje 1.6.4 tak se program resetuje
 
 HW
 Arduino Mega 2560
@@ -72,7 +74,13 @@ char a[0]; //do not delete this dummy variable
 #define NUMBER_OF_DEVICES 4
 #endif
 #define verbose
-#define SDdef
+//#define SDdef
+
+#define watchdog
+#ifdef watchdog
+#include <avr/wdt.h>
+#endif
+
 
 float sensor[NUMBER_OF_DEVICES];
 float tempDiffON  = 25.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
@@ -94,28 +102,28 @@ unsigned int const  updateTimeSolarDelay                = 60000; //to send to xi
 unsigned int const  readDataTemperatureDelay            = 20000; //read data from temperature satelite
 unsigned int const  sendTimeHouseDelay                  = 20000; //to send to xively.com
 
-float tIn               = 0;
-float tOut              = 0;
-float tRoom             = 0;
-float tBojler2          = 0;
+float tIn               = 0.f;
+float tOut              = 0.f;
+float tRoom             = 0.f;
+float tBojler2          = 0.f;
     
-float tBedRoomOld       = 0;
-float tBedRoomNew       = 0;
-float tBojler           = 0;
-float tHall             =  0;
-float tLivingRoom       = 0;
-float tCorridor         = 0;
-float tWorkRoom         = 0;
-float tAttic            = 0;
+float tBedRoomOld       = 0.f;
+float tBedRoomNew       = 0.f;
+float tBojler           = 0.f;
+float tHall             = 0.f;
+float tLivingRoom       = 0.f;
+float tCorridor         = 0.f;
+float tWorkRoom         = 0.f;
+float tAttic            = 0.f;
 float versionSolar;
 byte modeSolar;
 unsigned long timeSolar = 0; //minutes
 byte statusSolar        = 0;
-float energyHouse       = 0;  
-float energyHouseDiff   = 0;  
-float energyHour        = 0;
-float energyDay         = 0;
-float consumption       = 0;
+float energyHouse       = 0.f; //Wh  
+float energyHouseDiff   = 0.f; //Wh 
+float energyHour        = 0.f; //Wh
+float energyDay         = 0.f; //Wh
+float consumption       = 0.f; //Wh
 
 
 unsigned int const SERIAL_SPEED = 9600;
@@ -128,7 +136,7 @@ unsigned int const SERIAL_SPEED = 9600;
 int ethOK=false;
 
 //Ethernet
-#include <SPI.h>
+//#include <SPI.h>
 #include <Ethernet.h>
 #include <HttpClient.h>
 #include <Time.h> 
@@ -478,18 +486,21 @@ void setup() {
   printDateTime();
   Serial.println(" UTC.");
 
-  int ret = xivelyclient.get(feedHouse, xivelyFeedHouse);
-  Serial.println(ret);
+  int ret = xivelyclientHouse.get(feedHouse, xivelyKeyHouse);
+  //Serial.println(ret);
   if (ret > 0) {
-		energyHouse = datastreamsHouse[10].getFloat()*1000;
+		energyHouse = datastreamsHouse[10].getFloat()*1000.f;
 		Serial.print("Nacteno Energy:");
-		Serial.print(energyHouse);
-		Serial.println("Wh");
+		Serial.print(energyHouse/1000.f);
+		Serial.println("kWh");
   }
 }
 
 //----------------------------------------L O O P ----------------------------------------------------------------------------------
 void loop() {
+#ifdef watchdog
+  wdt_reset();
+#endif
   //UART
   if(millis() - lastReadDataSolarUARTTime > readDataSolarDelay) { //20 sec
     lastReadDataSolarUARTTime = millis();
@@ -685,9 +696,9 @@ void sendDataHouseXively() {
   datastreamsHouse[7].setFloat(tLivingRoom);  
   datastreamsHouse[8].setFloat(tWorkRoom);  
   datastreamsHouse[9].setFloat(tAttic);  
-  datastreamsHouse[10].setFloat(energyHouse);  
-  datastreamsHouse[11].setFloat(energyHour);  
-  datastreamsHouse[12].setFloat(energyDay);  
+  datastreamsHouse[10].setFloat(energyHouse/1000.f);  
+  datastreamsHouse[11].setFloat(energyHour/1000.f);  
+  datastreamsHouse[12].setFloat(energyDay/1000.f);  
   datastreamsHouse[13].setInt(consumption);  
   
 #ifdef verbose
@@ -758,7 +769,7 @@ void readDataSolarUART() {
   byte i=0;
   char flag=' ';
   byte status=0;
-  //#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12564.56#O;1245$3600177622*
+  //#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;10#O;1245$3600177622*
   char incomingByte = 0;   // for incoming serial data
   do {
     incomingByte = Serial1.read();
@@ -821,7 +832,6 @@ void readDataSolarUART() {
         }
         if (flag=='T') { //Total Energy
           energyTotal=atof(b);
-          //energyTotal=82.5; 
         }
         if (flag=='V') { //Version
           versionSolar=atof(b);
@@ -836,12 +846,9 @@ void readDataSolarUART() {
           statusSolar=atoi(b);
         }
 
-        if (flag=='W') { //kWh
-          energyHouseDiff=atof(b);
+        if (flag=='W') { //pulse, 1 pulse=1/800 kWh
+          energyHouseDiff=atof(b)*1.25f;
         }
-        energyHouse+=energyHouseDiff;
-        energyHour+=energyHouse;
-        energyDay+=energyHouse;
         if (flag=='O') { //Consumption
           consumption=atoi(b);
         }
@@ -855,6 +862,16 @@ void readDataSolarUART() {
     }
   } while ((char)incomingByte!='*' && millis() < (timeOut + 2000));
 
+  energyHouse+=energyHouseDiff;
+  energyHour+=energyHouseDiff;
+  energyDay+=energyHouseDiff;
+
+  Serial.println();
+  Serial.print("EnergyHouseDiff:");
+  Serial.println(energyHouseDiff);
+  Serial.print("EnergyHouse:");
+  Serial.println(energyHouse/1000.f);
+  
   /*Serial.println("\nDATA:");
   Serial.print("tOut=");
   Serial.println(sensor[0]);*/
@@ -946,6 +963,7 @@ void readDataHouseUART() {
     }
   } while ((char)incomingByte!='*' && millis() < (timeOut + 2000));
 
+/*#ifdef verbose
   Serial.println("\nDATA:");
   Serial.print("tAttic=");
   Serial.println(tAttic);
@@ -964,6 +982,8 @@ void readDataHouseUART() {
   Serial.print("tHall=");
   Serial.println(tHall);
   Serial.println("Data end");
+#endif
+*/
 #ifdef SDdef
     saveDataToSD('T');
 #endif

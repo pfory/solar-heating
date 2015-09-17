@@ -297,7 +297,7 @@ byte const totalSecEEPROMAdrL             = 12;
 byte const backLightEEPROMAdr             = 13;
 
 //SW name & version
-float const   versionSW                   = 0.80;
+float const   versionSW                   = 0.81;
 char  const   versionSWString[]           = "Solar v"; 
 
 
@@ -755,7 +755,7 @@ void sendDataSerial() {
   Serial.print("DATA:");
 #endif
   //data sended:
-  //#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12564.56#O;1245$3600177622*
+  //#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12#O;1245$3600177622*
   digitalWrite(LEDPIN,HIGH);
   crc = ~0L;
   for (byte i=0;i<numberOfDevices; i++) {
@@ -833,20 +833,10 @@ void sendDataSerial() {
   send(START_BLOCK);
   send('W');
   send(DELIMITER);
-  send(Wh2kWh(pulseCount)); //kWh
+  send(pulseCount); //1 puls = 1/800 kWh
   pulseCount=0;
 
-  /*send(START_BLOCK);
-  send('H');
-  send(DELIMITER);
-  send(Wh2kWh(pulseHour)); //kWh/hod
-
-   send(START_BLOCK);
-  send('D');
-  send(DELIMITER);
-  send(Wh2kWh(pulseDay)); //kWh/den
-*/
-   send(START_BLOCK);
+  send(START_BLOCK);
   send('O');
   send(DELIMITER);
   if (cycles>0) {
@@ -1358,8 +1348,4 @@ void powerMeter() {
     }
     lastPulse=millis();
   }
-}
-
-float Wh2kWh(unsigned long Wh) {
-  return (float)Wh/1000.f;
 }
