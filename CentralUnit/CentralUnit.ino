@@ -494,6 +494,11 @@ void setup() {
 		Serial.print(energyHouse/1000.f);
 		Serial.println("kWh");
   }
+  
+#ifdef watchdog
+  wdt_enable(WDTO_8S);
+#endif
+
 }
 
 //----------------------------------------L O O P ----------------------------------------------------------------------------------
@@ -516,15 +521,24 @@ void loop() {
       if((millis() - lastSendDataSolarXivelyTime > sendTimeSolarDelay) && dataSolarReaded) { //20 sec
         lastSendDataSolarXivelyTime = millis();
         sendDataSolarXively();            //send data to Xively SOLAR
+#ifdef watchdog
+        wdt_reset();
+#endif
       }
       if((millis() - lastUpdateSolarTime > updateTimeSolarDelay)) { //60 sec
         lastUpdateSolarTime = millis();
         readDataSolarXively();            //read Setup data
+#ifdef watchdog
+        wdt_reset();
+#endif
         sendDataSolarUART();              //send setup data to Solar unit
       }
       if((millis() - lastSendDataHouseXivelyTime > sendTimeHouseDelay) && dataHouseReaded) { //20 sec
         lastSendDataHouseXivelyTime = millis();
         sendDataHouseXively();            //send data to Xively HOUSE (and POWERMETER)
+#ifdef watchdog
+        wdt_reset();
+#endif
       }
     }
   }
@@ -709,7 +723,12 @@ void sendDataHouseXively() {
 #endif
 
   int ret = xivelyclientHouse.put(feedHouse, xivelyKeyHouse);
-  
+
+#ifdef watchdog
+  wdt_enable(WDTO_8S);
+#endif
+
+ 
   if (ret==200) {
       if (minute()==0) {
       energyHour=0;
@@ -719,9 +738,6 @@ void sendDataHouseXively() {
     }
   }
   
-#ifdef watchdog
-  wdt_enable(WDTO_8S);
-#endif
 
 #ifdef verbose
   Serial.print("xivelyclientHouse.put returned ");
