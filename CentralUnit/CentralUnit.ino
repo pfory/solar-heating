@@ -80,6 +80,7 @@ char a[0]; //do not delete this dummy variable
 #ifdef watchdog
 #include <avr/wdt.h>
 #endif
+#include <WString.h>
 
 
 float sensor[NUMBER_OF_DEVICES];
@@ -135,8 +136,25 @@ unsigned int const SERIAL_SPEED = 9600;
 
 int ethOK=false;
 
+#define STATUS_NORMAL0                        0
+#define STATUS_NORMAL1                        1
+#define STATUS_AFTER_START                    2
+#define STATUS_STARTAFTER_BROWNOUT            6
+#define STATUS_STARTAFTER_POWERON             7
+#define STATUS_STARTAFTER_WATCHDOGOREXTERNAL  8
+
+byte statusHouse                                = STATUS_NORMAL0;
+
+uint8_t MyRstFlags __attribute__ ((section(".noinit")));
+void SaveResetFlags(void) __attribute__ ((naked))
+                          __attribute__ ((section (".init0")));
+void SaveResetFlags(void)
+{
+  __asm__ __volatile__ ("mov %0, r2\n" : "=r" (MyRstFlags) :);
+}
+
 //Ethernet
-//#include <SPI.h>
+#include <SPI.h>
 #include <Ethernet.h>
 #include <HttpClient.h>
 #include <Time.h> 
@@ -179,7 +197,6 @@ char setTempDiffONID[]  = "setDiffON";
 char setTempDiffOFFID[] = "setDiffOFF";
 char setModeID[]        = "setMode";
 
-bool statusHouse      = 0;
 byte setModeSolar;
 float setTempDiffOFF;
 float setTempDiffON;
@@ -255,6 +272,7 @@ XivelyDatastream datastreamsHouse[] = {
 XivelyFeed feedHouse(xivelyFeedHouse,             datastreamsHouse,       14);
 
 XivelyClient xivelyclientHouse(client);
+
 
 //--------------ALARM
 /*char xivelyKeyAlarm[]       = "9fA2YgbOt7jhEkSR3BUiePAu1WSBTO90uGoiKie0ueIFP157";
@@ -400,6 +418,17 @@ void setup() {
   Serial2.begin(SERIAL_SPEED);
   
   datastreamsHouse[0].setFloat(0.1);
+
+  Serial.print(F("Compiled: "));
+  Serial.print(F(__DATE__));
+  Serial.print(F(", "));
+  Serial.print(F(__TIME__));
+  Serial.print(F(", "));
+  Serial.println(F(__VERSION__));
+  
+  Serial.print(F( "Arduino IDE version: "));
+  Serial.println( ARDUINO, DEC);
+  
   
   /*delay(5000);
 
@@ -412,7 +441,7 @@ void setup() {
   */
   
 #ifdef verbose
-  Serial.println("waiting for net connection...");
+  Serial.println(F("waiting for net connection..."));
 #endif
   //lcd.setCursor(0,0);
   //lcd.print("waiting for net");
@@ -423,24 +452,24 @@ void setup() {
 
 #ifdef verbose
   if (ethOK) {
-    Serial.println("EthOK");
-    Serial.print("\nIP:");
+    Serial.println(F("EthOK"));
+    Serial.print(F("\nIP:"));
     Serial.println(Ethernet.localIP());
-    Serial.print("Mask:");
+    Serial.print(F("Mask:"));
     Serial.println(Ethernet.subnetMask());
-    Serial.print("Gateway:");
+    Serial.print(F("Gateway:"));
     Serial.println(Ethernet.gatewayIP());
-    Serial.print("DNS:");
+    Serial.print(F("DNS:"));
     Serial.println(Ethernet.dnsServerIP());
     Serial.println();
   } else {
-    Serial.println("No internet!");
+    Serial.println(F("No internet!"));
   }
 #endif
 
   server.begin();
 #ifdef verbose
-  Serial.print("server is at ");
+  Serial.print(F("server is at "));
   Serial.println(Ethernet.localIP());
 #endif
 
@@ -459,42 +488,48 @@ void setup() {
   pinMode(53, OUTPUT);
   digitalWrite(53,HIGH);
 
-  Serial.print("Initializing SD card...");
+  Serial.print(F("Initializing SD card..."));
 
   bCardOK = true;
   // see if the card is present and can be initialized:
   if (!SD.begin(chipSelect)) {
-    Serial.println("card failed, or not present");
+    Serial.println(F("card failed, or not present"));
     bCardOK = false;
   }
   else {
-    Serial.println("card initialized.");
+    Serial.println(F("card initialized."));
     cardInfo();
   }
 #endif
 
   Udp.begin(localPort);
-  Serial.print("waiting 20s for time sync...");
+  Serial.print(F("waiting 20s for time sync..."));
   setSyncProvider(getNtpTime);
 
   unsigned long lastSetTime=millis();
   while(timeStatus()==timeNotSet && millis()<lastSetTime+20000); // wait until the time is set by the sync provider, timeout 20sec
-  Serial.println("Time sync interval is set to 3600 second.");
+  Serial.println(F("Time sync interval is set to 3600 second."));
   setSyncInterval(3600); //sync each 1 hour
   
-  Serial.print("Now is ");
+  Serial.print(F("Now is "));
   printDateTime();
-  Serial.println(" UTC.");
+  Serial.println(F(" UTC."));
 
   int ret = xivelyclientHouse.get(feedHouse, xivelyKeyHouse);
   //Serial.println(ret);
   if (ret > 0) {
 		energyHouse = datastreamsHouse[10].getFloat()*1000.f;
-		Serial.print("Nacteno Energy:");
+		Serial.print(F("Nacteno Energy:"));
 		Serial.print(energyHouse/1000.f);
-		Serial.println("kWh");
+		Serial.println(F("kWh"));
   }
   
+  
+  if (MyRstFlags==4) statusHouse = STATUS_STARTAFTER_BROWNOUT;
+  if (MyRstFlags==5) statusHouse = STATUS_STARTAFTER_POWERON;
+  if (MyRstFlags==8) statusHouse = STATUS_STARTAFTER_WATCHDOGOREXTERNAL;
+  else statusHouse = STATUS_AFTER_START;
+
 #ifdef watchdog
   wdt_enable(WDTO_8S);
 #endif
@@ -681,7 +716,7 @@ void sendDataSolarXively() {
     datastreamsSolar[8].setInt(0);  
 
 #ifdef verbose
-  Serial.println("Uploading solar data to Xively");
+  Serial.println(F("Uploading solar data to Xively"));
 #endif
 #ifdef watchdog
   wdt_disable();
@@ -694,14 +729,21 @@ void sendDataSolarXively() {
 #endif
 
 #ifdef verbose
-  Serial.print("xivelyclientSolar.put returned ");
+  Serial.print(F("xivelyclientSolar.put returned "));
   Serial.println(ret);
 #endif
 }
 
 void sendDataHouseXively() {
   datastreamsHouse[1].setInt(statusHouse);  
-  if (statusHouse==0) statusHouse=1; else statusHouse=0;
+  
+  if (statusHouse==STATUS_NORMAL0) {
+    statusHouse=STATUS_NORMAL1;
+  }
+  else {
+    statusHouse=STATUS_NORMAL0;
+  }
+  
   datastreamsHouse[2].setFloat(tBedRoomNew);  
   datastreamsHouse[3].setFloat(tBedRoomOld);
   datastreamsHouse[4].setFloat(tBojler);  
@@ -716,7 +758,7 @@ void sendDataHouseXively() {
   datastreamsHouse[13].setInt(consumption);  
   
 #ifdef verbose
-  Serial.println("Uploading temperature to Xively");
+  Serial.println(F("Uploading temperature to Xively"));
 #endif
 #ifdef watchdog
   wdt_disable();
@@ -740,7 +782,7 @@ void sendDataHouseXively() {
   
 
 #ifdef verbose
-  Serial.print("xivelyclientHouse.put returned ");
+  Serial.print(F("xivelyclientHouse.put returned "));
   Serial.println(ret);
 #endif
 
@@ -777,10 +819,10 @@ void sendDataAlarmXively() {
 void readDataSolarUART() {
   //read data from Solar unit UART1
   unsigned long timeOut = millis();
-  Serial.println("Reading data from solar unit...");
+  Serial.println(F("Reading data from solar unit..."));
   Serial1.flush();
-  Serial1.println("R");
-  Serial.println("Data req.");
+  Serial1.println(F("R"));
+  Serial.println(F("Data req."));
   char b[10];
   byte i=0;
   char flag=' ';
@@ -915,10 +957,10 @@ void readDataHouseUART() {
   //Reading data from temperature satelite UART2
   //#0;28E8B84104000016;21.25#1;28A6B0410400004E;7.56#2;28CEB0410400002C;5.81#3;28C9B84104000097;4.19#4;285DF3CF0200007E;46.63$4140078876*
   unsigned long timeOut = millis();
-  Serial.println("Reading data from temperature satellite...");
+  Serial.println(F("Reading data from temperature satellite..."));
   Serial2.flush();
-  Serial2.println("R");
-  Serial2.println("Data req.");
+  Serial2.println(F("R"));
+  Serial2.println(F("Data req."));
   char b[10];
   byte i=0;
   char flag=' ';
@@ -1042,11 +1084,11 @@ void readDataSolarXively() {
     setModeSolar           = datastreamsSolarSetup[2].getInt();
     //if (setTempDiffOFF!=tempDiffOFF || setTempDiffON!=tempDiffON || setModeSolar!=modeSolar) {
 #ifdef verbose
-    Serial.print("ON is...");
+    Serial.print(F("ON is..."));
     Serial.println(setTempDiffON);
-    Serial.print("OFF is... ");
+    Serial.print(F("OFF is... "));
     Serial.println(setTempDiffOFF);
-    Serial.print("Mode is... ");
+    Serial.print(F("Mode is... "));
     Serial.println(setModeSolar);
 #endif  
   }
@@ -1104,13 +1146,13 @@ void cardInfo() {
   // we'll use the initialization code from the utility libraries
   // since we're just testing if the card is working!
   if (!card.init(SPI_HALF_SPEED, chipSelect)) {
-    Serial.println("initialization failed. Things to check:");
-    Serial.println("* is a card is inserted?");
-    Serial.println("* Is your wiring correct?");
-    Serial.println("* did you change the chipSelect pin to match your shield or module?");
+    Serial.println(F("initialization failed. Things to check:"));
+    Serial.println(F("* is a card is inserted?"));
+    Serial.println(F("* Is your wiring correct?"));
+    Serial.println(F("* did you change the chipSelect pin to match your shield or module?"));
     return;
   } else {
-   Serial.println("Wiring is correct and a card is present."); 
+   Serial.println(F("Wiring is correct and a card is present.")); 
   }
 
   // print the type of card
@@ -1131,26 +1173,26 @@ void cardInfo() {
 
   // Now we will try to open the 'volume'/'partition' - it should be FAT16 or FAT32
   if (!volume.init(card)) {
-    Serial.println("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card");
+    Serial.println(F("Could not find FAT16/FAT32 partition.\nMake sure you've formatted the card"));
     return;
   }
 
 
   // print the type and size of the first FAT-type volume
   uint32_t volumesize;
-  Serial.print("\nVolume type is FAT");
+  Serial.print(F("\nVolume type is FAT"));
   Serial.println(volume.fatType(), DEC);
   Serial.println();
   
   volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
   volumesize *= volume.clusterCount();       // we'll have a lot of clusters
   volumesize *= 512;                            // SD card blocks are always 512 bytes
-  Serial.print("Volume size (bytes): ");
+  Serial.print(F("Volume size (bytes): "));
   Serial.println(volumesize);
-  Serial.print("Volume size (Kbytes): ");
+  Serial.print(F("Volume size (Kbytes): "));
   volumesize /= 1024;
   Serial.println(volumesize);
-  Serial.print("Volume size (Mbytes): ");
+  Serial.print(F("Volume size (Mbytes): "));
   volumesize /= 1024;
   Serial.println(volumesize);
 
@@ -1187,7 +1229,7 @@ void saveDataToSD(char rep) {
 
   Serial.println();
   printDateTime();
-  Serial.print("\nSaving data to file:");
+  Serial.print(F("\nSaving data to file:"));
   Serial.print(fileName);
   Serial.print("...");
   
@@ -1259,13 +1301,13 @@ void saveDataToSD(char rep) {
     dataFile.print("\n");
       
     dataFile.close();
-    Serial.println("data saved.");
+    Serial.println(F("data saved."));
   }  
   // if the file isn't open, pop up an error:
   else {
-    Serial.print("error opening ");
+    Serial.print(F("error opening "));
     Serial.println(fileName);
-    Serial.println("Try SD card reinit.");
+    Serial.println(F("Try SD card reinit."));
     SD.begin(chipSelect);
     if (!rep) {
       saveDataToSD(true);
@@ -1326,7 +1368,7 @@ unsigned long getNtpTime() {
       return secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
     }
   }
-  Serial.println("No NTP Response :-(");
+  Serial.println(F("No NTP Response :-("));
   return 0; // return 0 if unable to get the time
 }
 
