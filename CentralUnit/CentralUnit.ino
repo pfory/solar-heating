@@ -399,8 +399,7 @@ void setup() {
   Serial1.begin(SERIAL_SPEED);
   Serial2.begin(SERIAL_SPEED);
   
-  datastreamsHouse[0].setFloat(0.1);
-  
+
   /*delay(5000);
 
   Serial.println("restart ethernet module");
@@ -686,6 +685,7 @@ void sendDataSolarXively() {
 }
 
 void sendDataHouseXively() {
+  datastreamsHouse[0].setFloat(versionSW);
   datastreamsHouse[1].setInt(statusHouse);  
   if (statusHouse==0) statusHouse=1; else statusHouse=0;
   datastreamsHouse[2].setFloat(tBedRoomNew);  
