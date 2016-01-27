@@ -7,6 +7,7 @@ Petr Fory pfory@seznam.cz
 GIT - https://github.com/pfory/solar-heating
 
 Version history:
+0.82 - 27.1.2016  opraveno zobrazeni teplot od 0 do -0.9 na displeji
 0.80 - 9.9.2015   I2C komunikace s powerMeter unit
 0.79 - 24.10.2014 zachyceni stavu po resetu
 0.78 - 27.9.2014  pridano zobrazeni dnu bez slunce, zap/vyp podsviceni
@@ -45,8 +46,8 @@ A0              - DALLAS temperature sensors
 A1              - relay 1
 A2              - relay 2
 A3              - free
-A4              - I2C display SDA 0x20, I2C powerMeter unit 0x02
-A5              - I2C display SCL 0x20, I2C powerMeter unit 0x02
+A4              - I2C display SDA 0x20, I2C Central heating unit 0x02
+A5              - I2C display SCL 0x20, I2C Central heating unit 0x02
 D0              - Rx
 D1              - Tx
 D2              - keyboard
@@ -297,7 +298,7 @@ byte const totalSecEEPROMAdrL             = 12;
 byte const backLightEEPROMAdr             = 13;
 
 //SW name & version
-float const   versionSW                   = 0.81;
+float const   versionSW                   = 0.82;
 char  const   versionSWString[]           = "Solar v"; 
 
 
@@ -380,7 +381,7 @@ void loop() {
 
   keyBoard();
   
-  powerMeter();
+  centralHeating();
   
 } //loop
 
@@ -682,9 +683,13 @@ void displayTemp(int x, int y, float value) {
   if (cela<10 && cela>=0) {
     lcd.print(" ");
   }
+  
+  if (value<0) {
+    lcd.print("-");
+  }
  
   int desetina=abs((int)(value*10)%10);
-  lcd.print(cela);
+  lcd.print(abs(cela));
   lcd.print(".");
   lcd.print(desetina);
   
@@ -829,7 +834,7 @@ void sendDataSerial() {
   send(DELIMITER);
   send(status);
   
-  //powerMeter
+  //centralHeating
   send(START_BLOCK);
   send('W');
   send(DELIMITER);
@@ -1317,8 +1322,8 @@ float enegyWsTokWh(float e) {
 }
 
 
-void powerMeter() {
-  //read from power consumption unit
+void centralHeating() {
+  //read from central heating unit
   bool first = true;
   char c;
   Wire.requestFrom(2, 1);    // request 1 byte from slave device #2
