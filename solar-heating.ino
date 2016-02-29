@@ -684,7 +684,7 @@ void displayTemp(int x, int y, float value) {
     lcd.print(" ");
   }
   
-  if (value<0) {
+  if (value<0.f) {
     lcd.print("-");
   }
  
@@ -693,9 +693,9 @@ void displayTemp(int x, int y, float value) {
   lcd.print(".");
   lcd.print(desetina);
   
-  if (cela>-10) {
+  /*if (cela>-10) {
     lcd.print(" ");
-  }
+  }*/
 }
 
 void dsInit(void) {
