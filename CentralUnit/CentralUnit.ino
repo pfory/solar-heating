@@ -4,7 +4,6 @@ GIT - https://github.com/pfory/solar-heating/tree/master/CentralUnit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 Je nutno stahnout i spravnou knihovnu HttpClient z https://github.com/amcewen/HttpClient
-Kompilovat 1.5.6 r2
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 Version history:
@@ -12,7 +11,6 @@ Version history:
 0.79 - 24.10.2014 zachyceni stavu po resetu
 
 TODO:
-kdyz se kompiluje 1.6.4 tak se program resetuje
 
 HW
 Arduino Mega 2560
@@ -154,11 +152,25 @@ void SaveResetFlags(void)
 }
 
 //Ethernet
-//#include <SPI.h>
+#include <SPI.h>
 #include <Ethernet.h>
 #include <HttpClient.h>
 #include <Time.h> 
 #include <EthernetUdp.h>
+
+#define mqqt
+#ifdef mqqt
+#include <PubSubClient.h>
+IPAddress serverPubSub(213, 192, 58, 66);
+EthernetClient ethClient;
+PubSubClient clientPubSub(serverPubSub, 31883, callback, ethClient);
+char charBuf[15];
+
+// Callback function
+void callback(char* topic, byte* payload, unsigned int length) {
+}
+
+#endif
 
 byte mac[] = { 0x00, 0xE0, 0x07D, 0xCE, 0xC6, 0x6E};
 //IPAddress dnServer(192, 168, 1, 1);
@@ -274,97 +286,7 @@ XivelyFeed feedHouse(xivelyFeedHouse,             datastreamsHouse,       14);
 XivelyClient xivelyclientHouse(client);
 
 
-//--------------ALARM
-/*char xivelyKeyAlarm[]       = "9fA2YgbOt7jhEkSR3BUiePAu1WSBTO90uGoiKie0ueIFP157";
-#define xivelyFeedAlarm         1912511577
-
-bool statusAlarm=0;
-bool isArmed=false;
-bool isAlarm=false;
-#define pin 650419
-byte numberOfZones[10];
-byte numberOfSensors[26];
-
-bool isActive[numberOfZones];
-byte delayIn[numberOfZones];
-byte delayOut[numberOfZones];
-
-byte sensorZone[numberOfSensors];
-
-
-float versionAlarm = 0.01;
-
-char VersionAlarmID[]       = "_V";
-char StatusAlarmID[]         = "_S";
-char Sensor1ID[]             = "Sensor1";
-char Sensor2ID[]             = "Sensor2";
-char Sensor3ID[]             = "Sensor3";
-char Sensor4ID[]             = "Sensor4";
-char Sensor5ID[]             = "Sensor5";
-char Sensor6ID[]             = "Sensor6";
-char Sensor7ID[]             = "Sensor7";
-char Sensor8ID[]             = "Sensor8";
-char Sensor9ID[]             = "Sensor9";
-char Sensor10ID[]           = "Sensor10";
-char Sensor11ID[]           = "Sensor11";
-char Sensor12ID[]           = "Sensor12";
-char Sensor13ID[]           = "Sensor13";
-char Sensor14ID[]           = "Sensor14";
-char Sensor15ID[]           = "Sensor15";
-char Sensor16ID[]           = "Sensor16";
-char Sensor17ID[]           = "Sensor17";
-char Sensor18ID[]           = "Sensor18";
-char Sensor19ID[]           = "Sensor19";
-char Sensor20ID[]           = "Sensor20";
-char Sensor21ID[]           = "Sensor21";
-char Sensor22ID[]           = "Sensor22";
-char Sensor23ID[]           = "Sensor23";
-char Sensor24ID[]           = "Sensor24";
-char Sensor25ID[]           = "Sensor25";
-char Sensor26ID[]           = "Sensor26";
-char IsArmedID[]             = "isArmed";
-char IsAlarmID[]             = "isAlarm";
-
-
-XivelyDatastream datastreamsAlarm[] = {
-  XivelyDatastream(VersionAlarmID,     strlen(VersionAlarmID),   DATASTREAM_FLOAT),
-  XivelyDatastream(StatusAlarmID,     strlen(StatusAlarmID),     DATASTREAM_INT),
-  XivelyDatastream(Sensor1ID,          strlen(Sensor1ID),        DATASTREAM_INT),
-  XivelyDatastream(Sensor2ID,          strlen(Sensor2ID),        DATASTREAM_INT),
-  XivelyDatastream(Sensor3ID,          strlen(Sensor3ID),        DATASTREAM_INT),
-  XivelyDatastream(Sensor4ID,          strlen(Sensor4ID),        DATASTREAM_INT),
-  XivelyDatastream(Sensor5ID,          strlen(Sensor5ID),        DATASTREAM_INT),
-  XivelyDatastream(Sensor6ID,          strlen(Sensor6ID),        DATASTREAM_INT),
-  XivelyDatastream(Sensor7ID,          strlen(Sensor7ID),        DATASTREAM_INT),
-  XivelyDatastream(Sensor8ID,          strlen(Sensor8ID),        DATASTREAM_INT),
-  XivelyDatastream(Sensor9ID,          strlen(Sensor9ID),        DATASTREAM_INT),
-  XivelyDatastream(Sensor10ID,        strlen(Sensor10ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor11ID,        strlen(Sensor11ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor12ID,        strlen(Sensor12ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor13ID,        strlen(Sensor13ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor14ID,        strlen(Sensor14ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor15ID,        strlen(Sensor15ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor16ID,        strlen(Sensor16ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor17ID,        strlen(Sensor17ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor18ID,        strlen(Sensor18ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor19ID,        strlen(Sensor19ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor20ID,        strlen(Sensor20ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor21ID,        strlen(Sensor21ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor22ID,        strlen(Sensor22ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor23ID,        strlen(Sensor23ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor24ID,        strlen(Sensor24ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor25ID,        strlen(Sensor25ID),       DATASTREAM_INT),
-  XivelyDatastream(Sensor26ID,        strlen(Sensor26ID),       DATASTREAM_INT),
-  XivelyDatastream(IsArmedID,          strlen(IsArmedID),        DATASTREAM_INT),
-  XivelyDatastream(IsAlarmID,          strlen(IsAlarmID),        DATASTREAM_INT)
-};
-
-XivelyFeed feedAlarm(xivelyFeedAlarm,             datastreamsAlarm,       30);
-
-XivelyClient xivelyclientAlarm(client);
-*/
- 
-IPAddress timeServer(132, 163, 4, 101); // time-a.timefreq.bldrdoc.gov
+IPAddress timeServer(217, 31, 202, 100); // ntp.nic.cz
 // IPAddress timeServer(132, 163, 4, 102); // time-b.timefreq.bldrdoc.gov
 // IPAddress timeServer(132, 163, 4, 103); // time-c.timefreq.bldrdoc.gov
 const int timeZone = 1;     // Central European Time
@@ -405,7 +327,7 @@ unsigned long lastSaveTime;
 unsigned long getNtpTime();
 void sendNTPpacket(IPAddress &address);
 
-float versionSW=0.50;
+float versionSW=0.61;
 char versionSWString[] = "CentralUnit v"; //SW name & version
 
 
@@ -557,6 +479,19 @@ void loop() {
 #ifdef watchdog
         wdt_reset();
 #endif
+        if (clientPubSub.connect("Solar")) { //send data to openHAB on Raspberry
+          Serial.println("Send data to openHAB");
+          clientPubSub.publish("/home/Corridor/esp06/tIN",floatToString(tIn));
+          clientPubSub.publish("/home/Corridor/esp06/tOUT",floatToString(tOut));
+          clientPubSub.publish("/home/Corridor/esp06/tPump",floatToString(tRoom));
+          clientPubSub.publish("/home/Corridor/esp06/tBojler",floatToString(tBojler2));
+          if (relay1==LOW) {
+            clientPubSub.publish("/home/Corridor/esp06/sPumpSolar","ON");
+          }else{
+            clientPubSub.publish("/home/Corridor/esp06/sPumpSolar","OFF");
+          }
+          clientPubSub.publish("/home/Corridor/esp06/HeartBeat",floatToString(tBojler2));
+        }
       }
       if((millis() - lastUpdateSolarTime > updateTimeSolarDelay)) { //60 sec
         lastUpdateSolarTime = millis();
@@ -572,12 +507,23 @@ void loop() {
 #ifdef watchdog
         wdt_reset();
 #endif
+        if (clientPubSub.connect("Temperatures")) { //send data to openHAB on Raspberry
+          clientPubSub.publish("/home/bedNew/esp03/tLivingRoom",floatToString(tLivingRoom));
+          clientPubSub.publish("/home/bedNew/esp03/tBedRoomNew",floatToString(tBedRoomNew));
+          clientPubSub.publish("/home/bedNew/esp03/tBedRoomOld",floatToString(tBedRoomOld));
+          clientPubSub.publish("/home/bedNew/esp03/tCorridor",floatToString(tCorridor));
+          clientPubSub.publish("/home/bedNew/esp03/tHall",floatToString(tHall));
+          //clientPubSub.publish("/home/bedNew/esp03/tBath",floatToString(tBathRoom));
+          clientPubSub.publish("/home/bedNew/esp03/tWorkRoom",floatToString(tWorkRoom));
+          clientPubSub.publish("/home/bedNew/esp03/tAttic",floatToString(tAttic));
+        }
       }
     }
   }
   if (ethOK) {
     checkServer();
   }
+  clientPubSub.loop();
 }
 
 //--------------------------------------- F U N C T I O N S -----------------------------------------------------------------------------------
@@ -1393,6 +1339,10 @@ void sendNTPpacket(IPAddress &address) {
   Udp.endPacket();
 }
 
+char* floatToString(float f) {
+  dtostrf(f, 1, 2, charBuf);
+  return charBuf;
+}
 
 /* not implemented yet
 #ifdef serialMonitor
