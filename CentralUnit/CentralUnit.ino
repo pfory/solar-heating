@@ -7,6 +7,7 @@ Je nutno stahnout i spravnou knihovnu HttpClient z https://github.com/amcewen/Ht
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 Version history:
+0.81 - 4.3.2016 Change IP address for OpenHAB
 0.80 - 9.9.2015   I2C komunikace s powerMeter unit
 0.79 - 24.10.2014 zachyceni stavu po resetu
 
@@ -161,7 +162,7 @@ void SaveResetFlags(void)
 #define mqqt
 #ifdef mqqt
 #include <PubSubClient.h>
-IPAddress serverPubSub(213, 192, 58, 66);
+IPAddress serverPubSub(88, 146, 202, 186);
 EthernetClient ethClient;
 PubSubClient clientPubSub(serverPubSub, 31883, callback, ethClient);
 char charBuf[15];
@@ -327,7 +328,7 @@ unsigned long lastSaveTime;
 unsigned long getNtpTime();
 void sendNTPpacket(IPAddress &address);
 
-float versionSW=0.61;
+float versionSW=0.81;
 char versionSWString[] = "CentralUnit v"; //SW name & version
 
 
@@ -491,6 +492,7 @@ void loop() {
             clientPubSub.publish("/home/Corridor/esp06/sPumpSolar","OFF");
           }
           clientPubSub.publish("/home/Corridor/esp06/HeartBeat",floatToString(tBojler2));
+          clientPubSub.publish("/home/Corridor/esp06/VersionSWSolar",floatToString(versionSolar));
         }
       }
       if((millis() - lastUpdateSolarTime > updateTimeSolarDelay)) { //60 sec
@@ -516,6 +518,7 @@ void loop() {
           //clientPubSub.publish("/home/bedNew/esp03/tBath",floatToString(tBathRoom));
           clientPubSub.publish("/home/bedNew/esp03/tWorkRoom",floatToString(tWorkRoom));
           clientPubSub.publish("/home/bedNew/esp03/tAttic",floatToString(tAttic));
+          //clientPubSub.publish("/home/Corridor/esp06/VersionSWSolar",versionSolar);
         }
       }
     }
