@@ -55,7 +55,7 @@ function parseData()
 
       index = index + 1
   end
-  sendData()
+  --sendData()
 end
 
 function reconnect()
