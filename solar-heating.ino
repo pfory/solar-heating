@@ -7,6 +7,7 @@ Petr Fory pfory@seznam.cz
 GIT - https://github.com/pfory/solar-heating
 
 Version history:
+0.90 - 05.05.2016 komunikace s jednokou ESP8266
 0.82 - 27.1.2016  opraveno zobrazeni teplot od 0 do -0.9 na displeji
 0.80 - 9.9.2015   I2C komunikace s powerMeter unit
 0.79 - 24.10.2014 zachyceni stavu po resetu
@@ -65,7 +66,7 @@ D13             - free
 --------------------------------------------------------------------------------------------------------------------------
 */
 
-#include <Wire.h> 
+//#include <Wire.h> 
 #define watchdog //enable this only on board with optiboot bootloader
 #ifdef watchdog
 #include <avr/wdt.h>
@@ -110,7 +111,8 @@ const unsigned int serialTimeout=2000;
 #define POL          POSITIVE
 #define LCDROWS      2
 #define LCDCOLS      16
-LiquidCrystal_I2C lcd(LCDADDRESS,EN,RW,RS,D4,D5,D6,D7,BACKLIGHT,POL);  // set the LCD
+//LiquidCrystal_I2C lcd(LCDADDRESS,EN,RW,RS,D4,D5,D6,D7,BACKLIGHT,POL);  // set the LCD
+LiquidCrystal_I2C lcd(LCDADDRESS,16,2);  // set the LCD
 
 // Create a set of new characters
 /*const uint8_t charBitmap[][8] = {
@@ -178,6 +180,8 @@ unsigned int pulseCount                   = 0; //
 unsigned long consumption                 = 0;
 unsigned long lastPulse                   = 0;
 unsigned int cycles                       = 0;
+unsigned long lastSend                    = 0;  //ms posledniho poslani dat
+unsigned long sendDelay                   = 0;  //30000 prodleva mezi poslanim dat
 
 //MODE
 byte modeSolar                            = 0;
@@ -204,7 +208,7 @@ float safetyON                            = 80.0; //teplota, pri niz rele vzdy s
 enum mode {NORMAL, POWERSAVE};
 mode powerMode                            = NORMAL;
 
-byte display                              = 0;
+unsigned int display                              = 0;
 
 #define STATUS_NORMAL0                        0
 #define STATUS_NORMAL1                        1
@@ -377,11 +381,14 @@ void loop() {
   }
   */
 
-  communication();
+  if (millis() - lastSend >= sendDelay) {
+    sendDataSerial();
+    lastSend = millis();
+  }
 
   keyBoard();
   
-  centralHeating();
+  //centralHeating();
   
 } //loop
 
@@ -478,7 +485,7 @@ void tempMeas() {
     tControl  = sensor[controlSensor];
     
     if (tOut>tMaxOut)       tMaxOut     = tOut;
-    if (tIn>tMaxIn)         tMaxIn      = tIn;
+      if (tIn>tMaxIn)         tMaxIn      = tIn;
     if (tBojler>tMaxBojler) tMaxBojler   = tBojler;
     //obcas se vyskytne chyba a vsechna cidla prestanou merit
     //zkusim restartovat sbernici
@@ -640,7 +647,7 @@ void keyBoard() {
   }
 #endif
 }
-
+/*
 void communication() {
   char req=dataRequested();
   if (req=='R') { //if data were requested from central unit then send data
@@ -663,7 +670,7 @@ void communication() {
     mySerial.print("OK");
   }
 }
-
+*/
 void displayTemp(int x, int y, float value) {
   /*
   012345
@@ -753,6 +760,7 @@ void displayRelayStatus(void) {
 */
 }
 
+/*
 void sendDataSerial() {
   if (firstMeasComplete==false) return;
 
@@ -1090,6 +1098,7 @@ void crc_string(byte s)
   crc = crc_update(crc, s);
   crc = ~crc;
 }
+*/
 
 void writeTotalEEPROM(byte typ) {
   EEPROM.write(totalEnergyEEPROMAdrL, totalEnergy & 0xFF);
@@ -1184,7 +1193,7 @@ void lcdShow() {
       if (p<1000) lcd.print(" ");
       if (p<100) lcd.print(" ");
       if (p<10) lcd.print(" ");
-      if (power<=99999) {
+      if (power<=65534) {
         lcd.print(p);
       }
       
@@ -1322,35 +1331,138 @@ float enegyWsTokWh(float e) {
 }
 
 
-void centralHeating() {
-  //read from central heating unit
-  bool first = true;
-  char c;
-  Wire.requestFrom(2, 1);    // request 1 byte from slave device #2
-  while(Wire.available())    // slave may send less than requested
-  {
-    c = Wire.read();    // receive a byte as character
-    if (c=='-') {
-      break;
-    } else {
-      if (first) {
-        Serial.print("Data from I2C:");
-        first=false;
-        c='1';
-      }
-      Serial.println(c);         // print the character
-    }
+void sendDataSerial() {
+  //send to ESP8266 unit via UART
+  //data sended:
+  //I tempIN 
+  //O tempOUT
+  //M room temp
+  //B bojler temp
+  //R relay status
+
+  //data sended:
+  //#B;25.31#M;25.19#I;25.10#O;50.5#R;1$3600177622*
+
+  if (firstMeasComplete==false) return;
+
+  Serial.print("DATA:");
+  digitalWrite(LEDPIN,HIGH);
+  crc = ~0L;
+  send(START_BLOCK);
+  send('B');
+  send(DELIMITER);
+  send(tBojler);
+
+  send(START_BLOCK);
+  send('M');
+  send(DELIMITER);
+  send(tRoom);
+
+
+  send(START_BLOCK);
+  send('I');
+  send(DELIMITER);
+  send(tIn);
+
+  send(START_BLOCK);
+  send('O');
+  send(DELIMITER);
+  send(tOut);
+
+  send(START_BLOCK);
+  send('R');
+  send(DELIMITER);
+  if (relay1==LOW)
+    send('1');
+  else
+    send('0');
+
+  send(END_BLOCK);
+
+  //mySerial.print(crc);
+  send(END_TRANSMITION);
+  mySerial.flush();
+ 
+  Serial.println();
+}
+
+void send(char s) {
+  send(s, ' ');
+}
+
+
+void send(char s, char type) {
+  if (type=='X') {
+#ifdef serial
+    Serial.print(s, HEX);
+#endif
+    mySerial.print(s, HEX);
   }
-  
-  if (c!='-') {
-    pulseCount++;
-    if (lastPulse>0) {
-      consumption+=3600000/(millis()-lastPulse);
-      cycles++;
-      Serial.print("Prikon:");
-      Serial.print(3600000/(millis()-lastPulse));
-      Serial.println(" W");
-    }
-    lastPulse=millis();
+  else {
+#ifdef serial
+    Serial.print(s);
+#endif
+    mySerial.print(s);
+  }
+  crc_string(byte(s));
+}
+
+void send(byte s) {
+  send(s, ' ');
+}
+
+void send(byte s, char type) {
+  if (type=='X') {
+#ifdef serial
+    Serial.print(s, HEX);
+#endif
+    mySerial.print(s, HEX);
+  }
+  else {
+#ifdef serial
+    Serial.print(s);
+#endif
+    mySerial.print(s);
+  }
+  crc_string(s);
+}
+
+void crc_string(byte s)
+{
+  crc = crc_update(crc, s);
+  crc = ~crc;
+}
+
+unsigned long crc_update(unsigned long crc, byte data)
+{
+    byte tbl_idx;
+    tbl_idx = crc ^ (data >> (0 * 4));
+    crc = pgm_read_dword_near(crc_table + (tbl_idx & 0x0f)) ^ (crc >> 4);
+    tbl_idx = crc ^ (data >> (1 * 4));
+    crc = pgm_read_dword_near(crc_table + (tbl_idx & 0x0f)) ^ (crc >> 4);
+    return crc;
+}
+
+
+void send(unsigned long s) {
+#ifdef serial
+  Serial.print(s);
+#endif
+  mySerial.print(s);
+}
+
+void send(unsigned int s) {
+#ifdef serial
+  Serial.print(s);
+#endif
+  mySerial.print(s);
+}
+
+void send(float s) {
+  char tBuffer[8];
+  dtostrf(s,0,2,tBuffer);
+  for (byte i=0; i<8; i++) {
+    if (tBuffer[i]==0) break;
+    send(tBuffer[i]);
   }
 }
