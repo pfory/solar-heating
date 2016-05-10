@@ -47,8 +47,8 @@ A0              - DALLAS temperature sensors
 A1              - relay 1
 A2              - relay 2
 A3              - free
-A4              - I2C display SDA 0x20, I2C Central heating unit 0x02
-A5              - I2C display SCL 0x20, I2C Central heating unit 0x02
+A4              - I2C display SDA 0x20
+A5              - I2C display SCL 0x20
 D0              - Rx
 D1              - Tx
 D2              - keyboard
@@ -59,8 +59,8 @@ D6              - keyboard
 D7              - keyboard
 D8              - keyboard
 D9              - keyboard
-D10             - free
-D11             - free
+D10             - Rx 
+D11             - Tx
 D12             - free
 D13             - free
 --------------------------------------------------------------------------------------------------------------------------
@@ -75,6 +75,7 @@ D13             - free
 #define serial //serial monitor
 unsigned int const SERIAL_SPEED=9600;
 
+#include <Wire.h>
 #include <avr/pgmspace.h>
 unsigned long crc;
 const PROGMEM uint32_t crc_table[16] = {
@@ -111,8 +112,8 @@ const unsigned int serialTimeout=2000;
 #define POL          POSITIVE
 #define LCDROWS      2
 #define LCDCOLS      16
-//LiquidCrystal_I2C lcd(LCDADDRESS,EN,RW,RS,D4,D5,D6,D7,BACKLIGHT,POL);  // set the LCD
-LiquidCrystal_I2C lcd(LCDADDRESS,16,2);  // set the LCD
+LiquidCrystal_I2C lcd(LCDADDRESS,EN,RW,RS,D4,D5,D6,D7,BACKLIGHT,POL);  // set the LCD
+//LiquidCrystal_I2C lcd(LCDADDRESS,16,2);  // set the LCD
 
 // Create a set of new characters
 /*const uint8_t charBitmap[][8] = {
@@ -181,7 +182,7 @@ unsigned long consumption                 = 0;
 unsigned long lastPulse                   = 0;
 unsigned int cycles                       = 0;
 unsigned long lastSend                    = 0;  //ms posledniho poslani dat
-unsigned long sendDelay                   = 0;  //30000 prodleva mezi poslanim dat
+unsigned long sendDelay                   = 30000;  //30000 prodleva mezi poslanim dat
 
 //MODE
 byte modeSolar                            = 0;
@@ -302,7 +303,7 @@ byte const totalSecEEPROMAdrL             = 12;
 byte const backLightEEPROMAdr             = 13;
 
 //SW name & version
-float const   versionSW                   = 0.82;
+float const   versionSW                   = 0.90;
 char  const   versionSWString[]           = "Solar v"; 
 
 
@@ -360,8 +361,7 @@ void setup() {
   if (MyRstFlags==8) status = STATUS_STARTAFTER_WATCHDOGOREXTERNAL;
   else status = STATUS_AFTER_START;
 
-  Wire.begin();        // join i2c bus (address optional for master)
-  
+ 
 } //setup
 
 
