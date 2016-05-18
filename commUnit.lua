@@ -21,7 +21,7 @@ gpio.write(pinLed,gpio.HIGH)
 heartBeat = node.bootreason()+10
 print("Boot reason:"..heartBeat)
 
-versionSW                  = "0.1"
+versionSW                  = "0.2"
 versionSWString            = "Solar v" 
 print(versionSWString .. versionSW)
 
@@ -126,7 +126,7 @@ end
 
 
 function mqtt_sub()  
-  m:subscribe(base,0, function(conn)   
+  m:subscribe(base.."com",0, function(conn)   
     print("Mqtt Subscribed to OpenHAB feed for device "..deviceID)  
   end)  
 end
@@ -153,12 +153,12 @@ tmr.alarm(0, 1000, 1, function()
     print ("Wifi connected")
     tmr.stop(0) 
     m:connect(Broker, 31883, 0, function(conn) 
-      --mqtt_sub() --run the subscription function 
+      m:publish(base.."com",                    "OFF",0,0)  
+      mqtt_sub() --run the subscription function 
       print(wifi.sta.getip())
       print("Mqtt Connected to:" .. Broker.." - "..base) 
       m:publish(base.."VersionSWSolar",         versionSW,0,0)  
       m:publish(base.."HeartBeat",              heartBeat,0,0)  
-      m:publish(base.."com",                    "OFF",0,0)  
       heartBeat=0
       tmr.alarm(0, sendDelay, tmr.ALARM_AUTO, function()
         sendData() 
