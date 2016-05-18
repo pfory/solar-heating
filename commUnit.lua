@@ -158,6 +158,7 @@ tmr.alarm(0, 1000, 1, function()
       print("Mqtt Connected to:" .. Broker.." - "..base) 
       m:publish(base.."VersionSWSolar",         versionSW,0,0)  
       m:publish(base.."HeartBeat",              heartBeat,0,0)  
+      m:publish(base.."com",                    "OFF",0,0)  
       heartBeat=0
       tmr.alarm(0, sendDelay, tmr.ALARM_AUTO, function()
         sendData() 
