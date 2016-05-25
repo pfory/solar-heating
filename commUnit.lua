@@ -21,7 +21,7 @@ gpio.write(pinLed,gpio.HIGH)
 heartBeat = node.bootreason()+10
 print("Boot reason:"..heartBeat)
 
-versionSW                  = "0.2"
+versionSW                  = "0.3"
 versionSWString            = "Solar v" 
 print(versionSWString .. versionSW)
 
@@ -37,6 +37,8 @@ function reconnect()
       mqtt_sub() --run the subscription function 
     end)
   end
+  heartBeat=20
+  sendHB()
 end
 
 m = mqtt.Client(deviceID, 180, "datel", "hanka12")  
@@ -142,6 +144,21 @@ m:on("message", function(conn, topic, data)
   end
 end)  
 
+function sendHB()
+  print("I am sending HB to OpenHab")
+  m:publish(base.."HeartBeat",   heartBeat,0,0)
+ 
+  if heartBeat==0 then heartBeat=1
+  else heartBeat=0
+  end
+end
+
+-- kazdych 10 minut provede reconnect na broker
+tmr.alarm(5, 600000, 1, function() 
+  reconnect()
+end)
+
+
 tmr.alarm(0, 5000, 1, function() 
   parseData()
 end)
@@ -158,8 +175,7 @@ tmr.alarm(0, 1000, 1, function()
       print(wifi.sta.getip())
       print("Mqtt Connected to:" .. Broker.." - "..base) 
       m:publish(base.."VersionSWSolar",         versionSW,0,0)  
-      m:publish(base.."HeartBeat",              heartBeat,0,0)  
-      heartBeat=0
+      sendHB() 
       tmr.alarm(0, sendDelay, tmr.ALARM_AUTO, function()
         sendData() 
       end)
