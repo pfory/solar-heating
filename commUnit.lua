@@ -2,13 +2,22 @@
 base = "/home/Corridor/esp07/"
 deviceID = "ESP8266 Solar "..node.chipid()
 
+heartBeat = node.bootreason()+10
+print("Boot reason:"..heartBeat)
+
 wifi.setmode(wifi.STATION)
 wifi.sta.config("Datlovo","Nu6kMABmseYwbCoJ7LyG")
+cfg={
+  ip = "192.168.1.152",
+  netmask = "255.255.255.0",
+  gateway = "192.168.1.1"
+}
+wifi.sta.setip(cfg)
 wifi.sta.autoconnect(1)
 
 Broker="88.146.202.186"  
-sendDelay = 30000 --ms
 
+sendDelay = 30000 --ms
 received = ""
 
 pinLed = 4
@@ -18,8 +27,6 @@ tmr.delay(1000000)
 gpio.write(pinLed,gpio.HIGH)  
 
 
-heartBeat = node.bootreason()+10
-print("Boot reason:"..heartBeat)
 
 versionSW                  = "0.3"
 versionSWString            = "Solar v" 
@@ -31,7 +38,7 @@ function reconnect()
   if wifi.sta.status() == 5 and wifi.sta.getip() ~= nil then 
     print ("Wifi Up!")
     tmr.stop(1) 
-    m:connect(Broker, 31883, 0, function(conn) 
+    m:connect(Broker, 31883, 0, 1, function(conn) 
       print(wifi.sta.getip())
       print("Mqtt Connected to:" .. Broker) 
       mqtt_sub() --run the subscription function 
@@ -153,12 +160,6 @@ function sendHB()
   end
 end
 
--- kazdych 10 minut provede reconnect na broker
-tmr.alarm(5, 600000, 1, function() 
-  reconnect()
-end)
-
-
 tmr.alarm(0, 5000, 1, function() 
   parseData()
 end)
@@ -169,7 +170,7 @@ tmr.alarm(0, 1000, 1, function()
   if wifi.sta.status() == 5 and wifi.sta.getip() ~= nil then 
     print ("Wifi connected")
     tmr.stop(0) 
-    m:connect(Broker, 31883, 0, function(conn) 
+    m:connect(Broker, 31883, 0, 1, function(conn) 
       m:publish(base.."com",                    "OFF",0,0)  
       mqtt_sub() --run the subscription function 
       print(wifi.sta.getip())
