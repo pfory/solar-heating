@@ -48,18 +48,18 @@ A0              - DALLAS temperature sensors
 A1              - relay 1
 A2              - relay 2
 A3              - free
-A4              - I2C display SDA 0x20
-A5              - I2C display SCL 0x20
+A4              - I2C display SDA 0x20, keypad 0x27
+A5              - I2C display SCL 0x20, keypad 0x27
 D0              - Rx
 D1              - Tx
-D2              - keyboard
-D3              - keyboard
-D4              - keyboard
-D5              - keyboard
-D6              - keyboard
-D7              - keyboard
-D8              - keyboard
-D9              - keyboard
+D2              - free
+D3              - free
+D4              - free
+D5              - free
+D6              - free
+D7              - free
+D8              - free
+D9              - free
 D10             - Rx 
 D11             - Tx
 D12             - free
