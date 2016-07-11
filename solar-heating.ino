@@ -7,6 +7,7 @@ Petr Fory pfory@seznam.cz
 GIT - https://github.com/pfory/solar-heating
 
 Version history:
+0.95 - 19.6.2016  i2c keypad
 0.90 - 05.05.2016 komunikace s jednokou ESP8266
 0.82 - 27.1.2016  opraveno zobrazeni teplot od 0 do -0.9 na displeji
 0.80 - 9.9.2015   I2C komunikace s powerMeter unit
@@ -66,14 +67,14 @@ D13             - free
 --------------------------------------------------------------------------------------------------------------------------
 */
 
-//#include <Wire.h> 
 #define watchdog //enable this only on board with optiboot bootloader
 #ifdef watchdog
 #include <avr/wdt.h>
 #endif
 
 #define serial //serial monitor
-unsigned int const SERIAL_SPEED=9600;
+unsigned int const SERIAL_SPEED=19200;
+unsigned int const mySERIAL_SPEED=9600;
 
 #include <Wire.h>
 #include <avr/pgmspace.h>
@@ -114,6 +115,7 @@ const unsigned int serialTimeout=2000;
 #define LCDCOLS      16
 LiquidCrystal_I2C lcd(LCDADDRESS,EN,RW,RS,D4,D5,D6,D7,BACKLIGHT,POL);  // set the LCD
 //LiquidCrystal_I2C lcd(LCDADDRESS,16,2);  // set the LCD
+bool backLight = true;
 
 // Create a set of new characters
 /*const uint8_t charBitmap[][8] = {
@@ -149,8 +151,8 @@ unsigned int numberOfDevices              = 0; // Number of temperature devices 
 unsigned long lastDsMeasStartTime         = 0;
 bool dsMeasStarted                        = false;
 float sensor[NUMBER_OF_DEVICES];
-float tempDiffON                          = 5.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
-float tempDiffOFF                         = 2.0; //difference between room temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
+float tempDiffON                          = 5.0; //difference between controled temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
+float tempDiffOFF                         = 2.0; //difference between controled temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
 //diferences in normal mode (power for pump is ready)
 float tempDiffONNormal                    = tempDiffON;
 float tempDiffOFFNormal                   = tempDiffOFF;
@@ -255,25 +257,30 @@ byte status                                = STATUS_NORMAL0;
 bool relay1                               = HIGH; 
 bool relay2                               = HIGH;
 
+
 #define keypad
 #ifdef keypad
-#include <Keypad.h>
+int address                               = 0x27;
+uint8_t data;
+int error;
+uint8_t pin                               = 0;
+char key                                  = ' ';
+char keyOld                               = ' ';
+unsigned int repeatAfterMs                = 1000;
+unsigned int repeatCharSec                = 10;
+unsigned long lastKeyPressed              = 0;
+
+//define the symbols on the buttons of the keypads
 const byte ROWS                           = 4; //four rows
 const byte COLS                           = 4; //four columns
-//define the symbols on the buttons of the keypads
 char hexaKeys[ROWS][COLS]                 = {
-                                            {'1','4','7','*'},
-                                            {'2','5','8','0'},
-                                            {'3','6','9','#'},
-                                            {'A','B','C','D'}
+                                            {'*','0','#','D'},
+                                            {'7','8','9','C'},
+                                            {'4','5','6','B'},
+                                            {'1','2','3','A'}
 };
-byte rowPins[ROWS]                        = {5,4,3,2}; //connect to the row pinouts of the keypad
-byte colPins[COLS]                        = {9,8,7,6}; //connect to the column pinouts of the keypad
-bool backLight                            = false;
-
-//initialize an instance of class NewKeypad
-Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
 #endif
+
 
 uint8_t MyRstFlags __attribute__ ((section(".noinit")));
 void SaveResetFlags(void) __attribute__ ((naked))
@@ -303,7 +310,7 @@ byte const totalSecEEPROMAdrL             = 12;
 byte const backLightEEPROMAdr             = 13;
 
 //SW name & version
-float const   versionSW                   = 0.90;
+float const   versionSW                   = 0.95;
 char  const   versionSWString[]           = "Solar v"; 
 
 
@@ -313,6 +320,7 @@ void setup() {
 #ifdef watchdog
   wdt_enable(WDTO_8S);
 #endif
+  Wire.begin();
 
   lcd.begin(LCDCOLS,LCDROWS);               // initialize the lcd 
   // Switch on the backligckLight
@@ -323,7 +331,7 @@ void setup() {
   else {
     lcd.setBacklight(0);
   }
-  mySerial.begin(SERIAL_SPEED);
+  mySerial.begin(mySERIAL_SPEED);
   pinMode(LEDPIN,OUTPUT);
   
 #ifdef serial
@@ -339,7 +347,7 @@ void setup() {
   lcd.clear();
 
   dsInit();
-
+  
   lcd.clear();
 
   pinMode(RELAY1PIN, OUTPUT);
@@ -371,9 +379,11 @@ void loop() {
   wdt_reset();
 #endif
   
-  tempMeas();
-  calcPowerAndEnergy();
-  mainControl();
+  if (numberOfDevices>0) {
+    tempMeas();
+    calcPowerAndEnergy();
+    mainControl();
+  }
   lcdShow(); //show display
   
   /*if (lastOff > 0 && ((millis() - lastOff)>dayInterval)) {
@@ -381,15 +391,14 @@ void loop() {
   }
   */
 
-  if (millis() - lastSend >= sendDelay) {
-    sendDataSerial();
-    lastSend = millis();
+  if (numberOfDevices>0) {
+    if (millis() - lastSend >= sendDelay) {
+      sendDataSerial();
+      lastSend = millis();
+    }
   }
-
+  keyPressed();
   keyBoard();
-  
-  //centralHeating();
-  
 } //loop
 
 
@@ -478,8 +487,8 @@ void tempMeas() {
 
       sensor[i] = tempTemp;
     } 
-    tOut       = sensor[1];
-    tIn         = sensor[2];
+    tOut      = sensor[1];
+    tIn       = sensor[2];
     tRoom     = sensor[3];
     tBojler   = sensor[0];
     tControl  = sensor[controlSensor];
@@ -531,8 +540,9 @@ void calcPowerAndEnergy() {
 
 void keyBoard() {
 #ifdef keypad
-  char customKey = customKeypad.getKey();
-  if (customKey){
+  //char customKey = customKeypad.getKey();
+  Serial.println(key);
+  if (key!=' '){
     /*
     Keyboard layout
     -----------
@@ -558,7 +568,7 @@ void keyBoard() {
     # - Select control sensor
     D - manual/auto
     */
-    if (customKey=='D') {
+    if (key=='D') {
       manualON = !manualON;
       if (manualON) {
         relay1=LOW;
@@ -571,10 +581,10 @@ void keyBoard() {
         //digitalWrite(RELAY1PIN, HIGH);
       }
     }
-    if (customKey=='C') {
+    if (key=='C') {
       lcd.begin(LCDCOLS,LCDROWS);               // reinitialize the lcd 
     }
-    else if (customKey=='A') {
+    else if (key=='A') {
       if (backLight==true) {
         lcd.setBacklight(0);
         backLight=false;
@@ -585,11 +595,11 @@ void keyBoard() {
       }
       EEPROM.write(backLightEEPROMAdr,backLight);
     }
-    else if (customKey=='0') { //main display
+    else if (key=='0') { //main display
       lcd.clear();
       display=0;
     }
-    else if (customKey=='1') { //total energy or save control sensor to EEPROM
+    else if (key=='1') { //total energy or save control sensor to EEPROM
       lcd.clear();
       if (display>=200 && display<300) {
         controlSensor=3; //ROOM
@@ -599,7 +609,7 @@ void keyBoard() {
         display=1;
       }
     }
-    else if (customKey=='2') { //TempDiffON or save control sensor to EEPROM
+    else if (key=='2') { //TempDiffON or save control sensor to EEPROM
       lcd.clear();
       if (display>=200 && display<300) {
         controlSensor=0; //Bojler
@@ -609,41 +619,42 @@ void keyBoard() {
         display=2;
       }
     }
-    else if (customKey=='3') { //TempDiffOFF
+    else if (key=='3') { //TempDiffOFF
       lcd.clear();
       display=3;
     }
-    else if (customKey=='4') { //Energy koef
+    else if (key=='4') { //Energy koef
       lcd.clear();
       display=4;
     }
-    else if (customKey=='5') { //Max IN OUT temp
+    else if (key=='5') { //Max IN OUT temp
       lcd.clear();
       display=5;
     }
-    else if (customKey=='6') { //Max bojler
+    else if (key=='6') { //Max bojler
       lcd.clear();
       display=6;
     }
-    else if (customKey=='7') { //Max power today
+    else if (key=='7') { //Max power today
       lcd.clear();
       display=7;
     }
-    else if (customKey=='8') { //Control sensor
+    else if (key=='8') { //Control sensor
       lcd.clear();
       display=8;
     }
-    else if (customKey=='9') { //Toatal time
+    else if (key=='9') { //Toatal time
       lcd.clear();
       display=9;
     }
-    else if (customKey=='*') { //Save total energy to EEPROM
+    else if (key=='*') { //Save total energy to EEPROM
       writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_MANUAL);
       display=100 + display;
     }
-    else if (customKey=='#') { //Select control sensor
+    else if (key=='#') { //Select control sensor
       display=200 + display;
     }
+    key = ' ';
   }
 #endif
 }
@@ -1466,3 +1477,80 @@ void send(float s) {
     send(tBuffer[i]);
   }
 }
+
+#ifdef keypad
+uint8_t read8() {
+  Wire.beginTransmission(address);
+  Wire.requestFrom(address, 1);
+  data = Wire.read();
+  error = Wire.endTransmission();
+  //Serial.println(error);
+  return data;
+}
+/*
+uint8_t read(uint8_t pin) {
+  read8();
+  return (data & (1<<pin)) > 0;
+}
+*/
+void write8(uint8_t value) {
+  Wire.beginTransmission(address);
+  data = value;
+  Wire.write(data);
+  error = Wire.endTransmission();
+}
+/*
+void write(uint8_t pin, uint8_t value) {
+  read8();
+  if (value == LOW) {
+    data &= ~(1<<pin);
+  }else{
+    data |= (1<<pin);
+  }
+  write8(data); 
+}
+*/
+void keyPressed() {
+  byte row=0;
+  byte col=255;
+  byte b=127;
+  if (millis() - lastKeyPressed > repeatAfterMs) {
+    keyOld = 0;
+  }
+  //write8(1);
+  //Serial.println(read8());
+  
+  for (byte i=0; i<4; i++) {
+    row=i;
+    b=~(255&(1<<i+4));
+    //Serial.println(b);
+    write8(b);
+    //Serial.println(read8());
+    col = colTest(read8(), b);
+    //Serial.println(col);
+    if (col<255) {
+      key = hexaKeys[row][col];
+      //Serial.print(key);
+      if (key!=keyOld) {
+        lastKeyPressed = millis();
+        keyOld=hexaKeys[row][col];
+        /*Serial.print(row);
+        Serial.print(",");
+        Serial.print(col);
+        Serial.print("=");
+        Serial.println((char)key);
+        */
+      }
+      break;
+    }
+  }
+}
+
+byte colTest(byte key, byte b) {
+  if (key==b-8) return 0;
+  else if (key==b-4) return 1;
+  else if (key==b-2) return 2;
+  else if (key==b-1) return 3;
+  else return 255;
+}
+#endif
