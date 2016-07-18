@@ -28,7 +28,7 @@ gpio.write(pinLed,gpio.HIGH)
 
 
 
-versionSW                  = "0.3"
+versionSW                  = "0.31"
 versionSWString            = "Solar v" 
 print(versionSWString .. versionSW)
 
