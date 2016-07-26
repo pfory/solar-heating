@@ -69,6 +69,7 @@ function trim(s)
 end
 
 function sendData()
+  emptyData = false
   gpio.write(pinLed,gpio.LOW)
   m:publish(base.."HeartBeat",              heartBeat,0,0)  
   m:publish(base.."VersionSWSolar",         versionSW,0,0)  
@@ -111,6 +112,7 @@ function sendData()
       end
     end
   else 
+    emptyData = true
     print("empty data")
     tIN=0
     tOUT=0
@@ -126,14 +128,15 @@ function sendData()
   print("I am sending data from Solar unit to OpenHab")
   received=""
 
-  m:publish(base.."tIN",                   string.format("%.1f",tIN),0,0)  
-  m:publish(base.."tOUT",                   string.format("%.1f",tOUT),0,0)  
-  m:publish(base.."sPumpSolar",             sPumpSolar,0,0)  
-  m:publish(base.."tRoom",                  string.format("%.1f",tRoom),0,0)  
-  m:publish(base.."tBojler",                string.format("%.1f",tBojler),0,0)  
+  if emptyData == false then
+    m:publish(base.."tIN",                   string.format("%.1f",tIN),0,0)  
+    m:publish(base.."tOUT",                   string.format("%.1f",tOUT),0,0)  
+    m:publish(base.."sPumpSolar",             sPumpSolar,0,0)  
+    m:publish(base.."tRoom",                  string.format("%.1f",tRoom),0,0)  
+    m:publish(base.."tBojler",                string.format("%.1f",tBojler),0,0)  
+  end
   gpio.write(pinLed,gpio.HIGH)  
 end
-
 
 function mqtt_sub()  
   m:subscribe(base.."com",0, function(conn)   
