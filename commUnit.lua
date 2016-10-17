@@ -130,10 +130,10 @@ function sendData()
 
   if emptyData == false then
     m:publish(base.."tIN",                   string.format("%.1f",tIN),0,0)  
-    m:publish(base.."tOUT",                   string.format("%.1f",tOUT),0,0)  
-    m:publish(base.."sPumpSolar",             sPumpSolar,0,0)  
-    m:publish(base.."tRoom",                  string.format("%.1f",tRoom),0,0)  
-    m:publish(base.."tBojler",                string.format("%.1f",tBojler),0,0)  
+    m:publish(base.."tOUT",                  string.format("%.1f",tOUT),0,0)  
+    m:publish(base.."sPumpSolar/status",     sPumpSolar,0,0)  
+    m:publish(base.."tRoom",                 string.format("%.1f",tRoom),0,0)  
+    m:publish(base.."tBojler",               string.format("%.1f",tBojler),0,0)  
   end
   gpio.write(pinLed,gpio.HIGH)  
 end
@@ -158,6 +158,7 @@ end)
 function sendHB()
   print("I am sending HB to OpenHab")
   m:publish(base.."HeartBeat",   heartBeat,0,0)
+  m:publish(base.."VersionSWSolar", versionSW,0,0)  
  
   if heartBeat==0 then heartBeat=1
   else heartBeat=0
@@ -179,7 +180,6 @@ tmr.alarm(0, 1000, 1, function()
       mqtt_sub() --run the subscription function 
       print(wifi.sta.getip())
       print("Mqtt Connected to:" .. Broker.." - "..base) 
-      m:publish(base.."VersionSWSolar",         versionSW,0,0)  
       sendHB() 
       tmr.alarm(0, sendDelay, tmr.ALARM_AUTO, function()
         sendData() 
