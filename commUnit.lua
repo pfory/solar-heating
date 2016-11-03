@@ -79,12 +79,12 @@ function sendData()
   objProp = {}
   prikaz = ""
   received=trim(received)
-  --received = "#I;54.06#O;44.38#M;27.38#B;11.06#R;1$*"
+  --received = "#B;25.31#M;25.19#I;25.10#O;50.5#R;1$3600177622*"
   if trim(received)~="" then 
     print(received)
     if string.find(received,"*")~=nil then 
       index = 1
-      for value in string.gmatch(received,"\#%w?\;%d*[\.%d]*") do 
+      for value in string.gmatch(received,"\#%w?\;\-?%d*[\.%d]*") do 
         objProp [index] = value
         prikaz = string.sub(value, 2, 2)
         if prikaz == "I" then
