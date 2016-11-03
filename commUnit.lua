@@ -5,16 +5,6 @@ deviceID = "ESP8266 Solar "..node.chipid()
 heartBeat = node.bootreason()+10
 print("Boot reason:"..heartBeat)
 
-wifi.setmode(wifi.STATION)
-wifi.sta.config("Datlovo","Nu6kMABmseYwbCoJ7LyG")
-cfg={
-  ip = "192.168.1.152",
-  netmask = "255.255.255.0",
-  gateway = "192.168.1.1"
-}
-wifi.sta.setip(cfg)
-wifi.sta.autoconnect(1)
-
 --Broker="88.146.202.186"  
 Broker="192.168.1.56"  
 
@@ -27,9 +17,7 @@ gpio.write(pinLed,gpio.LOW)
 tmr.delay(1000000)
 gpio.write(pinLed,gpio.HIGH)  
 
-
-
-versionSW                  = "0.31"
+versionSW                  = "0.40"
 versionSWString            = "Solar v" 
 print(versionSWString .. versionSW)
 
@@ -79,12 +67,12 @@ function sendData()
   objProp = {}
   prikaz = ""
   received=trim(received)
-  --received = "#B;25.31#M;25.19#I;25.10#O;50.5#R;1$3600177622*"
+  --received = "#B;25.31#M;-25.19#I;25.10#O;50.5#R;1$3600177622*"
   if trim(received)~="" then 
     print(received)
     if string.find(received,"*")~=nil then 
       index = 1
-      for value in string.gmatch(received,"\#%w?\;\-?%d*[\.%d]*") do 
+      for value in string.gmatch(received,"\#%w?\;[-]?%d*[\.%d]*") do 
         objProp [index] = value
         prikaz = string.sub(value, 2, 2)
         if prikaz == "I" then
@@ -169,21 +157,12 @@ tmr.alarm(0, 5000, 1, function()
   parseData()
 end)
 
-uart.write(0,"Connecting to Wifi")
-tmr.alarm(0, 1000, 1, function() 
-  uart.write(0,".")
-  if wifi.sta.status() == 5 and wifi.sta.getip() ~= nil then 
-    print ("Wifi connected")
-    tmr.stop(0) 
-    m:connect(Broker, 1883, 0, 1, function(conn) 
-      m:publish(base.."com",                    "OFF",0,0)  
-      mqtt_sub() --run the subscription function 
-      print(wifi.sta.getip())
-      print("Mqtt Connected to:" .. Broker.." - "..base) 
-      sendHB() 
-      tmr.alarm(0, sendDelay, tmr.ALARM_AUTO, function()
-        sendData() 
-      end)
-    end) 
-  end
+m:connect(Broker, 1883, 0, 1, function(conn) 
+  mqtt_sub() --run the subscription function 
+  --print(wifi.sta.getip())
+  print("Mqtt Connected to:" .. Broker.." - "..base) 
+  sendHB() 
+  tmr.alarm(0, sendDelay, tmr.ALARM_AUTO, function()
+    sendData() 
+  end)
 end)
