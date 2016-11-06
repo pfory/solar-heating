@@ -310,7 +310,7 @@ byte const totalSecEEPROMAdrL             = 12;
 byte const backLightEEPROMAdr             = 13;
 
 //SW name & version
-float const   versionSW                   = 0.95;
+float const   versionSW                   = 0.96;
 char  const   versionSWString[]           = "Solar v"; 
 
 
@@ -643,7 +643,7 @@ void keyBoard() {
       lcd.clear();
       display=8;
     }
-    else if (key=='9') { //Toatal time
+    else if (key=='9') { //Total time
       lcd.clear();
       display=9;
     }
@@ -694,22 +694,22 @@ void displayTemp(int x, int y, float value) {
    0.5 //100.5
   */
   lcd.setCursor(x,y);
-  int cela=(int)value;
-  if (cela>100) {
-    cela=cela-100;
-  }
-  if (cela<10 && cela>=0) {
-    lcd.print(" ");
+  
+  if (value<10.f && value>=0.f) {
+    Serial.print("_");
+  } else if (value<0.f) {
+    Serial.print("-");
   }
   
-  if (value<0.f) {
-    lcd.print("-");
-  }
- 
   int desetina=abs((int)(value*10)%10);
-  lcd.print(abs(cela));
+  if (value>=100.f) {
+    value=value-100.f;
+  }
+  
+  lcd.print(abs((int)value));
   lcd.print(".");
   lcd.print(desetina);
+  lcd.print(" ");
   
   /*if (cela>-10) {
     lcd.print(" ");
