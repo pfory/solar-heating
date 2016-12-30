@@ -211,7 +211,7 @@ float safetyON                            = 80.0; //teplota, pri niz rele vzdy s
 enum mode {NORMAL, POWERSAVE};
 mode powerMode                            = NORMAL;
 
-unsigned int display                              = 0;
+unsigned int display                      = 0;
 
 #define STATUS_NORMAL0                        0
 #define STATUS_NORMAL1                        1
@@ -223,7 +223,7 @@ unsigned int display                              = 0;
 #define STATUS_STARTAFTER_POWERON             7
 #define STATUS_STARTAFTER_WATCHDOGOREXTERNAL  8
 
-byte status                                = STATUS_NORMAL0;
+byte status                               = STATUS_NORMAL0;
 
 //0123456789012345
 //15.6 15.8 15.8 V
@@ -310,7 +310,7 @@ byte const totalSecEEPROMAdrL             = 12;
 byte const backLightEEPROMAdr             = 13;
 
 //SW name & version
-float const   versionSW                   = 0.96;
+float const   versionSW                   = 0.97;
 char  const   versionSWString[]           = "Solar v"; 
 
 
@@ -695,10 +695,14 @@ void displayTemp(int x, int y, float value) {
   */
   lcd.setCursor(x,y);
   
+  //Serial.println(value);
+  
   if (value<10.f && value>=0.f) {
-    Serial.print("_");
+    //Serial.print("_");
+    lcd.print(" ");
   } else if (value<0.f) {
-    Serial.print("-");
+    lcd.print("-");
+    //Serial.print("-");
   }
   
   int desetina=abs((int)(value*10)%10);
