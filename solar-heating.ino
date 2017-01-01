@@ -184,7 +184,7 @@ unsigned long consumption                 = 0;
 unsigned long lastPulse                   = 0;
 unsigned int cycles                       = 0;
 unsigned long lastSend                    = 0;  //ms posledniho poslani dat
-unsigned long sendDelay                   = 30000;  //30000 prodleva mezi poslanim dat
+unsigned long sendDelay                   = 10000;  //30000 prodleva mezi poslanim dat
 
 //MODE
 byte modeSolar                            = 0;
@@ -310,7 +310,7 @@ byte const totalSecEEPROMAdrL             = 12;
 byte const backLightEEPROMAdr             = 13;
 
 //SW name & version
-float const   versionSW                   = 0.97;
+float const   versionSW                   = 0.98;
 char  const   versionSWString[]           = "Solar v"; 
 
 
@@ -541,7 +541,7 @@ void calcPowerAndEnergy() {
 void keyBoard() {
 #ifdef keypad
   //char customKey = customKeypad.getKey();
-  Serial.println(key);
+  //Serial.println(key);
   if (key!=' '){
     /*
     Keyboard layout

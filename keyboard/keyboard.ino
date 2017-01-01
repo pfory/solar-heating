@@ -1,6 +1,6 @@
 #include <Wire.h>
 
-int address = 0x27;
+int address = 0x26;
 uint8_t data;
 int error;
 char key                                  = ' ';
@@ -30,14 +30,16 @@ void setup() {
 
 void loop() {
   keyPressed();
-  //delay(500);
+  delay(1000);
 }
 
 
 uint8_t read8() {
   Wire.beginTransmission(address);
-  Wire.requestFrom(39, 1);
+  Wire.requestFrom(address, 1);
   data = Wire.read();
+  //Serial.print(data);
+  //Serial.print(" ");
   error = Wire.endTransmission();
   //Serial.println(error);
   return data;
@@ -78,9 +80,9 @@ void keyPressed() {
   for (byte i=0; i<4; i++) {
     row=i;
     b=~(255&(1<<i+4));
-    //Serial.println(b);
+    Serial.println(b);
     write8(b);
-    //Serial.println(read8());
+    Serial.println(read8());
     col = colTest(read8(), b);
     //Serial.println(col);
     if (col<255) {
@@ -98,6 +100,7 @@ void keyPressed() {
       break;
     }
   }
+  //Serial.println();
 }
 
 byte colTest(byte key, byte b) {
