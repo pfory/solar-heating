@@ -13,7 +13,7 @@ const char *password = "Nu6kMABmseYwbCoJ7LyG";
 
 WiFiClient client;
 
-byte heartBeat                    = 0;
+byte heartBeat                    = 12;
 String received                   = "";
 
 #define pinLed                    2
