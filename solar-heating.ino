@@ -1,8 +1,6 @@
 /*
 --------------------------------------------------------------------------------------------------------------------------
-
                SOLAR - control system for solar unit
-
 Petr Fory pfory@seznam.cz
 GIT - https://github.com/pfory/solar-heating
 
@@ -30,9 +28,15 @@ Version history:
 0.50 - 1.12.2013
 0.41 - 20.10.2013
 
-compilated by Arduino 1.6.4
+Panel1 - kulna
+Panel2 - strecha
 
+compilated by Arduino 1.6.4
 TODO - odladit CRC kod
+- display 4 řádky
+- přidat řízení na základě druhého panelu
+- přidat počítání průtoku z průtokoměru
+- přidat čidla bojler vstup a výstup a na základě rozdílu teplot počítat výkon
 
 --------------------------------------------------------------------------------------------------------------------------
 HW
@@ -41,10 +45,9 @@ I2C display
 2 Relays module
 DALLAS
 keyboard
-
 Pro Mini 328 Layout
 ------------------------------------------
-A0              - DALLAS temperature sensors
+A0              - DALLAS temperature sensors panel1 vstup/vystup
 A1              - relay 1
 A2              - relay 2
 A3              - free
@@ -52,8 +55,8 @@ A4              - I2C display SDA 0x20, keypad 0x27
 A5              - I2C display SCL 0x20, keypad 0x27
 D0              - Rx
 D1              - Tx
-D2              - free
-D3              - free
+D2              - DALLAS temperature sensors panel2 vstup/vystup
+D3              - DALLAS temperature sensors bojler vstup/vystup/teplota uvnitr
 D4              - free
 D5              - free
 D6              - free
@@ -111,8 +114,8 @@ const unsigned int serialTimeout=2000;
 #define D7           7
 #define BACKLIGHT    3
 #define POL          POSITIVE
-#define LCDROWS      2
-#define LCDCOLS      16
+#define LCDROWS      4
+#define LCDCOLS      20
 LiquidCrystal_I2C lcd(LCDADDRESS,EN,RW,RS,D4,D5,D6,D7,BACKLIGHT,POL);  // set the LCD
 //LiquidCrystal_I2C lcd(LCDADDRESS,16,2);  // set the LCD
 bool backLight = true;
@@ -132,22 +135,33 @@ bool backLight = true;
 */
 
 #include <OneWire.h>
-#define ONE_WIRE_BUS A0
-OneWire onewire(ONE_WIRE_BUS);  // pin for onewire DALLAS bus
+#define ONE_WIRE_BUS1 A0
+OneWire onewire1(ONE_WIRE_BUS1);  // pin for onewire DALLAS bus
+#define ONE_WIRE_BUS2 D2
+OneWire onewire2(ONE_WIRE_BUS1);  // pin for onewire DALLAS bus
+#define ONE_WIRE_BUS3 D3
+OneWire onewire3(ONE_WIRE_BUS1);  // pin for onewire DALLAS bus
 #define dallasMinimal           //-956 Bytes
 #ifdef dallasMinimal
 #include <DallasTemperatureMinimal.h>
-DallasTemperatureMinimal dsSensors(&onewire);
+DallasTemperatureMinimal dsSensors1(&onewire1);
+DallasTemperatureMinimal dsSensors2(&onewire2);
+DallasTemperatureMinimal dsSensors3(&onewire3);
 #else
 #include <DallasTemperature.h>
-DallasTemperature dsSensors(&onewire);
+DallasTemperature dsSensors1(&onewire1);
+DallasTemperature dsSensors2(&onewire2);
+DallasTemperature dsSensors3(&onewire3);
 #endif
 DeviceAddress tempDeviceAddress;
 #ifndef NUMBER_OF_DEVICES
-#define NUMBER_OF_DEVICES 4
+#define NUMBER_OF_DEVICES 8
 #endif
 DeviceAddress tempDeviceAddresses[NUMBER_OF_DEVICES];
 unsigned int numberOfDevices              = 0; // Number of temperature devices found
+unsigned int numberOfDevices1             = 0; // Number of temperature devices found on panel1
+unsigned int numberOfDevices2             = 0; // Number of temperature devices found on panel2
+unsigned int numberOfDevices3             = 0; // Number of temperature devices found on bojler
 unsigned long lastDsMeasStartTime         = 0;
 bool dsMeasStarted                        = false;
 float sensor[NUMBER_OF_DEVICES];
@@ -225,30 +239,39 @@ unsigned int display                      = 0;
 
 byte status                               = STATUS_NORMAL0;
 
-//0123456789012345
-//15.6 15.8 15.8 V
-//1234 0.12 624
-#define TEMP1X                               0
-#define TEMP1Y                               0
-#define TEMP2X                               5
-#define TEMP2Y                               0
-#define TEMP3X                              10
-#define TEMP3Y                               0
-//#define TEMP4X                             9
-//#define TEMP4Y                             1
-#define POWERX                               0
-#define POWERY                               1
-#define ENERGYX                              7
-#define ENERGYY                              1
-#define TIMEX                               12
-#define TIMEY                                1
+//01234567890123456789
+//Pan 15/25/24/35
+//Boj 34/17/32 
+//P 1456W E 1.4kWh 
+//145min/den    Netopí
+#define TEMP1X                               0 //panely
+#define TEMP1Y                               0 
+#define TEMP2X                               0 //bojler
+#define TEMP2Y                               1
+
+#define POWERX                               0 //vykon
+#define POWERY                               2
+#define ENERGYX                              8 //denni energie
+#define ENERGYY                              2
+#define TIMEX                                0 //minut behu za den
+#define TIMEY                                3
                           
                           
-#define RELAY1X                             15
-#define RELAY1Y                              0
+#define RELAY1X                             14 //indikator topi/netopi
+#define RELAY1Y                              3
 /*#define RELAY2X                           15
 #define RELAY2Y                              1
 */                          
+
+#define ODDELOVAC_TEPLOT                    /
+#define POWERT                              P
+#define ENERGYT                             E
+#define POWERJED                            W
+#define ENERGYJED                           kWh
+#define TIMEJED                             min/den
+#define TOPI                                Topí
+#define NETOPI                              Netopí
+#define MANUAL                              Manual
                           
 #define RELAY1PIN                           A1
 #define RELAY2PIN                           A2
@@ -310,7 +333,7 @@ byte const totalSecEEPROMAdrL             = 12;
 byte const backLightEEPROMAdr             = 13;
 
 //SW name & version
-float const   versionSW                   = 0.98;
+float const   versionSW                   = 0.10;
 char  const   versionSWString[]           = "Solar v"; 
 
 
@@ -466,7 +489,9 @@ void tempMeas() {
  if (!dsMeasStarted) {
     //start sampling
     dsMeasStarted=true;
-    dsSensors.requestTemperatures(); 
+    dsSensors1.requestTemperatures(); 
+    dsSensors2.requestTemperatures(); 
+    dsSensors3.requestTemperatures(); 
     //digitalWrite(13,HIGH);
     lastDsMeasStartTime = millis();
   }
@@ -487,14 +512,20 @@ void tempMeas() {
 
       sensor[i] = tempTemp;
     } 
-    tOut      = sensor[1];
-    tIn       = sensor[2];
-    tRoom     = sensor[3];
-    tBojler   = sensor[0];
-    tControl  = sensor[controlSensor];
+    tP1In       = sensor[];
+    tP1Out      = sensor[];
+    tP2In       = sensor[];
+    tP2Out      = sensor[];
+    tRoom       = sensor[];
+    tBojler     = sensor[];
+    tBojlerIn   = sensor[];
+    tBojlerOut  = sensor[];
+    tControl    = sensor[controlSensor];
     
-    if (tOut>tMaxOut)       tMaxOut     = tOut;
-      if (tIn>tMaxIn)         tMaxIn      = tIn;
+    if (tP1Out>tMaxOut)       tMaxOut     = tP1Out;
+    if (tP2Out>tMaxOut)       tMaxOut     = tP2Out;
+    if (tP1In>tMaxIn)         tMaxIn      = tP1In;
+    if (tP2In>tMaxIn)         tMaxIn      = tP2In;
     if (tBojler>tMaxBojler) tMaxBojler   = tBojler;
     //obcas se vyskytne chyba a vsechna cidla prestanou merit
     //zkusim restartovat sbernici
@@ -512,7 +543,7 @@ void tempMeas() {
 
 void calcPowerAndEnergy() {
   if (relay1==LOW) {  //pump is ON
-    if (tIn<tOut) {
+    if (tBojlerInIn<tBojlerOut) {
       msDayON+=(millis()-lastOn);
       msDiff+=(millis()-lastOn);
       if (msDiff >= 1000) {
@@ -682,7 +713,7 @@ void communication() {
   }
 }
 */
-void displayTemp(int x, int y, float value) {
+void displayTemp(float value) {
   /*
   012345
   -25.3
@@ -693,8 +724,7 @@ void displayTemp(int x, int y, float value) {
   25.3
    0.5 //100.5
   */
-  lcd.setCursor(x,y);
-  
+ 
   //Serial.println(value);
   
   if (value<10.f && value>=0.f) {
@@ -721,33 +751,84 @@ void displayTemp(int x, int y, float value) {
 }
 
 void dsInit(void) {
-  dsSensors.begin();
-  numberOfDevices = dsSensors.getDeviceCount();
+  //panel1
+  dsSensors1.begin();
+  numberOfDevices1 = dsSensors1.getDeviceCount();
+  //panel2
+  dsSensors2.begin();
+  numberOfDevices2 = dsSensors2.getDeviceCount();
+  //bojler
+  dsSensors3.begin();
+  numberOfDevices3 = dsSensors3.getDeviceCount();
 
   lcd.setCursor (0, 0);
-  lcd.print(numberOfDevices);
+  lcd.print("Panel1 2of");
+  lcd.print(numberOfDevices1);
   
-  if (numberOfDevices==1)
+  if (numberOfDevices1==1)
     lcd.print(" sensor found");
   else
     lcd.print(" sensors found");
+
+  lcd.setCursor (1, 0);
+  lcd.print("Panel2 2of");
+  lcd.print(numberOfDevices1);
+  
+  if (numberOfDevices2==1)
+    lcd.print(" sensor found");
+  else
+    lcd.print(" sensors found");
+
+  lcd.setCursor (2, 0);
+  lcd.print("Bojler 3of");
+  lcd.print(numberOfDevices1);
+  
+  if (numberOfDevices1==1)
+    lcd.print(" sensor found");
+  else
+    lcd.print(" sensors found");
+  
   delay(1000);
   
 #ifdef serial
   Serial.print("Sensor(s):");
-  Serial.println(numberOfDevices);
+  Serial.print(numberOfDevices1);
+  Serial.print(",");
+  Serial.print(numberOfDevices2);
+  Serial.print(",");
+  Serial.println(numberOfDevices3);
 #endif
 
+  numberOfDevices = numberOfDevices1 + numberOfDevices2 + numberOfDevices3
+  
   // Loop through each device, print out address
-  for (byte i=0;i<numberOfDevices; i++) {
+  for (byte i=0;i<numberOfDevices1; i++) {
       // Search the wire for address
-    if (dsSensors.getAddress(tempDeviceAddress, i)) {
-      memcpy(tempDeviceAddresses[i],tempDeviceAddress,8);
+    if (dsSensors1.getAddress(tempDeviceAddress1, i)) {
+      memcpy(tempDeviceAddresses1[i],tempDeviceAddress1,8);
     }
   }
-#ifndef dallasMinimal
-  dsSensors.setResolution(12);
-  dsSensors.setWaitForConversion(false);
+  for (byte i=0;i<numberOfDevices2; i++) {
+      // Search the wire for address
+    if (dsSensors2.getAddress(tempDeviceAddress2, i)) {
+      memcpy(tempDeviceAddresses2[i],tempDeviceAddress2,8);
+    }
+  }
+  for (byte i=0;i<numberOfDevices3; i++) {
+      // Search the wire for address
+    if (dsSensors3.getAddress(tempDeviceAddress3, i)) {
+      memcpy(tempDeviceAddresses3[i],tempDeviceAddress3,8);
+    }
+  }
+
+  
+  #ifndef dallasMinimal
+  dsSensors1.setResolution(12);
+  dsSensors1.setWaitForConversion(false);
+  dsSensors2.setResolution(12);
+  dsSensors2.setWaitForConversion(false);
+  dsSensors3.setResolution(12);
+  dsSensors3.setWaitForConversion(false);
 #endif
 
 }
@@ -756,12 +837,12 @@ void dsInit(void) {
 void displayRelayStatus(void) {
   lcd.setCursor(RELAY1X,RELAY1Y);
   if (manualON) {
-    lcd.print("M");
+    lcd.print(MANUAL);
   } else {
     if (relay1==LOW)
-      lcd.print("T");
+      lcd.print(TOPI);
     else
-      lcd.print("N");
+      lcd.print(NETOPI);
   }
   if (manualON) {
     //Serial.println("Manual");
@@ -778,7 +859,6 @@ void displayRelayStatus(void) {
 /*
 void sendDataSerial() {
   if (firstMeasComplete==false) return;
-
 #ifdef serial
   Serial.print("DATA:");
 #endif
@@ -796,12 +876,10 @@ void sendDataSerial() {
   send('N');
   send(DELIMITER);
   send(tempDiffON);
-
   send(START_BLOCK);
   send('F');
   send(DELIMITER);
   send(tempDiffOFF);
-
   send(START_BLOCK);
   send('R');
   send(DELIMITER);
@@ -809,7 +887,6 @@ void sendDataSerial() {
     send('1');
   else
     send('0');
-
   send(START_BLOCK);
   send('S');
   send(DELIMITER);
@@ -817,7 +894,6 @@ void sendDataSerial() {
     send('1');
   else
     send('0');
-
   //Power
   send(START_BLOCK);
   send('P');
@@ -845,13 +921,11 @@ void sendDataSerial() {
   send('M');
   send(DELIMITER);
   send(modeSolar);
-
   //total time in minutes
   send(START_BLOCK);
   send('C');
   send(DELIMITER);
   send(totalSec/60);
-
   send(START_BLOCK);
   send('A');
   send(DELIMITER);
@@ -863,7 +937,6 @@ void sendDataSerial() {
   send(DELIMITER);
   send(pulseCount); //1 puls = 1/800 kWh
   pulseCount=0;
-
   send(START_BLOCK);
   send('O');
   send(DELIMITER);
@@ -883,7 +956,6 @@ void sendDataSerial() {
   else {
     status=STATUS_NORMAL0;
   }
-
   send(END_BLOCK);
 #ifdef serial
   Serial.print(crc);
@@ -894,7 +966,6 @@ void sendDataSerial() {
   mySerial.flush();
   digitalWrite(LEDPIN,LOW);
 }
-
 void readDataSerial() {
   float setOn=tempDiffON;
   float setOff=tempDiffOFF;
@@ -944,7 +1015,6 @@ void readDataSerial() {
       Serial.print(modeSolar);
 #endif
     }
-
     if (startCRC) {
 #ifdef serial
       Serial.print(incomingByte);
@@ -961,18 +1031,14 @@ void readDataSerial() {
       Serial.print(" CRC-");
 #endif
     }
-
   } while ((char)incomingByte!='*' && millis() < (timeOut + serialTimeout));
-
   //validation with CRC
 #ifdef serial
   Serial.print(" CRC=");
   Serial.println(crcBuffer);
 #endif
-
   char crcBufferCount [10+1];
   unsigned long ret = snprintf(crcBufferCount, sizeof(crcBufferCount), "%ld", crc);
-
   Serial.print(crcBuffer);
   Serial.print(crcBufferCount);
   if (crcBuffer==crcBufferCount) {
@@ -1001,7 +1067,6 @@ void readDataSerial() {
       EEPROM.write(tempDiffOFFEEPROMAdrH, (char)tempDiffOFF);
       EEPROM.write(tempDiffOFFEEPROMAdrL, (int)(tempDiffOFF * 10) % 10);
     }
-
     if (setModeSolar!=modeSolar) {
       if (manualSetFromKeyboard) { //keyboard setup has a high priority as internet setup
         if (setModeSolar==0) {
@@ -1018,15 +1083,11 @@ void readDataSerial() {
       }
     }
   }
-
   digitalWrite(LEDPIN,LOW);
 }
-
 void send(char s) {
   send(s, ' ');
 }
-
-
 void send(char s, char type) {
   if (type=='X') {
 #ifdef serial
@@ -1042,11 +1103,9 @@ void send(char s, char type) {
   }
   crc_string(byte(s));
 }
-
 void send(byte s) {
   send(s, ' ');
 }
-
 void send(byte s, char type) {
   if (type=='X') {
 #ifdef serial
@@ -1062,21 +1121,18 @@ void send(byte s, char type) {
   }
   crc_string(s);
 }
-
 void send(unsigned long s) {
 #ifdef serial
   Serial.print(s);
 #endif
   mySerial.print(s);
 }
-
 void send(unsigned int s) {
 #ifdef serial
   Serial.print(s);
 #endif
   mySerial.print(s);
 }
-
 void send(float s) {
   char tBuffer[8];
   dtostrf(s,0,2,tBuffer);
@@ -1085,7 +1141,6 @@ void send(float s) {
     send(tBuffer[i]);
   }
 }
-
 char dataRequested() {
   char incomingByte=0;
   if (mySerial.available() > 0) {
@@ -1097,7 +1152,6 @@ char dataRequested() {
   }
   return incomingByte;
 }
-
 unsigned long crc_update(unsigned long crc, byte data)
 {
     byte tbl_idx;
@@ -1107,7 +1161,6 @@ unsigned long crc_update(unsigned long crc, byte data)
     crc = pgm_read_dword_near(crc_table + (tbl_idx & 0x0f)) ^ (crc >> 4);
     return crc;
 }
-
 void crc_string(byte s)
 {
   crc = crc_update(crc, s);
@@ -1186,10 +1239,24 @@ unsigned int getPower() {
 
 void lcdShow() {
   if (display==0) { //main display
-    //display OUT  IN  ROOM
-    displayTemp(TEMP1X,TEMP1Y, tOut);
-    displayTemp(TEMP2X,TEMP2Y, tIn);
-    displayTemp(TEMP3X,TEMP3Y, tControl);
+    //panely
+    lcd.setCursor(TEMP1X,TEMP1Y);
+    displayTemp(tP1In); 
+    lcd.print(ODDELOVAC_TEPLOT);
+    displayTemp(tP1Out);
+    lcd.print(ODDELOVAC_TEPLOT);
+    displayTemp(tP2In); 
+    lcd.print(ODDELOVAC_TEPLOT);
+    displayTemp(tP2Out);
+    
+    //bojler
+    lcd.setCursor(TEMP2X,TEMP2Y);
+    displayTemp(tBojlerIn);
+    lcd.print(ODDELOVAC_TEPLOT);
+    displayTemp(tBojlerOut);
+    lcd.print(ODDELOVAC_TEPLOT);
+    displayTemp(tBojler);
+    
     if ((millis()-lastOff)>=dayInterval) {
       lcd.setCursor(0,1);
       lcd.print("Bez slunce ");
@@ -1204,6 +1271,7 @@ void lcdShow() {
       // 636 0.1234 720T
       unsigned int p=(int)power;
       lcd.setCursor(POWERX,POWERY);
+      lcd.print(POWERT)
       if (p<10000) lcd.print(" ");
       if (p<1000) lcd.print(" ");
       if (p<100) lcd.print(" ");
@@ -1211,9 +1279,12 @@ void lcdShow() {
       if (power<=65534) {
         lcd.print(p);
       }
+      lcd.print(POWERJED)
       
       lcd.setCursor(ENERGYX,ENERGYY);
+      lcd.print(ENERGYT)
       lcd.print(enegyWsTokWh(energyADay)); //Ws -> kWh (show it in kWh)
+      lcd.print(ENERGYJED)
       
       lcd.setCursor(TIMEX,TIMEY);
       p=(int)(msDayON/1000/60);
@@ -1222,7 +1293,9 @@ void lcdShow() {
       if (p<=999) {
         lcd.print(p); //ms->min (show it in minutes)
       }
+      lcd.print(TIMEJED)
     }
+
     displayRelayStatus();
   } else if (display==1) { //total Energy
     //lcd.clear();
