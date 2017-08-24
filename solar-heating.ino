@@ -30,8 +30,6 @@ Version history:
 0.50 - 1.12.2013
 0.41 - 20.10.2013
 
-compilated by Arduino 1.6.4
-
 TODO - odladit CRC kod
 
 --------------------------------------------------------------------------------------------------------------------------
@@ -100,21 +98,22 @@ SoftwareSerial mySerial(RX, TX);
 
 const unsigned int serialTimeout=2000;
 
+//#include <LiquidCrystal.h>
 #include <LiquidCrystal_I2C.h>
 #define LCDADDRESS   0x20
-#define EN           2
-#define RW           1
-#define RS           0
-#define D4           4
-#define D5           5
-#define D6           6
-#define D7           7
-#define BACKLIGHT    3
-#define POL          POSITIVE
+// #define EN           2
+// #define RW           1
+// #define RS           0
+// #define D4           4
+// #define D5           5
+// #define D6           6
+// #define D7           7
+// #define BACKLIGHT    3
+// #define POL          POSITIVE
 #define LCDROWS      2
 #define LCDCOLS      16
-LiquidCrystal_I2C lcd(LCDADDRESS,EN,RW,RS,D4,D5,D6,D7,BACKLIGHT,POL);  // set the LCD
-//LiquidCrystal_I2C lcd(LCDADDRESS,16,2);  // set the LCD
+//LiquidCrystal_I2C lcd(LCDADDRESS,EN,RW,RS,D4,D5,D6,D7,BACKLIGHT,POL);  // set the LCD
+LiquidCrystal_I2C lcd(LCDADDRESS,LCDCOLS,LCDROWS);  // set the LCD
 bool backLight = true;
 
 // Create a set of new characters
@@ -134,7 +133,7 @@ bool backLight = true;
 #include <OneWire.h>
 #define ONE_WIRE_BUS A0
 OneWire onewire(ONE_WIRE_BUS);  // pin for onewire DALLAS bus
-#define dallasMinimal           //-956 Bytes
+//#define dallasMinimal           //-956 Bytes
 #ifdef dallasMinimal
 #include <DallasTemperatureMinimal.h>
 DallasTemperatureMinimal dsSensors(&onewire);
@@ -310,7 +309,7 @@ byte const totalSecEEPROMAdrL             = 12;
 byte const backLightEEPROMAdr             = 13;
 
 //SW name & version
-float const   versionSW                   = 0.98;
+float const   versionSW                   = 0.99;
 char  const   versionSWString[]           = "Solar v"; 
 
 
@@ -322,14 +321,14 @@ void setup() {
 #endif
   Wire.begin();
 
-  lcd.begin(LCDCOLS,LCDROWS);               // initialize the lcd 
+  lcd.begin();               // initialize the lcd 
   // Switch on the backligckLight
   backLight = EEPROM.read(backLightEEPROMAdr);
   if (backLight==true) {
-    lcd.setBacklight(255);
+    //lcd.setBacklight(255);
   }
   else {
-    lcd.setBacklight(0);
+    //lcd.setBacklight(0);
   }
   mySerial.begin(mySERIAL_SPEED);
   pinMode(LEDPIN,OUTPUT);
@@ -582,7 +581,7 @@ void keyBoard() {
       }
     }
     if (key=='C') {
-      lcd.begin(LCDCOLS,LCDROWS);               // reinitialize the lcd 
+      lcd.begin();               // reinitialize the lcd 
     }
     else if (key=='A') {
       if (backLight==true) {
@@ -590,7 +589,7 @@ void keyBoard() {
         backLight=false;
       }
       else {
-        lcd.setBacklight(255);
+        //lcd.setBacklight(255);
         backLight=true;
       }
       EEPROM.write(backLightEEPROMAdr,backLight);
