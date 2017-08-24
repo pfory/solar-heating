@@ -98,21 +98,10 @@ SoftwareSerial mySerial(RX, TX);
 
 const unsigned int serialTimeout=2000;
 
-//#include <LiquidCrystal.h>
 #include <LiquidCrystal_I2C.h>
 #define LCDADDRESS   0x20
-// #define EN           2
-// #define RW           1
-// #define RS           0
-// #define D4           4
-// #define D5           5
-// #define D6           6
-// #define D7           7
-// #define BACKLIGHT    3
-// #define POL          POSITIVE
 #define LCDROWS      2
 #define LCDCOLS      16
-//LiquidCrystal_I2C lcd(LCDADDRESS,EN,RW,RS,D4,D5,D6,D7,BACKLIGHT,POL);  // set the LCD
 LiquidCrystal_I2C lcd(LCDADDRESS,LCDCOLS,LCDROWS);  // set the LCD
 bool backLight = true;
 
@@ -143,7 +132,7 @@ DallasTemperature dsSensors(&onewire);
 #endif
 DeviceAddress tempDeviceAddress;
 #ifndef NUMBER_OF_DEVICES
-#define NUMBER_OF_DEVICES 4
+#define NUMBER_OF_DEVICES 8
 #endif
 DeviceAddress tempDeviceAddresses[NUMBER_OF_DEVICES];
 unsigned int numberOfDevices              = 0; // Number of temperature devices found
@@ -191,8 +180,10 @@ bool manualSetFromKeyboard                = false;
 bool firstMeasComplete                    = false;
 bool manualON                             = false;
 
-float tIn                                 = 0; //input medium temperature to solar panel
-float tOut                                = 0; //output medium temperature to solar panel
+float tP2In                               = 0; //input medium temperature to solar panel roof
+float tP2Out                              = 0; //output medium temperature to solar panel roof`
+float tP1In                               = 0; //input medium temperature to solar panel drevnik
+float tP1Out                              = 0; //output medium temperature to solar panel drevnik
 float tRoom                               = 0; //room temperature
 float tBojler                             = 0; //boiler temperature
 float tControl                            = 0; //temperature which is used as control temperature
@@ -227,14 +218,16 @@ byte status                               = STATUS_NORMAL0;
 //0123456789012345
 //15.6 15.8 15.8 V
 //1234 0.12 624
-#define TEMP1X                               0
+#define TEMP1X                               0  //P1 In
 #define TEMP1Y                               0
-#define TEMP2X                               5
+#define TEMP2X                               3  //P1 Out
 #define TEMP2Y                               0
-#define TEMP3X                              10
+#define TEMP3X                               6  //P2 In
 #define TEMP3Y                               0
-//#define TEMP4X                             9
-//#define TEMP4Y                             1
+#define TEMP4X                               9  //P2 Out
+#define TEMP4Y                               0
+#define TEMP5X                              12  //Control
+#define TEMP5Y                               0
 #define POWERX                               0
 #define POWERY                               1
 #define ENERGYX                              7
@@ -403,10 +396,14 @@ void loop() {
 
 //--------------------------------------- F U N C T I O N S -----------------------------------------------------------------------------------
 void mainControl() {
+  tempDiffOFF = 2.0f;
+  tempDiffON = 5.0f;
   //safety function
-  if ((tOut || tIn) >= safetyON) {
+  if ((tP1In >= safetyON) || (tP1Out >= safetyON) || (tP2In >= safetyON) || (tP2Out >= safetyON)) {
     relay1=LOW; //relay ON
+    Serial.println("SAFETY CONTROL!!!!");
   } else if (manualON) {
+    Serial.println("MANUAL CONTROL!!!!");
   } else {
     //pump is ON - relay ON = LOW
     if (relay1==LOW) { 
@@ -414,8 +411,8 @@ void mainControl() {
       if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
         writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_DELAY);
       }
-      //if (((tOut - tControl) < tempDiffOFF && (tIn < tOut) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
-      if (((tOut - tControl) < tempDiffOFF) && (millis() - delayAfterON >= lastOffOn)) { //switch pump ON->OFF
+      //if (((tP2Out - tControl) < tempDiffOFF && (tP2In < tP2Out) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
+      if ((((tP1Out - tControl) < tempDiffOFF) || ((tP2Out - tControl) < tempDiffOFF)) && (millis() - delayAfterON >= lastOffOn)) { //switch pump ON->OFF
 #ifdef serial
         Serial.print("millis()=");
         Serial.print(millis());
@@ -423,8 +420,8 @@ void mainControl() {
         Serial.print(delayAfterON);
         Serial.print(" lastOffOn=");
         Serial.print(lastOffOn);
-        Serial.print(" tOut=");
-        Serial.print(tOut);
+        Serial.print(" tP2Out=");
+        Serial.print(tP2Out);
         Serial.print("tControl=");
         Serial.println(tControl);
 #endif
@@ -436,8 +433,8 @@ void mainControl() {
         writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_ONOFF);
       }
     } else { //pump is OFF - relay OFF = HIGH
-      //if ((((tOut - tControl) >= tempDiffON) || ((tIn - tControl) >= tempDiffON))) { //switch pump OFF->ON
-      if ((tOut - tControl) >= tempDiffON) { //switch pump OFF->ON
+      //if ((((tP2Out - tControl) >= tempDiffON) || ((tP2In - tControl) >= tempDiffON))) { //switch pump OFF->ON
+      if ((tP1Out - tControl) >= tempDiffON || (tP2Out - tControl) >= tempDiffON) { //switch pump OFF->ON
         relay1=LOW; //relay ON = LOW
         //digitalWrite(RELAY1PIN, relay1);
         lastOn = millis();
@@ -486,14 +483,32 @@ void tempMeas() {
 
       sensor[i] = tempTemp;
     } 
-    tOut      = sensor[1];
-    tIn       = sensor[2];
-    tRoom     = sensor[3];
+    tP2Out    = sensor[1];
+    tP2In     = sensor[2];
+    tP1Out    = sensor[3];
+    tP1In     = sensor[5];
+    tRoom     = sensor[4];
     tBojler   = sensor[0];
     tControl  = sensor[controlSensor];
+
+    Serial.print("P1 In:");
+    Serial.println(tP1In);
+    Serial.print("P1 Out:");
+    Serial.println(tP1Out);
+    Serial.print("P2 In:");
+    Serial.println(tP2In);
+    Serial.print("P2 Out:");
+    Serial.println(tP2Out);
+    Serial.print("Room:");
+    Serial.println(tRoom);
+    Serial.print("Bojler:");
+    Serial.println(tBojler);
+    Serial.print("Control:");
+    Serial.println(tControl);
+
     
-    if (tOut>tMaxOut)       tMaxOut     = tOut;
-      if (tIn>tMaxIn)         tMaxIn      = tIn;
+    if (tP2Out>tMaxOut)       tMaxOut     = tP2Out;
+      if (tP2In>tMaxIn)         tMaxIn      = tP2In;
     if (tBojler>tMaxBojler) tMaxBojler   = tBojler;
     //obcas se vyskytne chyba a vsechna cidla prestanou merit
     //zkusim restartovat sbernici
@@ -511,7 +526,7 @@ void tempMeas() {
 
 void calcPowerAndEnergy() {
   if (relay1==LOW) {  //pump is ON
-    if (tIn<tOut) {
+    if (tP2In<tP2Out) {
       msDayON+=(millis()-lastOn);
       msDiff+=(millis()-lastOn);
       if (msDiff >= 1000) {
@@ -710,8 +725,8 @@ void displayTemp(int x, int y, float value) {
   }
   
   lcd.print(abs((int)value));
-  lcd.print(".");
-  lcd.print(desetina);
+  // lcd.print(".");
+  // lcd.print(desetina);
   lcd.print(" ");
   
   /*if (cela>-10) {
@@ -1168,6 +1183,8 @@ void readAndSetONOFFFromEEPROM() {
   float valueF = (float)valueIH + (float)valueIL / 10;
   if (valueF<200) {
     tempDiffON = valueF;
+    Serial.print("Temp diff ON:");
+    Serial.println(tempDiffON);
   }
   else {} //use default value=5.0 see variable initialization
   valueIH = EEPROM.read(tempDiffOFFEEPROMAdrH);
@@ -1175,20 +1192,24 @@ void readAndSetONOFFFromEEPROM() {
   valueF = (float)valueIH + (float)valueIL / 10;
   if (valueF<200) {
     tempDiffOFF = valueF;
+    Serial.print("Temp diff OFF:");
+    Serial.println(tempDiffOFF);
   }
   else {} //use default value=2.0 see variable initialization
 }
 
 unsigned int getPower() {
-  return (float)energyKoef*(tOut-tIn); //in W
+  return (float)energyKoef*(tP2Out-tP2In); //in W
 }
 
 void lcdShow() {
   if (display==0) { //main display
     //display OUT  IN  ROOM
-    displayTemp(TEMP1X,TEMP1Y, tOut);
-    displayTemp(TEMP2X,TEMP2Y, tIn);
-    displayTemp(TEMP3X,TEMP3Y, tControl);
+    displayTemp(TEMP1X,TEMP1Y, tP1In);
+    displayTemp(TEMP2X,TEMP2Y, tP1Out);
+    displayTemp(TEMP3X,TEMP3Y, tP2In);
+    displayTemp(TEMP4X,TEMP4Y, tP2Out);
+    displayTemp(TEMP5X,TEMP5Y, tControl);
     if ((millis()-lastOff)>=dayInterval) {
       lcd.setCursor(0,1);
       lcd.print("Bez slunce ");
@@ -1348,14 +1369,16 @@ float enegyWsTokWh(float e) {
 void sendDataSerial() {
   //send to ESP8266 unit via UART
   //data sended:
-  //I tempIN 
-  //O tempOUT
+  //S tempIN Panel1
+  //T tempOUT Panel1
+  //I tempIN Panel2
+  //O tempOUT Panel2
   //M room temp
   //B bojler temp
   //R relay status
 
   //data sended:
-  //#B;25.31#M;25.19#I;25.10#O;50.5#R;1$3600177622*
+  //#B;25.31#M;25.19#S;25.10#T;50.5#I;25.10#O;50.5#R;1$3600177622*
 
   if (firstMeasComplete==false) return;
 
@@ -1372,16 +1395,25 @@ void sendDataSerial() {
   send(DELIMITER);
   send(tRoom);
 
+  send(START_BLOCK);
+  send('S');
+  send(DELIMITER);
+  send(tP1In);
+
+  send(START_BLOCK);
+  send('T');
+  send(DELIMITER);
+  send(tP1Out);
 
   send(START_BLOCK);
   send('I');
   send(DELIMITER);
-  send(tIn);
+  send(tP2In);
 
   send(START_BLOCK);
   send('O');
   send(DELIMITER);
-  send(tOut);
+  send(tP2Out);
 
   send(START_BLOCK);
   send('R');
