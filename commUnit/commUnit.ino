@@ -23,8 +23,10 @@ Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO
 /****************************** Feeds ***************************************/
 Adafruit_MQTT_Publish version             = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/VersionSWSolar");
 Adafruit_MQTT_Publish hb                  = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/HeartBeat");
-Adafruit_MQTT_Publish tINSolar            = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tIN");
-Adafruit_MQTT_Publish tOUTSolar           = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tOUT");
+Adafruit_MQTT_Publish tP1INSolar          = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tP1IN");
+Adafruit_MQTT_Publish tP1OUTSolar         = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tP1OUT");
+Adafruit_MQTT_Publish tP2INSolar          = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tP2IN");
+Adafruit_MQTT_Publish tP2OUTSolar         = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tP2OUT");
 Adafruit_MQTT_Publish sPumpSolar          = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/sPumpSolar/status");
 Adafruit_MQTT_Publish tRoom               = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tRoom");
 Adafruit_MQTT_Publish tBojler             = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tBojler");
@@ -33,7 +35,7 @@ Adafruit_MQTT_Publish tBojler             = Adafruit_MQTT_Publish(&mqtt, "/home/
 
 void MQTT_connect(void);
 
-float versionSW                  = 0.5;
+float versionSW                   = 0.6;
 String versionSWString            = "Solar v";
 
 void setup() {
@@ -68,7 +70,7 @@ void loop() {
     received=Serial.readStringUntil('*');
     Serial.println(received);
     
-    float tempINSolar, tempOUTSolar, tempBojler, tempRoom;
+    float tempP1INSolar, tempP1OUTSolar, tempP2INSolar, tempP2OUTSolar, tempBojler, tempRoom;
     int pumpStatus=0;
     
     bool emptyData=false;
@@ -80,7 +82,7 @@ void loop() {
     if (received!="") {
       digitalWrite(pinLed,LOW);
       byte i=1;
-      while (i<=6) {
+      while (i<=7) {
         String val = getValue(received, '#', i);
         if (val.substring(0,1)=="B") {
           tempBojler=val.substring(2).toFloat(); 
@@ -91,12 +93,20 @@ void loop() {
           Serial.println(tempRoom);
         }
         if (val.substring(0,1)=="I") {
-          tempINSolar=val.substring(2).toFloat(); 
-          Serial.println(tempINSolar);
+          tempP2INSolar=val.substring(2).toFloat(); 
+          Serial.println(tempP2INSolar);
         }
         if (val.substring(0,1)=="O") {
-          tempOUTSolar=val.substring(2).toFloat(); 
-          Serial.println(tempOUTSolar);
+          tempP2OUTSolar=val.substring(2).toFloat(); 
+          Serial.println(tempP2OUTSolar);
+        }
+        if (val.substring(0,1)=="S") {
+          tempP1INSolar=val.substring(2).toFloat(); 
+          Serial.println(tempP1INSolar);
+        }
+        if (val.substring(0,1)=="T") {
+          tempP1OUTSolar=val.substring(2).toFloat(); 
+          Serial.println(tempP1OUTSolar);
         }
         if (val.substring(0,1)=="R") {
           pumpStatus=val.substring(2).toInt(); 
@@ -105,7 +115,7 @@ void loop() {
         i++;
       }
 
-      Serial.println("I am sending data from Solar unit to OpenHab");
+      Serial.println("I am sending data from Solar unit to HomeAssistant");
     
       MQTT_connect();
       if (! tBojler.publish(tempBojler)) {
@@ -118,12 +128,22 @@ void loop() {
       } else {
         Serial.println("OK!");
       }
-      if (! tINSolar.publish(tempINSolar)) {
+      if (! tP1INSolar.publish(tempP1INSolar)) {
         Serial.println("failed");
       } else {
         Serial.println("OK!");
       }
-      if (! tOUTSolar.publish(tempOUTSolar)) {
+      if (! tP1OUTSolar.publish(tempP1OUTSolar)) {
+        Serial.println("failed");
+      } else {
+        Serial.println("OK!");
+      }
+      if (! tP2INSolar.publish(tempP2INSolar)) {
+        Serial.println("failed");
+      } else {
+        Serial.println("OK!");
+      }
+      if (! tP2OUTSolar.publish(tempP2OUTSolar)) {
         Serial.println("failed");
       } else {
         Serial.println("OK!");

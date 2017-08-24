@@ -1199,7 +1199,7 @@ void readAndSetONOFFFromEEPROM() {
 }
 
 unsigned int getPower() {
-  return (float)energyKoef*(tP2Out-tP2In); //in W
+  return (float)energyKoef*(tP2Out-tP1In); //in W
 }
 
 void lcdShow() {
