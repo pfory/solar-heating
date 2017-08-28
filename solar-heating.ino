@@ -1,12 +1,10 @@
 /*
 --------------------------------------------------------------------------------------------------------------------------
-
                SOLAR - control system for solar unit
-
 Petr Fory pfory@seznam.cz
 GIT - https://github.com/pfory/solar-heating
-
 Version history:
+1.01 - 28.8.2017  pridani cidla prutoku
 1.00 - 28.8.2017  vypinani pouze na zaklade vystupni teploty e solaru na strese 
 0.99 - 24.8.2017  mereni z obou panelu
 0.95 - 19.6.2016  i2c keypad
@@ -31,9 +29,7 @@ Version history:
 0.60 - 16.3.2014
 0.50 - 1.12.2013
 0.41 - 20.10.2013
-
 TODO - odladit CRC kod
-
 --------------------------------------------------------------------------------------------------------------------------
 HW
 Pro Mini 328 data are sent via serial line to comunication unit
@@ -41,7 +37,6 @@ I2C display
 2 Relays module
 DALLAS
 keyboard
-
 Pro Mini 328 Layout
 ------------------------------------------
 A0              - DALLAS temperature sensors
@@ -52,7 +47,7 @@ A4              - I2C display SDA 0x20, keypad 0x27
 A5              - I2C display SCL 0x20, keypad 0x27
 D0              - Rx
 D1              - Tx
-D2              - free
+D2              - flow sensor
 D3              - free
 D4              - free
 D5              - free
@@ -276,6 +271,20 @@ char hexaKeys[ROWS][COLS]                 = {
 #endif
 
 
+#define flowSensor
+#ifdef flowSensor
+volatile int flow_frequency; // Measures flow sensor pulses
+unsigned int l_hour; // Calculated litres/hour
+unsigned char flowsensor = 2; // Sensor Input
+unsigned long currentTime;
+unsigned long cloopTime;
+
+void flow () { // Interrupt function
+   flow_frequency++;
+}
+#endif
+
+
 uint8_t MyRstFlags __attribute__ ((section(".noinit")));
 void SaveResetFlags(void) __attribute__ ((naked))
                           __attribute__ ((section (".init0")));
@@ -341,6 +350,14 @@ void setup() {
   lcd.clear();
 
   dsInit();
+
+#ifdef flowSensor
+   pinMode(flowsensor, INPUT);
+   digitalWrite(flowsensor, HIGH); // Optional Internal Pull-Up
+   attachInterrupt(0, flow, RISING); // Setup Interrupt
+   currentTime = millis();
+   cloopTime = currentTime;
+#endif
   
   lcd.clear();
 
@@ -378,6 +395,9 @@ void loop() {
     calcPowerAndEnergy();
     mainControl();
   }
+#ifdef flowSensor  
+  calcFlow()
+#endif
   lcdShow(); //show display
   
   /*if (lastOff > 0 && ((millis() - lastOff)>dayInterval)) {
@@ -736,6 +756,22 @@ void displayTemp(int x, int y, float value) {
   }*/
 }
 
+
+#ifdef flowSensor
+void calcFlow() {
+  currentTime = millis();
+  // Every second, calculate and print litres/hour
+  if(currentTime >= (cloopTime + 1000)) {
+    cloopTime = currentTime; // Updates cloopTime
+    // Pulse frequency (Hz) = 7.5Q, Q is flow rate in L/min.
+    l_hour = (flow_frequency * 60 / 7.5); // (Pulse frequency x 60 min) / 7.5Q = flowrate in L/hour
+    flow_frequency = 0; // Reset Counter
+    Serial.print(l_hour, DEC); // Print litres/hour
+    Serial.println(" L/hour");
+  }
+}
+#endif
+
 void dsInit(void) {
   dsSensors.begin();
   numberOfDevices = dsSensors.getDeviceCount();
@@ -794,7 +830,6 @@ void displayRelayStatus(void) {
 /*
 void sendDataSerial() {
   if (firstMeasComplete==false) return;
-
 #ifdef serial
   Serial.print("DATA:");
 #endif
@@ -812,12 +847,10 @@ void sendDataSerial() {
   send('N');
   send(DELIMITER);
   send(tempDiffON);
-
   send(START_BLOCK);
   send('F');
   send(DELIMITER);
   send(tempDiffOFF);
-
   send(START_BLOCK);
   send('R');
   send(DELIMITER);
@@ -825,7 +858,6 @@ void sendDataSerial() {
     send('1');
   else
     send('0');
-
   send(START_BLOCK);
   send('S');
   send(DELIMITER);
@@ -833,7 +865,6 @@ void sendDataSerial() {
     send('1');
   else
     send('0');
-
   //Power
   send(START_BLOCK);
   send('P');
@@ -861,13 +892,11 @@ void sendDataSerial() {
   send('M');
   send(DELIMITER);
   send(modeSolar);
-
   //total time in minutes
   send(START_BLOCK);
   send('C');
   send(DELIMITER);
   send(totalSec/60);
-
   send(START_BLOCK);
   send('A');
   send(DELIMITER);
@@ -879,7 +908,6 @@ void sendDataSerial() {
   send(DELIMITER);
   send(pulseCount); //1 puls = 1/800 kWh
   pulseCount=0;
-
   send(START_BLOCK);
   send('O');
   send(DELIMITER);
@@ -899,7 +927,6 @@ void sendDataSerial() {
   else {
     status=STATUS_NORMAL0;
   }
-
   send(END_BLOCK);
 #ifdef serial
   Serial.print(crc);
@@ -910,7 +937,6 @@ void sendDataSerial() {
   mySerial.flush();
   digitalWrite(LEDPIN,LOW);
 }
-
 void readDataSerial() {
   float setOn=tempDiffON;
   float setOff=tempDiffOFF;
@@ -960,7 +986,6 @@ void readDataSerial() {
       Serial.print(modeSolar);
 #endif
     }
-
     if (startCRC) {
 #ifdef serial
       Serial.print(incomingByte);
@@ -977,18 +1002,14 @@ void readDataSerial() {
       Serial.print(" CRC-");
 #endif
     }
-
   } while ((char)incomingByte!='*' && millis() < (timeOut + serialTimeout));
-
   //validation with CRC
 #ifdef serial
   Serial.print(" CRC=");
   Serial.println(crcBuffer);
 #endif
-
   char crcBufferCount [10+1];
   unsigned long ret = snprintf(crcBufferCount, sizeof(crcBufferCount), "%ld", crc);
-
   Serial.print(crcBuffer);
   Serial.print(crcBufferCount);
   if (crcBuffer==crcBufferCount) {
@@ -1017,7 +1038,6 @@ void readDataSerial() {
       EEPROM.write(tempDiffOFFEEPROMAdrH, (char)tempDiffOFF);
       EEPROM.write(tempDiffOFFEEPROMAdrL, (int)(tempDiffOFF * 10) % 10);
     }
-
     if (setModeSolar!=modeSolar) {
       if (manualSetFromKeyboard) { //keyboard setup has a high priority as internet setup
         if (setModeSolar==0) {
@@ -1034,15 +1054,11 @@ void readDataSerial() {
       }
     }
   }
-
   digitalWrite(LEDPIN,LOW);
 }
-
 void send(char s) {
   send(s, ' ');
 }
-
-
 void send(char s, char type) {
   if (type=='X') {
 #ifdef serial
@@ -1058,11 +1074,9 @@ void send(char s, char type) {
   }
   crc_string(byte(s));
 }
-
 void send(byte s) {
   send(s, ' ');
 }
-
 void send(byte s, char type) {
   if (type=='X') {
 #ifdef serial
@@ -1078,21 +1092,18 @@ void send(byte s, char type) {
   }
   crc_string(s);
 }
-
 void send(unsigned long s) {
 #ifdef serial
   Serial.print(s);
 #endif
   mySerial.print(s);
 }
-
 void send(unsigned int s) {
 #ifdef serial
   Serial.print(s);
 #endif
   mySerial.print(s);
 }
-
 void send(float s) {
   char tBuffer[8];
   dtostrf(s,0,2,tBuffer);
@@ -1101,7 +1112,6 @@ void send(float s) {
     send(tBuffer[i]);
   }
 }
-
 char dataRequested() {
   char incomingByte=0;
   if (mySerial.available() > 0) {
@@ -1113,7 +1123,6 @@ char dataRequested() {
   }
   return incomingByte;
 }
-
 unsigned long crc_update(unsigned long crc, byte data)
 {
     byte tbl_idx;
@@ -1123,7 +1132,6 @@ unsigned long crc_update(unsigned long crc, byte data)
     crc = pgm_read_dword_near(crc_table + (tbl_idx & 0x0f)) ^ (crc >> 4);
     return crc;
 }
-
 void crc_string(byte s)
 {
   crc = crc_update(crc, s);
