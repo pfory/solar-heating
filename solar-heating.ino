@@ -7,6 +7,8 @@ Petr Fory pfory@seznam.cz
 GIT - https://github.com/pfory/solar-heating
 
 Version history:
+1.00 - 28.8.2017  vypinani pouze na zaklade vystupni teploty e solaru na strese 
+0.99 - 24.8.2017  mereni z obou panelu
 0.95 - 19.6.2016  i2c keypad
 0.90 - 05.05.2016 komunikace s jednokou ESP8266
 0.82 - 27.1.2016  opraveno zobrazeni teplot od 0 do -0.9 na displeji
@@ -302,7 +304,7 @@ byte const totalSecEEPROMAdrL             = 12;
 byte const backLightEEPROMAdr             = 13;
 
 //SW name & version
-float const   versionSW                   = 0.99;
+float const   versionSW                   = 1.00;
 char  const   versionSWString[]           = "Solar v"; 
 
 
@@ -412,7 +414,7 @@ void mainControl() {
         writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_DELAY);
       }
       //if (((tP2Out - tControl) < tempDiffOFF && (tP2In < tP2Out) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
-      if ((((tP1Out - tControl) < tempDiffOFF) || ((tP2Out - tControl) < tempDiffOFF)) && (millis() - delayAfterON >= lastOffOn)) { //switch pump ON->OFF
+      if (((tP2Out - tControl) < tempDiffOFF) && (millis() - delayAfterON >= lastOffOn)) { //switch pump ON->OFF
 #ifdef serial
         Serial.print("millis()=");
         Serial.print(millis());
