@@ -27,15 +27,18 @@ Adafruit_MQTT_Publish tP1INSolar          = Adafruit_MQTT_Publish(&mqtt, "/home/
 Adafruit_MQTT_Publish tP1OUTSolar         = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tP1OUT");
 Adafruit_MQTT_Publish tP2INSolar          = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tP2IN");
 Adafruit_MQTT_Publish tP2OUTSolar         = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tP2OUT");
+Adafruit_MQTT_Publish qSolar              = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/prutok");
 Adafruit_MQTT_Publish sPumpSolar          = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/sPumpSolar/status");
 Adafruit_MQTT_Publish tRoom               = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tRoom");
 Adafruit_MQTT_Publish tBojler             = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tBojler");
+Adafruit_MQTT_Publish tBojlerIN           = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tBojlerIN");
+Adafruit_MQTT_Publish tBojlerOUT          = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tBojlerOUT");
 
 #define SERIALSPEED 9600
 
 void MQTT_connect(void);
 
-float versionSW                   = 0.6;
+float versionSW                   = 0.61;
 String versionSWString            = "Solar v";
 
 void setup() {
@@ -70,8 +73,8 @@ void loop() {
     received=Serial.readStringUntil('*');
     Serial.println(received);
     
-    float tempP1INSolar, tempP1OUTSolar, tempP2INSolar, tempP2OUTSolar, tempBojler, tempRoom;
-    int pumpStatus=0;
+    float _tP1INSolar, _tP1OUTSolar, _tP2INSolar, _tP2OUTSolar, _tBojler, _tBojlerIN, _tBojlerOUT, _tRoom, _qSolar;
+    int _pumpStatus=0;
     
     bool emptyData=false;
     Serial.println(received);
@@ -82,35 +85,37 @@ void loop() {
     if (received!="") {
       digitalWrite(pinLed,LOW);
       byte i=1;
-      while (i<=7) {
+      while (i<=11) {
         String val = getValue(received, '#', i);
         if (val.substring(0,1)=="B") {
-          tempBojler=val.substring(2).toFloat(); 
-          Serial.println(tempBojler);
+          _tBojler=val.substring(2).toFloat(); 
+        }
+        if (val.substring(0,1)=="C") {
+          _tBojlerIN=val.substring(2).toFloat(); 
+        }
+        if (val.substring(0,1)=="D") {
+          _tBojlerOUT=val.substring(2).toFloat(); 
         }
         if (val.substring(0,1)=="M") {
-          tempRoom=val.substring(2).toFloat(); 
-          Serial.println(tempRoom);
+          _tRoom=val.substring(2).toFloat(); 
         }
         if (val.substring(0,1)=="I") {
-          tempP2INSolar=val.substring(2).toFloat(); 
-          Serial.println(tempP2INSolar);
+          _tP2INSolar=val.substring(2).toFloat(); 
         }
         if (val.substring(0,1)=="O") {
-          tempP2OUTSolar=val.substring(2).toFloat(); 
-          Serial.println(tempP2OUTSolar);
+          _tP2OUTSolar=val.substring(2).toFloat(); 
         }
         if (val.substring(0,1)=="S") {
-          tempP1INSolar=val.substring(2).toFloat(); 
-          Serial.println(tempP1INSolar);
+          _tP1INSolar=val.substring(2).toFloat(); 
         }
         if (val.substring(0,1)=="T") {
-          tempP1OUTSolar=val.substring(2).toFloat(); 
-          Serial.println(tempP1OUTSolar);
+          _tP1OUTSolar=val.substring(2).toFloat(); 
+        }
+        if (val.substring(0,1)=="Q") {
+          _qSolar=val.substring(2).toFloat(); 
         }
         if (val.substring(0,1)=="R") {
-          pumpStatus=val.substring(2).toInt(); 
-          Serial.println(pumpStatus);
+          _pumpStatus=val.substring(2).toInt(); 
         }
         i++;
       }
@@ -118,37 +123,52 @@ void loop() {
       Serial.println("I am sending data from Solar unit to HomeAssistant");
     
       MQTT_connect();
-      if (! tBojler.publish(tempBojler)) {
+      if (! tBojler.publish(_tBojler)) {
         Serial.println("failed");
       } else {
         Serial.println("OK!");
       }
-      if (! tRoom.publish(tempRoom)) {
+      if (! tBojlerIN.publish(_tBojlerIN)) {
         Serial.println("failed");
       } else {
         Serial.println("OK!");
       }
-      if (! tP1INSolar.publish(tempP1INSolar)) {
+      if (! tBojlerOUT.publish(_tBojlerOUT)) {
         Serial.println("failed");
       } else {
         Serial.println("OK!");
       }
-      if (! tP1OUTSolar.publish(tempP1OUTSolar)) {
+      if (! tRoom.publish(_tRoom)) {
         Serial.println("failed");
       } else {
         Serial.println("OK!");
       }
-      if (! tP2INSolar.publish(tempP2INSolar)) {
+      if (! tP1INSolar.publish(_tP1INSolar)) {
         Serial.println("failed");
       } else {
         Serial.println("OK!");
       }
-      if (! tP2OUTSolar.publish(tempP2OUTSolar)) {
+      if (! tP1OUTSolar.publish(_tP1OUTSolar)) {
         Serial.println("failed");
       } else {
         Serial.println("OK!");
       }
-      if (! sPumpSolar.publish(pumpStatus)) {
+      if (! tP2INSolar.publish(_tP2INSolar)) {
+        Serial.println("failed");
+      } else {
+        Serial.println("OK!");
+      }
+      if (! tP2OUTSolar.publish(_tP2OUTSolar)) {
+        Serial.println("failed");
+      } else {
+        Serial.println("OK!");
+      }
+      if (! qSolar.publish(_qSolar)) {
+        Serial.println("failed");
+      } else {
+        Serial.println("OK!");
+      }
+      if (! sPumpSolar.publish(_pumpStatus)) {
         Serial.println("failed");
       } else {
         Serial.println("OK!");

@@ -273,11 +273,12 @@ char hexaKeys[ROWS][COLS]                 = {
 
 #define flowSensor
 #ifdef flowSensor
-volatile int flow_frequency; // Measures flow sensor pulses
-unsigned int l_hour; // Calculated litres/hour
-unsigned char flowsensor = 2; // Sensor Input
-unsigned long currentTime;
-unsigned long cloopTime;
+volatile int      flow_frequency          = 0; // Measures flow sensor pulses
+float             lMinCumul               = 0; // 
+byte              numberOfCyclesFlow      = 0;
+unsigned char     flowsensor              = 2; // Sensor Input
+unsigned long     currentTime;
+unsigned long     cloopTime;
 
 void flow () { // Interrupt function
    flow_frequency++;
@@ -313,7 +314,7 @@ byte const totalSecEEPROMAdrL             = 12;
 byte const backLightEEPROMAdr             = 13;
 
 //SW name & version
-float const   versionSW                   = 1.00;
+float const   versionSW                   = 1.01;
 char  const   versionSWString[]           = "Solar v"; 
 
 
@@ -396,7 +397,7 @@ void loop() {
     mainControl();
   }
 #ifdef flowSensor  
-  calcFlow()
+  calcFlow();
 #endif
   lcdShow(); //show display
   
@@ -694,30 +695,7 @@ void keyBoard() {
   }
 #endif
 }
-/*
-void communication() {
-  char req=dataRequested();
-  if (req=='R') { //if data were requested from central unit then send data
-    sendDataSerial();
-  } else if (req=='S') { //setup
-    readDataSerial();
-  } else if (req=='P') { //power down, power save mode set
-    if (powerMode!=POWERSAVE) {
-      tempDiffONNormal   = tempDiffON;
-      tempDiffOFFNormal  = tempDiffOFF;
-      tempDiffON         = tempDiffONPowerSave;
-      tempDiffOFF        = tempDiffOFFPowerSave;
-      powerMode=POWERSAVE;
-    }
-    mySerial.print("OK");
-  } else if (req=='N') { //power up, normal mode 
-    powerMode=NORMAL;
-    tempDiffON      = tempDiffONNormal;
-    tempDiffOFF     = tempDiffOFFNormal;
-    mySerial.print("OK");
-  }
-}
-*/
+
 void displayTemp(int x, int y, float value) {
   /*
   012345
@@ -759,15 +737,18 @@ void displayTemp(int x, int y, float value) {
 
 #ifdef flowSensor
 void calcFlow() {
+  float lMin = 0; // Calculated litres/min
   currentTime = millis();
   // Every second, calculate and print litres/hour
   if(currentTime >= (cloopTime + 1000)) {
     cloopTime = currentTime; // Updates cloopTime
     // Pulse frequency (Hz) = 7.5Q, Q is flow rate in L/min.
-    l_hour = (flow_frequency * 60 / 7.5); // (Pulse frequency x 60 min) / 7.5Q = flowrate in L/hour
+    lMin = flow_frequency / 7.5f; // Pulse frequency  / 7.5Q = flowrate in L/min
+    lMinCumul += lMin;
+    numberOfCyclesFlow++;
     flow_frequency = 0; // Reset Counter
-    Serial.print(l_hour, DEC); // Print litres/hour
-    Serial.println(" L/hour");
+    Serial.print(lMin, DEC); // Print litres/min
+    Serial.println(" L/min");
   }
 }
 #endif
@@ -1385,10 +1366,13 @@ void sendDataSerial() {
   //O tempOUT Panel2
   //M room temp
   //B bojler temp
+  //C bojler IN
+  //D bojler OUT
+  //Q prutok
   //R relay status
 
   //data sended:
-  //#B;25.31#M;25.19#S;25.10#T;50.5#I;25.10#O;50.5#R;1$3600177622*
+  //#B;25.31#M;25.19#S;25.10#T;50.5#I;25.10#O;50.5#C;50.5#D;40.5#Q;10.2#R;1$3600177622*
 
   if (firstMeasComplete==false) return;
 
@@ -1424,6 +1408,27 @@ void sendDataSerial() {
   send('O');
   send(DELIMITER);
   send(tP2Out);
+
+  //bojler vstup
+  send(START_BLOCK);
+  send('C');
+  send(DELIMITER);
+  send(0.0f);
+
+  //bojler vystup
+  send(START_BLOCK);
+  send('D');
+  send(DELIMITER);
+  send(0.0f);
+
+  
+  send(START_BLOCK);
+  send('Q');
+  send(DELIMITER);
+  send(lMinCumul / (float)numberOfCyclesFlow);
+
+  lMinCumul = 0;
+  numberOfCyclesFlow = 0;
 
   send(START_BLOCK);
   send('R');
