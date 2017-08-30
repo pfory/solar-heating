@@ -269,11 +269,11 @@ char hexaKeys[ROWS][COLS]                 = {
                                             {'1','2','3','A'}
 };
 #endif
-
+ 
 
 #define flowSensor
 #ifdef flowSensor
-volatile int      flow_frequency          = 0; // Measures flow sensor pulses
+volatile int      numberOfPulsesFlow      = 0; // Measures flow sensor pulses
 float             lMinCumul               = 0; // 
 byte              numberOfCyclesFlow      = 0;
 unsigned char     flowsensor              = 2; // Sensor Input
@@ -281,7 +281,7 @@ unsigned long     currentTime;
 unsigned long     cloopTime;
 
 void flow () { // Interrupt function
-   flow_frequency++;
+   numberOfPulsesFlow++;
 }
 #endif
 
@@ -314,7 +314,7 @@ byte const totalSecEEPROMAdrL             = 12;
 byte const backLightEEPROMAdr             = 13;
 
 //SW name & version
-float const   versionSW                   = 1.01;
+float const   versionSW                   = 1.02;
 char  const   versionSWString[]           = "Solar v"; 
 
 
@@ -738,15 +738,14 @@ void displayTemp(int x, int y, float value) {
 #ifdef flowSensor
 void calcFlow() {
   float lMin = 0; // Calculated litres/min
-  currentTime = millis();
   // Every second, calculate and print litres/hour
-  if(currentTime >= (cloopTime + 1000)) {
-    cloopTime = currentTime; // Updates cloopTime
+  if (millis() >= (cloopTime + 1000)) {
     // Pulse frequency (Hz) = 7.5Q, Q is flow rate in L/min.
-    lMin = flow_frequency / 7.5f; // Pulse frequency  / 7.5Q = flowrate in L/min
+    lMin = numberOfPulsesFlow / (7.5f * ((float)(millis() - cloopTime) / 1000.f));
+    cloopTime = currentTime; // Updates cloopTime
     lMinCumul += lMin;
     numberOfCyclesFlow++;
-    flow_frequency = 0; // Reset Counter
+    numberOfPulsesFlow = 0; // Reset Counter
     Serial.print(lMin, DEC); // Print litres/min
     Serial.println(" L/min");
   }
