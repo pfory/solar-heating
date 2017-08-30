@@ -548,6 +548,14 @@ void tempMeas() {
 }
 
 void calcPowerAndEnergy() {
+  /*
+  Q	0,00006	m3/s
+  K	4184000	
+  t vstup	56,4	°C
+  t vystup	63,7	
+  P = Q x K x (t1 - t2)	1832,592	W
+  */
+  
   if (relay1==LOW) {  //pump is ON
     if (tP2In<tP2Out) {
       msDayON+=(millis()-lastOn);
