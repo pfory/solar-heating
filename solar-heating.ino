@@ -1,9 +1,17 @@
 /*
 --------------------------------------------------------------------------------------------------------------------------
-               SOLAR - control system for solar unit
+SOLAR - control system for solar unit
 Petr Fory pfory@seznam.cz
 GIT - https://github.com/pfory/solar-heating
+*/
+
+//SW name & version
+float const   versionSW                   = 1.1;
+char  const   versionSWString[]           = "Solar v"; 
+
+/*
 Version history:
+1.1  - 13.9.2017  pridany cidla teploty bojler vstup/vystup
 1.01 - 28.8.2017  pridani cidla prutoku
 1.00 - 28.8.2017  vypinani pouze na zaklade vystupni teploty e solaru na strese 
 0.99 - 24.8.2017  mereni z obou panelu
@@ -32,7 +40,7 @@ Version history:
 TODO - odladit CRC kod
 --------------------------------------------------------------------------------------------------------------------------
 HW
-Pro Mini 328 data are sent via serial line to comunication unit
+Pro Mini 328 with Optiboot!!!! data are sent via serial line to comunication unit
 I2C display
 2 Relays module
 DALLAS
@@ -129,7 +137,7 @@ DallasTemperature dsSensors(&onewire);
 #endif
 DeviceAddress tempDeviceAddress;
 #ifndef NUMBER_OF_DEVICES
-#define NUMBER_OF_DEVICES 8
+#define NUMBER_OF_DEVICES 10
 #endif
 DeviceAddress tempDeviceAddresses[NUMBER_OF_DEVICES];
 unsigned int numberOfDevices              = 0; // Number of temperature devices found
@@ -184,6 +192,8 @@ float tP1Out                              = 0; //output medium temperature to so
 float tRoom                               = 0; //room temperature
 float tBojler                             = 0; //boiler temperature
 float tControl                            = 0; //temperature which is used as control temperature
+float tBojlerIn                           = 0; //boiler input temperature
+float tBojlerOut                          = 0; //boiler output temperature
 
 //maximal temperatures
 float tMaxIn                              = 0; //maximal input temperature (just for statistics)
@@ -247,28 +257,28 @@ bool relay1                               = HIGH;
 bool relay2                               = HIGH;
 
 
-#define keypad
-#ifdef keypad
-int address                               = 0x27;
-uint8_t data;
-int error;
-uint8_t pin                               = 0;
-char key                                  = ' ';
-char keyOld                               = ' ';
-unsigned int repeatAfterMs                = 1000;
-unsigned int repeatCharSec                = 10;
-unsigned long lastKeyPressed              = 0;
+// #define keypad
+// #ifdef keypad
+#include <Keypad_I2C.h>
+#include <Keypad.h>          // GDY120705
+#include <Wire.h>
 
-//define the symbols on the buttons of the keypads
-const byte ROWS                           = 4; //four rows
-const byte COLS                           = 4; //four columns
-char hexaKeys[ROWS][COLS]                 = {
-                                            {'*','0','#','D'},
-                                            {'7','8','9','C'},
+#define I2CADDR 0x27
+
+const byte ROWS = 4; //four rows
+const byte COLS = 4; //three columns
+char keys[ROWS][COLS]                 = {
+                                            {'1','2','3','A'},
                                             {'4','5','6','B'},
-                                            {'1','2','3','A'}
+                                            {'7','8','9','C'},
+                                            {'*','0','#','D'}
 };
-#endif
+byte rowPins[ROWS] = {7,6,5,4}; //connect to the row pinouts of the keypad
+byte colPins[COLS] = {3,2,1,0}; //connect to the column pinouts of the keypad
+
+//Keypad_I2C keypad = Keypad_I2C( makeKeymap(keys), rowPins, colPins, ROWS, COLS, I2CADDR );
+Keypad_I2C keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS, I2CADDR); 
+// #endif
  
 
 #define flowSensor
@@ -312,27 +322,26 @@ byte const totalSecEEPROMAdrS             = 11;
 byte const totalSecEEPROMAdrL             = 12;
 byte const backLightEEPROMAdr             = 13;
 
-//SW name & version
-float const   versionSW                   = 1.02;
-char  const   versionSWString[]           = "Solar v"; 
-
-
-
 //-------------------------------------------- S E T U P ------------------------------------------------------------------------------
 void setup() {
 #ifdef watchdog
   wdt_enable(WDTO_8S);
 #endif
-  Wire.begin();
-
+  //Wire.begin();
+// #ifdef keypad  
+  keypad.begin();
+  //keypad.addEventListener(keypadEvent); //add an event listener for this keypad  
+// #endif
+  
   lcd.begin();               // initialize the lcd 
   // Switch on the backligckLight
   backLight = EEPROM.read(backLightEEPROMAdr);
+  backLight=true;
   if (backLight==true) {
-    //lcd.setBacklight(255);
+    lcd.backlight();
   }
   else {
-    //lcd.setBacklight(0);
+    lcd.noBacklight();
   }
   mySerial.begin(mySERIAL_SPEED);
   pinMode(LEDPIN,OUTPUT);
@@ -410,7 +419,7 @@ void loop() {
       lastSend = millis();
     }
   }
-  keyPressed();
+  //keyPressed();
   keyBoard();
 } //loop
 
@@ -504,14 +513,16 @@ void tempMeas() {
 
       sensor[i] = tempTemp;
     } 
-    tP2Out    = sensor[1];
-    tP2In     = sensor[2];
-    tP1Out    = sensor[3];
-    tP1In     = sensor[5];
-    tRoom     = sensor[4];
-    tBojler   = sensor[0];
-    tControl  = sensor[controlSensor];
-
+    tP2Out      = sensor[2];
+    tP2In       = sensor[1];
+    tP1Out      = sensor[4];
+    tP1In       = sensor[7];    
+    tRoom       = sensor[6];
+    tBojler     = sensor[0];
+    tBojlerIn   = sensor[5];
+    tBojlerOut  = sensor[3];
+    tControl    = sensor[controlSensor];
+/*
     Serial.print("P1 In:");
     Serial.println(tP1In);
     Serial.print("P1 Out:");
@@ -524,9 +535,13 @@ void tempMeas() {
     Serial.println(tRoom);
     Serial.print("Bojler:");
     Serial.println(tBojler);
+    Serial.print("Bojler In:");
+    Serial.println(tBojlerIn);
+    Serial.print("Bojler Out:");
+    Serial.println(tBojlerOut);
     Serial.print("Control:");
     Serial.println(tControl);
-
+*/
     
     if (tP2Out>tMaxOut)       tMaxOut     = tP2Out;
       if (tP2In>tMaxIn)         tMaxIn      = tP2In;
@@ -555,7 +570,7 @@ void calcPowerAndEnergy() {
   */
   
   if (relay1==LOW) {  //pump is ON
-    if (tP2In<tP2Out) {
+    if (tBojlerIn<tBojlerOut) {
       msDayON+=(millis()-lastOn);
       msDiff+=(millis()-lastOn);
       if (msDiff >= 1000) {
@@ -581,11 +596,45 @@ void calcPowerAndEnergy() {
   }
 }
 
+//take care of some special events
+void keypadEvent(KeypadEvent key){
+  lcd.setCursor(0,1);
+  lcd.print(key);
+  Serial.println(key);
+  Serial.println(keypad.getState());
+  switch (keypad.getState()){
+    case PRESSED:
+      switch (key){
+        case '#': break;
+        case '*': 
+          //digitalWrite(ledPin,!digitalRead(ledPin));
+        break;
+      }
+    break;
+    case RELEASED:
+      switch (key){
+        case '*': 
+          //digitalWrite(ledPin,!digitalRead(ledPin));
+          //blink = false;
+        break;
+      }
+    break;
+    case HOLD:
+      switch (key){
+        case '*': 
+        //blink = true;
+        break;
+      }
+    break;
+  }
+}
+
+
 void keyBoard() {
-#ifdef keypad
-  //char customKey = customKeypad.getKey();
-  //Serial.println(key);
-  if (key!=' '){
+//#ifdef keypad
+  char key = keypad.getKey();
+  if (key!=NO_KEY){
+    Serial.println(key);
     /*
     Keyboard layout
     -----------
@@ -629,13 +678,12 @@ void keyBoard() {
     }
     else if (key=='A') {
       if (backLight==true) {
-        lcd.setBacklight(0);
-        backLight=false;
+        lcd.backlight();
       }
       else {
-        //lcd.setBacklight(255);
-        backLight=true;
+        lcd.noBacklight();
       }
+      backLight=!backLight;
       EEPROM.write(backLightEEPROMAdr,backLight);
     }
     else if (key=='0') { //main display
@@ -699,7 +747,7 @@ void keyBoard() {
     }
     key = ' ';
   }
-#endif
+//#endif
 }
 
 void displayTemp(int x, int y, float value) {
@@ -815,318 +863,6 @@ void displayRelayStatus(void) {
 */
 }
 
-/*
-void sendDataSerial() {
-  if (firstMeasComplete==false) return;
-#ifdef serial
-  Serial.print("DATA:");
-#endif
-  //data sended:
-  //#0;25.31#1;25.19#2;5.19#N;25.10#F;15.50#R;1#S;0#P;0.00#E;0.00#T0.00;#V;0.69#M;0#C;123456#A;0#W;12#O;1245$3600177622*
-  digitalWrite(LEDPIN,HIGH);
-  crc = ~0L;
-  for (byte i=0;i<numberOfDevices; i++) {
-    send(START_BLOCK);
-    send(i);
-    send(DELIMITER);
-    send(sensor[i]);
-  }
-  send(START_BLOCK);
-  send('N');
-  send(DELIMITER);
-  send(tempDiffON);
-  send(START_BLOCK);
-  send('F');
-  send(DELIMITER);
-  send(tempDiffOFF);
-  send(START_BLOCK);
-  send('R');
-  send(DELIMITER);
-  if (relay1==LOW)
-    send('1');
-  else
-    send('0');
-  send(START_BLOCK);
-  send('S');
-  send(DELIMITER);
-  if (relay2==LOW)
-    send('1');
-  else
-    send('0');
-  //Power
-  send(START_BLOCK);
-  send('P');
-  send(DELIMITER);
-  send(power);
-  
-  //Energy a day
-  send(START_BLOCK);
-  send('E');
-  send(DELIMITER);
-  send(enegyWsTokWh(energyADay));
-  
-  //Energy Total
-  send(START_BLOCK);
-  send('T');
-  send(DELIMITER);
-  send(enegyWsTokWh(totalEnergy));
-  
-  send(START_BLOCK);
-  send('V');
-  send(DELIMITER);
-  send(versionSW);
-  
-  send(START_BLOCK);
-  send('M');
-  send(DELIMITER);
-  send(modeSolar);
-  //total time in minutes
-  send(START_BLOCK);
-  send('C');
-  send(DELIMITER);
-  send(totalSec/60);
-  send(START_BLOCK);
-  send('A');
-  send(DELIMITER);
-  send(status);
-  
-  //centralHeating
-  send(START_BLOCK);
-  send('W');
-  send(DELIMITER);
-  send(pulseCount); //1 puls = 1/800 kWh
-  pulseCount=0;
-  send(START_BLOCK);
-  send('O');
-  send(DELIMITER);
-  if (cycles>0) {
-    send(consumption/cycles); //spotreba W
-  } else {
-    send((unsigned int)0); //spotreba W
-  }
-  
-  if (cycles>0) {
-    cycles=0;
-    consumption=0;
-  }
-  if (status==STATUS_NORMAL0) {
-    status=STATUS_NORMAL1;
-  }
-  else {
-    status=STATUS_NORMAL0;
-  }
-  send(END_BLOCK);
-#ifdef serial
-  Serial.print(crc);
-  Serial.println(END_TRANSMITION);
-#endif  
-  mySerial.print(crc);
-  mySerial.print(END_TRANSMITION);
-  mySerial.flush();
-  digitalWrite(LEDPIN,LOW);
-}
-void readDataSerial() {
-  float setOn=tempDiffON;
-  float setOff=tempDiffOFF;
-  byte setModeSolar=modeSolar;
-  unsigned long timeOut = millis();
-  char b[4+1];
-  crc = ~0L;
-  byte const bufLen=10;
-  char crcBuffer[bufLen+1]; //long = 10digits
-  byte crcPointer=0;
-  bool startCRC = false;
-#ifdef serial
-  Serial.print("Setup req.:");
-#endif
-  //#ON (4digits, only >=0) OFF (4digits (ex 25.1...), only >=0) MODE 1 digit $CRC
-  //#25.115.50$541458114*
-  char incomingByte;
-  digitalWrite(LEDPIN,HIGH);
-  do {
-    incomingByte = mySerial.read();
-    if (incomingByte=='#') {
-      crc_string('#');
-      //ON
-      mySerial.readBytes(b,4);
-      b[4]='\0';
-      setOn=atof(b);
-      crc_string(setOn);
-#ifdef serial
-      Serial.print("ON=");
-      Serial.print(setOn);
-#endif
-      //OFF
-      mySerial.readBytes(b,4);
-      b[4]='\0';
-      setOff=atof(b);
-      crc_string(setOff);
-#ifdef serial
-      Serial.print(",OFF=");
-      Serial.print(setOff);
-#endif
-      mySerial.readBytes(b,1);
-      //MODE 0 - auto, 1 - ON, 2 - OFF
-      setModeSolar = b[0]-48;
-      crc_string(setModeSolar);
-#ifdef serial
-      Serial.print(",Mode=");
-      Serial.print(modeSolar);
-#endif
-    }
-    if (startCRC) {
-#ifdef serial
-      Serial.print(incomingByte);
-#endif
-      if (crcPointer<=bufLen) {
-        crcBuffer[crcPointer++]=incomingByte;
-        crcBuffer[crcPointer]='\0';
-      }
-    }
-    
-    if (incomingByte=='$') {
-      startCRC = true;
-#ifdef serial
-      Serial.print(" CRC-");
-#endif
-    }
-  } while ((char)incomingByte!='*' && millis() < (timeOut + serialTimeout));
-  //validation with CRC
-#ifdef serial
-  Serial.print(" CRC=");
-  Serial.println(crcBuffer);
-#endif
-  char crcBufferCount [10+1];
-  unsigned long ret = snprintf(crcBufferCount, sizeof(crcBufferCount), "%ld", crc);
-  Serial.print(crcBuffer);
-  Serial.print(crcBufferCount);
-  if (crcBuffer==crcBufferCount) {
-  }
-  
-  
-  //ODLADIT a pak uvolnit
-  if (false) {
-    //data valid
-    //if any change -> save setup to EEPROM
-    if (tempDiffON!=setOn) {
-      tempDiffON=setOn;
-  #ifdef serial
-      Serial.print("The new value of tempDiffON was written to EEPROM:");
-      Serial.println(tempDiffON);
-  #endif
-      EEPROM.write(tempDiffONEEPROMAdrH, (char)tempDiffON);
-      EEPROM.write(tempDiffONEEPROMAdrL, (int)(tempDiffON * 10) % 10);
-    }
-    if (tempDiffOFF!=setOff) {
-      tempDiffOFF=setOff;
-  #ifdef serial
-      Serial.print("The new value of tempDiffOFF was written to EEPROM:");
-      Serial.println(tempDiffOFF);
-  #endif
-      EEPROM.write(tempDiffOFFEEPROMAdrH, (char)tempDiffOFF);
-      EEPROM.write(tempDiffOFFEEPROMAdrL, (int)(tempDiffOFF * 10) % 10);
-    }
-    if (setModeSolar!=modeSolar) {
-      if (manualSetFromKeyboard) { //keyboard setup has a high priority as internet setup
-        if (setModeSolar==0) {
-          manualON = false;
-        } else {
-          if (setModeSolar==1) {
-            manualON = true;
-            relay1=LOW;
-          } else if (setModeSolar==2) {
-            manualON = true;
-            relay1=HIGH;
-          }
-        }
-      }
-    }
-  }
-  digitalWrite(LEDPIN,LOW);
-}
-void send(char s) {
-  send(s, ' ');
-}
-void send(char s, char type) {
-  if (type=='X') {
-#ifdef serial
-    Serial.print(s, HEX);
-#endif
-    mySerial.print(s, HEX);
-  }
-  else {
-#ifdef serial
-    Serial.print(s);
-#endif
-    mySerial.print(s);
-  }
-  crc_string(byte(s));
-}
-void send(byte s) {
-  send(s, ' ');
-}
-void send(byte s, char type) {
-  if (type=='X') {
-#ifdef serial
-    Serial.print(s, HEX);
-#endif
-    mySerial.print(s, HEX);
-  }
-  else {
-#ifdef serial
-    Serial.print(s);
-#endif
-    mySerial.print(s);
-  }
-  crc_string(s);
-}
-void send(unsigned long s) {
-#ifdef serial
-  Serial.print(s);
-#endif
-  mySerial.print(s);
-}
-void send(unsigned int s) {
-#ifdef serial
-  Serial.print(s);
-#endif
-  mySerial.print(s);
-}
-void send(float s) {
-  char tBuffer[8];
-  dtostrf(s,0,2,tBuffer);
-  for (byte i=0; i<8; i++) {
-    if (tBuffer[i]==0) break;
-    send(tBuffer[i]);
-  }
-}
-char dataRequested() {
-  char incomingByte=0;
-  if (mySerial.available() > 0) {
-    incomingByte = (char)mySerial.read();
-#ifdef serial
-    Serial.print("Data req-");
-    Serial.println(incomingByte);
-#endif
-  }
-  return incomingByte;
-}
-unsigned long crc_update(unsigned long crc, byte data)
-{
-    byte tbl_idx;
-    tbl_idx = crc ^ (data >> (0 * 4));
-    crc = pgm_read_dword_near(crc_table + (tbl_idx & 0x0f)) ^ (crc >> 4);
-    tbl_idx = crc ^ (data >> (1 * 4));
-    crc = pgm_read_dword_near(crc_table + (tbl_idx & 0x0f)) ^ (crc >> 4);
-    return crc;
-}
-void crc_string(byte s)
-{
-  crc = crc_update(crc, s);
-  crc = ~crc;
-}
-*/
-
 void writeTotalEEPROM(byte typ) {
   EEPROM.write(totalEnergyEEPROMAdrL, totalEnergy & 0xFF);
   EEPROM.write(totalEnergyEEPROMAdrS, (totalEnergy >> 8) & 0xFF);
@@ -1197,7 +933,7 @@ void readAndSetONOFFFromEEPROM() {
 }
 
 unsigned int getPower() {
-  return (float)energyKoef*(tP2Out-tP1In); //in W
+  return (float)energyKoef*(tBojlerOut-tBojlerIn); //in W
 }
 
 void lcdShow() {
@@ -1420,13 +1156,13 @@ void sendDataSerial() {
   send(START_BLOCK);
   send('C');
   send(DELIMITER);
-  send(0.0f);
+  send(tBojlerIn);
 
   //bojler vystup
   send(START_BLOCK);
   send('D');
   send(DELIMITER);
-  send(0.0f);
+  send(tBojlerOut);
 
   
   send(START_BLOCK);
@@ -1536,26 +1272,26 @@ void send(float s) {
 }
 
 #ifdef keypad
-uint8_t read8() {
-  Wire.beginTransmission(address);
-  Wire.requestFrom(address, 1);
-  data = Wire.read();
-  error = Wire.endTransmission();
-  //Serial.println(error);
-  return data;
-}
-/*
-uint8_t read(uint8_t pin) {
-  read8();
-  return (data & (1<<pin)) > 0;
-}
-*/
-void write8(uint8_t value) {
-  Wire.beginTransmission(address);
-  data = value;
-  Wire.write(data);
-  error = Wire.endTransmission();
-}
+// uint8_t read8() {
+  // Wire.beginTransmission(address);
+  // Wire.requestFrom(address, 1);
+  // data = Wire.read();
+  // error = Wire.endTransmission();
+  // //Serial.println(error);
+  // return data;
+// }
+// /*
+// uint8_t read(uint8_t pin) {
+  // read8();
+  // return (data & (1<<pin)) > 0;
+// }
+// */
+// void write8(uint8_t value) {
+  // Wire.beginTransmission(address);
+  // data = value;
+  // Wire.write(data);
+  // error = Wire.endTransmission();
+// }
 /*
 void write(uint8_t pin, uint8_t value) {
   read8();
@@ -1567,47 +1303,47 @@ void write(uint8_t pin, uint8_t value) {
   write8(data); 
 }
 */
-void keyPressed() {
-  byte row=0;
-  byte col=255;
-  byte b=127;
-  if (millis() - lastKeyPressed > repeatAfterMs) {
-    keyOld = 0;
-  }
-  //write8(1);
-  //Serial.println(read8());
+// void keyPressed() {
+  // byte row=0;
+  // byte col=255;
+  // byte b=127;
+  // if (millis() - lastKeyPressed > repeatAfterMs) {
+    // keyOld = 0;
+  // }
+  // //write8(1);
+  // //Serial.println(read8());
   
-  for (byte i=0; i<4; i++) {
-    row=i;
-    b=~(255&(1<<i+4));
-    //Serial.println(b);
-    write8(b);
-    //Serial.println(read8());
-    col = colTest(read8(), b);
-    //Serial.println(col);
-    if (col<255) {
-      key = hexaKeys[row][col];
-      //Serial.print(key);
-      if (key!=keyOld) {
-        lastKeyPressed = millis();
-        keyOld=hexaKeys[row][col];
-        /*Serial.print(row);
-        Serial.print(",");
-        Serial.print(col);
-        Serial.print("=");
-        Serial.println((char)key);
-        */
-      }
-      break;
-    }
-  }
-}
+  // for (byte i=0; i<4; i++) {
+    // row=i;
+    // b=~(255&(1<<i+4));
+    // //Serial.println(b);
+    // write8(b);
+    // //Serial.println(read8());
+    // col = colTest(read8(), b);
+    // //Serial.println(col);
+    // if (col<255) {
+      // key = hexaKeys[row][col];
+      // //Serial.print(key);
+      // if (key!=keyOld) {
+        // lastKeyPressed = millis();
+        // keyOld=hexaKeys[row][col];
+        // /*Serial.print(row);
+        // Serial.print(",");
+        // Serial.print(col);
+        // Serial.print("=");
+        // Serial.println((char)key);
+        // */
+      // }
+      // break;
+    // }
+  // }
+// }
 
-byte colTest(byte key, byte b) {
-  if (key==b-8) return 0;
-  else if (key==b-4) return 1;
-  else if (key==b-2) return 2;
-  else if (key==b-1) return 3;
-  else return 255;
-}
+// byte colTest(byte key, byte b) {
+  // if (key==b-8) return 0;
+  // else if (key==b-4) return 1;
+  // else if (key==b-2) return 2;
+  // else if (key==b-1) return 3;
+  // else return 255;
+// }
 #endif
