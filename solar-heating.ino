@@ -665,12 +665,9 @@ void keyBoard() {
       if (manualON) {
         relay1=LOW;
         manualSetFromKeyboard = true;
-        //digitalWrite(RELAY1PIN, LOW);
       } else {
         relay1=HIGH;
         manualSetFromKeyboard = false;
-        //relay1=HIGH;
-        //digitalWrite(RELAY1PIN, HIGH);
       }
     }
     if (key=='C') {
