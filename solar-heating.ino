@@ -144,8 +144,8 @@ unsigned int numberOfDevices              = 0; // Number of temperature devices 
 unsigned long lastDsMeasStartTime         = 0;
 bool dsMeasStarted                        = false;
 float sensor[NUMBER_OF_DEVICES];
-float tDiffON                             = 5.0; //difference between controled temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
-float tDiffOFF                            = 2.0; //difference between controled temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
+byte tDiffON                              = 5; //difference between controled temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
+byte tDiffOFF                             = 2; //difference between controled temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
 //diferences in normal mode (power for pump is ready)
 float tDiffONNormal                       = tDiffON;
 float tDiffOFFNormal                      = tDiffOFF;
@@ -313,9 +313,9 @@ void SaveResetFlags(void)
 //#define setEEPROM
 #include <EEPROM.h>
 byte const tDiffONEEPROMAdrH              = 0;
-byte const tDiffONEEPROMAdrL              = 1;
+//byte const tDiffONEEPROMAdrL            = 1;
 byte const tDiffOFFEEPROMAdrH             = 2; 
-byte const tDiffOFFEEPROMAdrL             = 3;
+//byte const tDiffOFFEEPROMAdrL           = 3;
 byte const totalEnergyEEPROMAdrH          = 4;
 byte const totalEnergyEEPROMAdrM          = 5;
 byte const totalEnergyEEPROMAdrS          = 6;
@@ -384,7 +384,7 @@ void setup() {
 #endif
   
   //read and set from EEPROM
-  readAndSetONOFFFromEEPROM();
+  readONOFFFromEEPROM();
   readTotalEEPROM();
   readAndSetControlSensorFromEEPROM();
  
@@ -431,14 +431,12 @@ void loop() {
 
 //--------------------------------------- F U N C T I O N S -----------------------------------------------------------------------------------
 void mainControl() {
-  // tDiffOFF = 2.0f;
-  // tDiffON = 5.0f;
   //safety function
   if ((tP1In >= safetyON) || (tP1Out >= safetyON) || (tP2In >= safetyON) || (tP2Out >= safetyON)) {
     relay1=LOW; //relay ON
-    Serial.println("SAFETY CONTROL!!!!");
+    //Serial.println("SAFETY CONTROL!!!!");
   } else if (manualON) {
-    Serial.println("MANUAL CONTROL!!!!");
+    //Serial.println("MANUAL CONTROL!!!!");
   } else {
     //pump is ON - relay ON = LOW
     if (relay1==LOW) { 
@@ -631,7 +629,8 @@ void keyBoard() {
 //#ifdef keypad
   char key = keypad.getKey();
   if (key!=NO_KEY){
-    Serial.println(key);
+    lcd.clear();
+    //Serial.println(key);
     /*
     Keyboard layout
     -----------
@@ -640,21 +639,21 @@ void keyBoard() {
     | 7 8 9 C |
     | * 0 # D |
     -----------
-    SETUP - vstup do režimu *, dopredu A, dozadu B, uložení hodnot a výstup #*/
-    #define MAXSETUP      111
+    SETUP - vstup do režimu *, dopredu A, dozadu B, nahoru C, dolu D, uložení hodnot a výstup #*/
+    #define MAXSETUP      110
     #define MINSETUP      100
     /*
-    101  - TDiffON           - nastavení teploty                     - klávesy 0-9
-    102  - TDiffOFF          - nastavení teploty                     - klávesy 0-9
-    103  - Panel1 vstup      - výběr čidla                           - klávesy 1-9
-    104  - Panel1 výstup     - výběr čidla                           - klávesy 1-9
-    105  - Panel2 vstup      - výběr čidla                           - klávesy 1-9
-    106  - Panel2 výstup     - výběr čidla                           - klávesy 1-9
-    107  - Bojler vstup      - výběr čidla                           - klávesy 1-9
-    108  - Bojler výstup     - výběr čidla                           - klávesy 1-9
-    109  - Bojler            - výběr čidla                           - klávesy 1-9
-    110  - Teplota místnost  - výběr čidla                           - klávesy 1-9 
-    111  - Control sensor    - výběr čidla podle kterého se spíná    - klávesy 1 a 2
+    100  - TDiffON           - nastavení teploty                     - klávesy C,D
+    101  - TDiffOFF          - nastavení teploty                     - klávesy C,D
+    102  - Panel1 vstup      - výběr čidla                           - klávesy 1-9
+    103  - Panel1 výstup     - výběr čidla                           - klávesy 1-9
+    104  - Panel2 vstup      - výběr čidla                           - klávesy 1-9
+    105  - Panel2 výstup     - výběr čidla                           - klávesy 1-9
+    106  - Bojler vstup      - výběr čidla                           - klávesy 1-9
+    107  - Bojler výstup     - výběr čidla                           - klávesy 1-9
+    108  - Bojler            - výběr čidla                           - klávesy 1-9
+    109  - Teplota místnost  - výběr čidla                           - klávesy 1-9 
+    110  - Control sensor    - výběr čidla podle kterého se spíná    - klávesy 1 a 2
     
     INFO
     1 - total energy
@@ -664,12 +663,12 @@ void keyBoard() {
     A - BACKLIGHT ON/OFF
     5 - Max IN OUT temp
     6 - Max bojler
-    B - 
+    B - Save total energy to EEPROM
     7 - Max power today
     8 - Control sensor
     9 - total time
     C - DISPLAY CLEAR
-    * - Save total energy to EEPROM
+    * - SETUP
     0 - main display
     D - manual/auto
     */
@@ -678,23 +677,47 @@ void keyBoard() {
       if (key=='#') {
         displayMode=INFO;
         display = 0;
+        //save to EEPROM
+        // controlSensor=3; //ROOM
+        // controlSensor=0; //Bojler
+        // EEPROM.write(controlSensorEEPROMAdr, controlSensor);
+        tDiffON = 2;
+        tDiffOFF = 5;
+        writeONOFFToEEPROM();
       }
       if (key=='A') {
         display++;
+        //lcd.clear();
         if (display>MAXSETUP) {
           display = MINSETUP;
         }
       }
       if (key=='B') {
         display--;
+        //lcd.clear();
         if (display<MINSETUP) {
           display = MAXSETUP;
+        }
+      }
+      if (key=='C') {
+        if (display==100) {
+          tDiffON++;
+        } else if (display==101) {
+          tDiffOFF++;
+        }
+      }
+      if (key=='D') {
+        if (display==100) {
+          tDiffON--;
+        } else if (display==101) {
+          tDiffOFF--;
         }
       }
     } else { //info
       if (key=='*') {
         displayMode=SETUP;
         display = MINSETUP;
+        //lcd.clear();
       }
       if (key=='D') {
         manualON = !manualON;
@@ -720,70 +743,56 @@ void keyBoard() {
         EEPROM.write(backLightEEPROMAdr,backLight);
       }
       else if (key=='0') { //main display
-        lcd.clear();
+        //lcd.clear();
         display=0;
       }
       else if (key=='1') { //total energy
-        lcd.clear();
-        // if (display>=200 && display<300) {
-          // controlSensor=3; //ROOM
-          // EEPROM.write(controlSensorEEPROMAdr, controlSensor);
-          // display=200-display;
-        // } else {
+        //lcd.clear();
         display=1;
-        // }
       }
       else if (key=='2') { //tDiffON
-        lcd.clear();
-        // if (display>=200 && display<300) {
-          // controlSensor=0; //Bojler
-          // EEPROM.write(controlSensorEEPROMAdr, controlSensor);
-          // display=200-display;
-        // } else {
+        //lcd.clear();
         display=2;
-        // }
       }
       else if (key=='3') { //tDiffOFF
-        lcd.clear();
+        //lcd.clear();
         display=3;
       }
       else if (key=='4') { //prutok
-        lcd.clear();
+        //lcd.clear();
         display=4;
       }
       else if (key=='5') { //Max IN OUT temp
-        lcd.clear();
+        //lcd.clear();
         display=5;
       }
       else if (key=='6') { //Max bojler
-        lcd.clear();
+        //lcd.clear();
         display=6;
       }
       else if (key=='7') { //Max power today
-        lcd.clear();
+        //lcd.clear();
         display=7;
       }
       else if (key=='8') { //Control sensor
-        lcd.clear();
+        //lcd.clear();
         display=8;
       }
       else if (key=='9') { //Total time
-        lcd.clear();
+        //lcd.clear();
         display=9;
       }
-      else if (key=='*') { //Save total energy to EEPROM
+      else if (key=='B') { //Save total energy to EEPROM
+        //lcd.clear();
         writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_MANUAL);
         lcd.setCursor(0,0);
         lcd.print("Energy saved!  ");
         lcd.setCursor(0,1);
         lcd.print(enegyWsTokWh(totalEnergy));
-        lcd.print(" Ws       ");
+        lcd.print(" Ws");
         delay(500);
         lcd.clear();
       }
-      // else if (key=='#') { //Select control sensor
-        // display=200 + display;
-      // }
     }
     key = ' ';
   }
@@ -949,26 +958,19 @@ void readTotalEEPROM() {
 #endif
 }
 
-void readAndSetONOFFFromEEPROM() {
-  //25.5 -> 25 5
-  int valueIH = EEPROM.read(tDiffONEEPROMAdrH);
-  int valueIL = EEPROM.read(tDiffONEEPROMAdrL);
-  float valueF = (float)valueIH + (float)valueIL / 10;
-  if (valueF<200) {
-    tDiffON = valueF;
-    Serial.print("Temp diff ON:");
-    Serial.println(tDiffON);
-  }
-  else {} //use default value=5.0 see variable initialization
-  valueIH = EEPROM.read(tDiffOFFEEPROMAdrH);
-  valueIL = EEPROM.read(tDiffOFFEEPROMAdrL);
-  valueF = (float)valueIH + (float)valueIL / 10;
-  if (valueF<200) {
-    tDiffOFF = valueF;
-    Serial.print("Temp diff OFF:");
-    Serial.println(tDiffOFF);
-  }
-  else {} //use default value=2.0 see variable initialization
+void writeONOFFToEEPROM() {
+  EEPROM.write(tDiffONEEPROMAdrH,tDiffON);
+  EEPROM.write(tDiffOFFEEPROMAdrH,tDiffOFF);
+  readONOFFFromEEPROM();
+}
+
+void readONOFFFromEEPROM() {
+  tDiffON = EEPROM.read(tDiffONEEPROMAdrH);
+  Serial.print("Temp diff ON:");
+  Serial.println(tDiffON);
+  tDiffOFF = EEPROM.read(tDiffOFFEEPROMAdrH);
+  Serial.print("Temp diff OFF:");
+  Serial.println(tDiffOFF);
 }
 
 unsigned int getPower() {
@@ -984,6 +986,10 @@ unsigned int getPower() {
 }
 
 void lcdShow() {
+  if (display>=100) { 
+    lcd.setCursor(0,0);
+  }
+  
   if (display==0) { //main display
     //display OUT  IN  ROOM
     displayTemp(TEMP1X,TEMP1Y, tP1In);
@@ -1089,13 +1095,6 @@ void lcdShow() {
     lcd.setCursor(0,1);
     lcd.print(totalSec/60/60);
     lcd.print(" hours   ");
-  // } else if (display>=100 && display<200) { //Save energy to EEPROM
-    // lcd.setCursor(0,0);
-    // lcd.print("Energy saved!  ");
-    // lcd.setCursor(0,1);
-    // lcd.print(enegyWsTokWh(totalEnergy));
-    // lcd.print(" Ws       ");
-    // delay(500);
     // lcd.clear();
     // display = display - 100;
   // } else if (display>=200 && display<300) { //Vyber ridiciho cidla
@@ -1104,65 +1103,54 @@ void lcdShow() {
     // lcd.setCursor(0,1);
     // lcd.print("Room=1 Bojler=2");
   } else if (display==100) { //tDiffON
-    lcd.setCursor(0,0);
     lcd.print("tDiffON");
     lcd.setCursor(0,1);
     lcd.print(tDiffON);
   } else if (display==101) { //tDiffOFF
-    lcd.setCursor(0,0);
-    lcd.print("tDiffON");
+    lcd.print("tDiffOFF");
     lcd.setCursor(0,1);
     lcd.print(tDiffOFF);
   } else if (display==102) { //panel1 IN
-    lcd.setCursor(0,0);
     lcd.print("Panel1 IN");
     lcd.setCursor(0,1);
     lcd.print(tP1In);
   } else if (display==103) { //panel1 OUT
-    lcd.setCursor(0,0);
     lcd.print("Panel1 OUT");
     lcd.setCursor(0,1);
     lcd.print(tP1Out);
   } else if (display==104) { //panel2 IN
-    lcd.setCursor(0,0);
     lcd.print("Panel2 IN");
     lcd.setCursor(0,1);
     lcd.print(tP2In);
   } else if (display==105) { //panel2 OUT
-    lcd.setCursor(0,0);
     lcd.print("Panel2 OUT");
     lcd.setCursor(0,1);
     lcd.print(tP2Out);
   } else if (display==106) { //bojler IN
-    lcd.setCursor(0,0);
     lcd.print("Bojler IN");
     lcd.setCursor(0,1);
     lcd.print(tBojlerIn);
   } else if (display==107) { //bojler OUT
-    lcd.setCursor(0,0);
     lcd.print("Bojler OUT");
     lcd.setCursor(0,1);
     lcd.print(tBojlerOut);
   } else if (display==108) { //bojler
-    lcd.setCursor(0,0);
     lcd.print("Bojler");
     lcd.setCursor(0,1);
     lcd.print(tBojler);
   } else if (display==109) { //mistnost
-    lcd.setCursor(0,0);
     lcd.print("Room");
     lcd.setCursor(0,1);
     lcd.print(tRoom);
   } else if (display==110) { //kontrolni cidlo
-    
+    lcd.print("Control sensor");
+    lcd.setCursor(0,1);
+    lcd.print(tControl);
   }
     
-  
-  
   //1234567890123456
   //Save Energy EEPR
   //Yes = 1
-
 }
 
 #ifdef setEEPROM
