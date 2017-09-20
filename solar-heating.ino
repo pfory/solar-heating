@@ -195,6 +195,30 @@ void setup() {
 #ifdef watchdog
   wdt_enable(WDTO_8S);
 #endif
+
+  loadConfig();
+
+  #ifdef serial
+  Serial.begin(SERIAL_SPEED);
+  Serial.print(SW_NAME);
+  Serial.print(" ");
+  Serial.println(VERSION);
+  Serial.print("tON:");  
+  Serial.println(storage.tDiffON);
+  Serial.print("tOFF:");  
+  Serial.println(storage.tDiffOFF);
+  Serial.print("Control:");  
+  Serial.println(storage.controlSensor);
+  Serial.print("TotalEnergy from EEPROM:");
+  Serial.print(storage.totalEnergy);
+  Serial.println("Ws");
+  Serial.print("TotalSec from EEPROM:");
+  Serial.print(storage.totalSec);
+  Serial.println("s");
+  Serial.print("backlight:");
+  Serial.println(storage.backLight);
+ #endif
+
   lcd.begin();               // initialize the lcd 
   lcd.home();                   
   lcd.print(SW_NAME);  
@@ -202,8 +226,6 @@ void setup() {
   lcd.print (VERSION);
   delay(1000);
   lcd.clear();
-
-  loadConfig();
   lcd.home();                   
   lcd.print("tON:");  
   lcd.print(storage.tDiffON);
@@ -212,27 +234,16 @@ void setup() {
   lcd.setCursor(0,1);
   lcd.print("Control:");  
   lcd.print(storage.controlSensor);
-  delay(1000);
+  delay(3000);
   lcd.clear();
 
   keypad.begin();
   //keypad.addEventListener(keypadEvent); //add an event listener for this keypad  
+
   
-  if (storage.backLight==true) {
-    lcd.backlight();
-  }
-  else {
-    lcd.noBacklight();
-  }
   mySerial.begin(mySERIAL_SPEED);
   pinMode(LEDPIN,OUTPUT);
   
-#ifdef serial
-  Serial.begin(SERIAL_SPEED);
-  Serial.print(SW_NAME);
-  Serial.println(VERSION);
-#endif
-
   dsInit();
 
 #ifdef flowSensor
@@ -253,17 +264,17 @@ void setup() {
   setEEPROMFunc();
 #endif
   
-  //read and set from EEPROM
-  // readONOFFFromEEPROM();
-  // readTotalEEPROM();
-  // readAndSetControlSensorFromEEPROM();
- 
   if (MyRstFlags==4) status = STATUS_STARTAFTER_BROWNOUT;
   if (MyRstFlags==5) status = STATUS_STARTAFTER_POWERON;
   if (MyRstFlags==8) status = STATUS_STARTAFTER_WATCHDOGOREXTERNAL;
   else status = STATUS_AFTER_START;
 
- 
+  if (storage.backLight==true) {
+    lcd.backlight();
+  }
+  else {
+    lcd.noBacklight();
+  }
 } //setup
 
 
@@ -281,15 +292,10 @@ void loop() {
 #ifdef flowSensor  
   calcFlow();
 #endif
-  lcdShow(); //show display
+  lcdShow();
   
-  /*if (lastOff > 0 && ((millis() - lastOff)>dayInterval)) {
-      lastOff = 0;
-  }
-  */
-
   if (numberOfDevices>0) {
-    if (millis() - lastSend >= sendDelay) {
+    if (millis() - lastSend >= SEND_DELAY) {
       sendDataSerial();
       lastSend = millis();
     }
@@ -387,8 +393,8 @@ void tempMeas() {
 
       sensor[i] = tempTemp;
     } 
-    tP2Out      = sensor[2];
-    tP2In       = sensor[1];
+    tP2Out      = sensor[1];
+    tP2In       = sensor[2];
     tP1Out      = sensor[4];
     tP1In       = sensor[7];    
     tRoom       = sensor[6];
@@ -510,7 +516,7 @@ void keyBoard() {
     | 7 8 9 C |
     | * 0 # D |
     -----------
-    SETUP - vstup do režimu *, dopredu A, dozadu B, nahoru C, dolu D, uložení hodnot a výstup #*/
+    SETUP - vstup do režimu *, dopredu B, dozadu A, nahoru D, dolu C, uložení hodnot a výstup #*/
     #define MAXSETUP      110
     #define MINSETUP      100
     /*
@@ -538,7 +544,7 @@ void keyBoard() {
     7 - Max power today
     8 - Control sensor
     9 - total time
-    C - DISPLAY CLEAR
+    C - RESET
     * - SETUP
     0 - main display
     D - manual/auto
@@ -548,35 +554,30 @@ void keyBoard() {
       if (key=='#') {
         displayMode=INFO;
         display = 0;
-        //save to EEPROM
-        // controlSensor=3; //ROOM
-        // controlSensor=0; //Bojler
-        // EEPROM.update(controlSensorEEPROMAdr, controlSensor);
-        //writeONOFFToEEPROM();
         saveConfig();
       }
-      if (key=='A') {
+      if (key=='B') {
         display++;
         //lcd.clear();
         if (display>MAXSETUP) {
           display = MINSETUP;
         }
       }
-      if (key=='B') {
+      if (key=='A') {
         display--;
         //lcd.clear();
         if (display<MINSETUP) {
           display = MAXSETUP;
         }
       }
-      if (key=='C') {
+      if (key=='D') {
         if (display==100) {
           storage.tDiffON++;
         } else if (display==101) {
           storage.tDiffOFF++;
         }
       }
-      if (key=='D') {
+      if (key=='C') {
         if (display==100) {
           storage.tDiffON--;
         } else if (display==101) {
@@ -587,75 +588,59 @@ void keyBoard() {
       if (key=='*') {
         displayMode=SETUP;
         display = MINSETUP;
-        //lcd.clear();
       }
       if (key=='D') {
         manualON = !manualON;
         if (manualON) {
           relay1=LOW;
-          //manualSetFromKeyboard = true;
         } else {
           relay1=HIGH;
-          //manualSetFromKeyboard = false;
         }
       }
       if (key=='C') {
-        lcd.begin();               // reinitialize the lcd 
+        asm volatile ("  jmp 0");  
       }
       else if (key=='A') {
+        storage.backLight=!storage.backLight;
         if (storage.backLight==true) {
           lcd.backlight();
         }
         else {
           lcd.noBacklight();
         }
-        storage.backLight=!storage.backLight;
         saveConfig();
-        //EEPROM.update(backLightEEPROMAdr,backLight);
       }
       else if (key=='0') { //main display
-        //lcd.clear();
         display=0;
       }
       else if (key=='1') { //total energy
-        //lcd.clear();
         display=1;
       }
       else if (key=='2') { //tDiffON
-        //lcd.clear();
         display=2;
       }
       else if (key=='3') { //tDiffOFF
-        //lcd.clear();
         display=3;
       }
       else if (key=='4') { //prutok
-        //lcd.clear();
         display=4;
       }
       else if (key=='5') { //Max IN OUT temp
-        //lcd.clear();
         display=5;
       }
       else if (key=='6') { //Max bojler
-        //lcd.clear();
         display=6;
       }
       else if (key=='7') { //Max power today
-        //lcd.clear();
         display=7;
       }
       else if (key=='8') { //Control sensor
-        //lcd.clear();
         display=8;
       }
       else if (key=='9') { //Total time
-        //lcd.clear();
         display=9;
       }
       else if (key=='B') { //Save total energy to EEPROM
-        //lcd.clear();
-        //writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_MANUAL);
         saveConfig();
         lcd.setCursor(0,0);
         lcd.print("Energy saved!  ");
@@ -668,7 +653,6 @@ void keyBoard() {
     }
     key = ' ';
   }
-//#endif
 }
 
 void displayTemp(int x, int y, float value) {
@@ -1238,4 +1222,8 @@ void saveConfig() {
   for (unsigned int t=0; t<sizeof(storage); t++) {
     EEPROM.update(CONFIG_START + t, *((char*)&storage + t));
   }
+  lcd.clear();
+  lcd.print("Setup saved");
+  delay(1000);
+  lcd.clear();
 }
