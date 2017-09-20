@@ -5,70 +5,7 @@ Petr Fory pfory@seznam.cz
 GIT - https://github.com/pfory/solar-heating
 */
 
-//SW name & version
-float const   versionSW                   = 1.2;
-char  const   versionSWString[]           = "Solar v"; 
-
-/*
-Version history:
-1.1  - 13.9.2017  pridany cidla teploty bojler vstup/vystup
-1.01 - 28.8.2017  pridani cidla prutoku
-1.00 - 28.8.2017  vypinani pouze na zaklade vystupni teploty e solaru na strese 
-0.99 - 24.8.2017  mereni z obou panelu
-0.95 - 19.6.2016  i2c keypad
-0.90 - 05.05.2016 komunikace s jednokou ESP8266
-0.82 - 27.1.2016  opraveno zobrazeni teplot od 0 do -0.9 na displeji
-0.80 - 9.9.2015   I2C komunikace s powerMeter unit
-0.79 - 24.10.2014 zachyceni stavu po resetu
-0.78 - 27.9.2014  pridano zobrazeni dnu bez slunce, zap/vyp podsviceni
-0.77 - 14.8.2014
-0.76 - 7.8.2014
-0.75 - 31.7.2014  funkcni pocitani totalSec a totalPower
-0.74 - 30.7.2014  add delay after ON, prevent cyclic switch ON-OFF-ON....
-0.73 - 29.7.2014  add totalSec, oprava posilani totalPower
-0.72 - 14.6.2013  zmena spinani teplot
-0.71 - 5.6.2014   optiboot, watchdog
-0.70 - 21.5.2014
-0.69 - 21.5.2014
-0.68 - 20.5.2014
-0.67 - 15.6.2014
-0.66 - 6.4.2014
-0.65 - 26.3.2014
-0.60 - 16.3.2014
-0.50 - 1.12.2013
-0.41 - 20.10.2013
-TODO - odladit CRC kod
---------------------------------------------------------------------------------------------------------------------------
-HW
-Pro Mini 328 with Optiboot!!!! data are sent via serial line to comunication unit
-I2C display
-2 Relays module
-DALLAS
-keyboard
-Pro Mini 328 Layout
-------------------------------------------
-A0              - DALLAS temperature sensors
-A1              - relay 1
-A2              - relay 2
-A3              - free
-A4              - I2C display SDA 0x20, keypad 0x27
-A5              - I2C display SCL 0x20, keypad 0x27
-D0              - Rx
-D1              - Tx
-D2              - flow sensor
-D3              - free
-D4              - free
-D5              - free
-D6              - free
-D7              - free
-D8              - free
-D9              - free
-D10             - Rx 
-D11             - Tx
-D12             - free
-D13             - free
---------------------------------------------------------------------------------------------------------------------------
-*/
+#include "Configuration.h"
 
 #define watchdog //enable this only on board with optiboot bootloader
 #ifdef watchdog
@@ -89,45 +26,16 @@ const PROGMEM uint32_t crc_table[16] = {
     0x9b64c2b0, 0x86d3d2d4, 0xa00ae278, 0xbdbdf21c
 };
 
-#define START_BLOCK       '#'
-#define DELIMITER         ';'
-#define END_BLOCK         '$'
-#define END_TRANSMITION   '*'
-
-#define LEDPIN 13
-
 #include <SoftwareSerial.h>
-#define RX 10
-#define TX 11
 SoftwareSerial mySerial(RX, TX);
 
 const unsigned int serialTimeout=2000;
 
 #include <LiquidCrystal_I2C.h>
-#define LCDADDRESS   0x20
-#define LCDROWS      2
-#define LCDCOLS      16
 LiquidCrystal_I2C lcd(LCDADDRESS,LCDCOLS,LCDROWS);  // set the LCD
-bool backLight = true;
-
-// Create a set of new characters
-/*const uint8_t charBitmap[][8] = {
-   { 0xc, 0x12, 0x12, 0xc, 0, 0, 0, 0 },
-   { 0x6, 0x9, 0x9, 0x6, 0, 0, 0, 0 },
-   { 0x0, 0x6, 0x9, 0x9, 0x6, 0, 0, 0x0 },
-   { 0x0, 0xc, 0x12, 0x12, 0xc, 0, 0, 0x0 },
-   { 0x0, 0x0, 0xc, 0x12, 0x12, 0xc, 0, 0x0 },
-   { 0x0, 0x0, 0x6, 0x9, 0x9, 0x6, 0, 0x0 },
-   { 0x0, 0x0, 0x0, 0x6, 0x9, 0x9, 0x6, 0x0 },
-   { 0x0, 0x0, 0x0, 0xc, 0x12, 0x12, 0xc, 0x0 }
-   
-};
-*/
 
 #include <OneWire.h>
-#define ONE_WIRE_BUS A0
 OneWire onewire(ONE_WIRE_BUS);  // pin for onewire DALLAS bus
-//#define dallasMinimal           //-956 Bytes
 #ifdef dallasMinimal
 #include <DallasTemperatureMinimal.h>
 DallasTemperatureMinimal dsSensors(&onewire);
@@ -136,33 +44,26 @@ DallasTemperatureMinimal dsSensors(&onewire);
 DallasTemperature dsSensors(&onewire);
 #endif
 DeviceAddress tempDeviceAddress;
-#ifndef NUMBER_OF_DEVICES
-#define NUMBER_OF_DEVICES 10
-#endif
+
 DeviceAddress tempDeviceAddresses[NUMBER_OF_DEVICES];
 unsigned int numberOfDevices              = 0; // Number of temperature devices found
 unsigned long lastDsMeasStartTime         = 0;
 bool dsMeasStarted                        = false;
 float sensor[NUMBER_OF_DEVICES];
-byte tDiffON                              = 5; //difference between controled temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
-byte tDiffOFF                             = 2; //difference between controled temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
+//byte tDiffON                              = 5; //difference between controled temperature and solar OUT (sensor 2 - sensor 1) to set relay ON
+//byte tDiffOFF                             = 2; //difference between controled temperature and solar OUT (sensor 2 - sensor 1) to set relay OFF
 //diferences in normal mode (power for pump is ready)
-float tDiffONNormal                       = tDiffON;
-float tDiffOFFNormal                      = tDiffOFF;
+//float tDiffONNormal                       = tDiffON;
+//float tDiffOFFNormal                      = tDiffOFF;
 //diferences in power save mode (power for pump is OFF)
-float tDiffONPowerSave                    = 90.0; 
-float tDiffOFFPowerSave                   = 50.0; 
-unsigned long const dsMeassureInterval    = 750; //inteval between meassurements
-unsigned long lastMeasTime                = 0;
+//float tDiffONPowerSave                    = 90.0; 
+//float tDiffOFFPowerSave                   = 50.0; 
+//unsigned long lastMeasTime                = 0;
 unsigned long msDayON                     = 0;  //number of miliseconds in ON state per day
 unsigned long lastOn                      = 0;     //ms posledniho behu ve stavu ON
-unsigned long const delayAfterON          = 120000; //2 min
 unsigned long lastOffOn                   = 0;
 unsigned long lastOff                     = 0;  //ms posledniho vypnuti rele
-unsigned long const dayInterval           = 43200000; //1000*60*60*12; //
-unsigned long const delayON               = 120000; //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
 unsigned long lastOn4Delay                = 0;
-unsigned long const lastWriteEEPROMDelay  = 3600000; //in ms = 1 hod
 unsigned long lastWriteEEPROM             = 0;
 unsigned long totalEnergy                 = 0; //total enery in Ws. To kWh ->> totalEnergy/1000.f/3600.f
 unsigned long totalSec                    = 0; //total time for pump ON in sec. To hours ->> totalSec/60/60
@@ -173,15 +74,14 @@ unsigned long energyADay                  = 0; //energy a day in Ws
 float energyDiff                          = 0.f; //difference in Ws
 //unsigned int const energyKoef             = 343; //Ws TODO - read from configuration
 unsigned int pulseCount                   = 0; //
-unsigned long consumption                 = 0;
-unsigned long lastPulse                   = 0;
-unsigned int cycles                       = 0;
+//unsigned long consumption                 = 0;
+//unsigned long lastPulse                   = 0;
+//unsigned int cycles                       = 0;
 unsigned long lastSend                    = 0;  //ms posledniho poslani dat
-unsigned long sendDelay                   = 10000;  //30000 prodleva mezi poslanim dat
 
 //MODE
-byte modeSolar                            = 0;
-bool manualSetFromKeyboard                = false;
+//byte modeSolar                            = 0;
+//bool manualSetFromKeyboard                = false;
 bool firstMeasComplete                    = false;
 bool manualON                             = false;
 
@@ -203,7 +103,6 @@ float tMaxBojler                          = 0; //maximal boiler temperature (jus
 byte controlSensor                        = 0; //control sensor index
 
 //int powerOff                            = 200;     //minimalni vykon, pokud je vykon nizssi, rele vzdy vypne
-float safetyON                            = 80.0; //teplota, pri niz rele vzdy sepne
 
 // enum mode {NORMAL, POWERSAVE};
 // mode powerMode                            = NORMAL;
@@ -214,47 +113,7 @@ enum modeDisplay                          {SETUP, INFO};
 modeDisplay displayMode                   = INFO;
 
 
-#define STATUS_NORMAL0                        0
-#define STATUS_NORMAL1                        1
-#define STATUS_AFTER_START                    2
-#define STATUS_WRITETOTALTOEEPROM_DELAY       3
-#define STATUS_WRITETOTALTOEEPROM_ONOFF       4
-#define STATUS_WRITETOTALTOEEPROM_MANUAL      5
-#define STATUS_STARTAFTER_BROWNOUT            6
-#define STATUS_STARTAFTER_POWERON             7
-#define STATUS_STARTAFTER_WATCHDOGOREXTERNAL  8
-
 byte status                               = STATUS_NORMAL0;
-
-//0123456789012345
-//15.6 15.8 15.8 V
-//1234 0.12 624
-#define TEMP1X                               0  //P1 In
-#define TEMP1Y                               0
-#define TEMP2X                               3  //P1 Out
-#define TEMP2Y                               0
-#define TEMP3X                               6  //P2 In
-#define TEMP3Y                               0
-#define TEMP4X                               9  //P2 Out
-#define TEMP4Y                               0
-#define TEMP5X                              12  //Control
-#define TEMP5Y                               0
-#define POWERX                               0
-#define POWERY                               1
-#define ENERGYX                              7
-#define ENERGYY                              1
-#define TIMEX                               12
-#define TIMEY                                1
-                          
-                          
-#define RELAY1X                             15
-#define RELAY1Y                              0
-/*#define RELAY2X                           15
-#define RELAY2Y                              1
-*/                          
-                          
-#define RELAY1PIN                           A1
-#define RELAY2PIN                           A2
 
 //HIGH - relay OFF, LOW - relay ON
 bool relay1                               = HIGH; 
@@ -267,7 +126,6 @@ bool relay2                               = HIGH;
 #include <Keypad.h>          // GDY120705
 #include <Wire.h>
 
-#define I2CADDR 0x27
 
 const byte ROWS = 4; //four rows
 const byte COLS = 4; //three columns
@@ -308,41 +166,59 @@ void SaveResetFlags(void)
   __asm__ __volatile__ ("mov %0, r2\n" : "=r" (MyRstFlags) :);
 }
 
-//EEPROM
-//při výměně čipu nastavit default hodnoty odkomentovím následujícího defu a nastavením kWh a minut ve funkci setEEPROM()
-//#define setEEPROM
 #include <EEPROM.h>
-byte const tDiffONEEPROMAdrH              = 0;
-//byte const tDiffONEEPROMAdrL            = 1;
-byte const tDiffOFFEEPROMAdrH             = 2; 
-//byte const tDiffOFFEEPROMAdrL           = 3;
-byte const totalEnergyEEPROMAdrH          = 4;
-byte const totalEnergyEEPROMAdrM          = 5;
-byte const totalEnergyEEPROMAdrS          = 6;
-byte const totalEnergyEEPROMAdrL          = 7;
-byte const controlSensorEEPROMAdr         = 8;
-byte const totalSecEEPROMAdrH             = 9;
-byte const totalSecEEPROMAdrM             = 10;
-byte const totalSecEEPROMAdrS             = 11;
-byte const totalSecEEPROMAdrL             = 12;
-byte const backLightEEPROMAdr             = 13;
+struct StoreStruct {
+  // This is for mere detection if they are your settings
+  char            version[4];
+  // The variables of your settings
+  byte            tDiffON;     
+  byte            tDiffOFF;
+  byte            controlSensor;
+  bool            backLight;
+  unsigned long   totalEnergy;
+  unsigned long   totalSec;
+#ifdef time
+  tmElements_t    lastPumpRun;
+#endif
+} storage = {
+  CONFIG_VERSION,
+  5,
+  2, 
+  1,
+  0,
+  0,
+  0
+};
 
 //-------------------------------------------- S E T U P ------------------------------------------------------------------------------
 void setup() {
 #ifdef watchdog
   wdt_enable(WDTO_8S);
 #endif
-  //Wire.begin();
-// #ifdef keypad  
+  lcd.begin();               // initialize the lcd 
+  lcd.home();                   
+  lcd.print(SW_NAME);  
+  lcd.print(" ");
+  lcd.print (VERSION);
+  delay(1000);
+  lcd.clear();
+
+  loadConfig();
+  lcd.home();                   
+  lcd.print("tON:");  
+  lcd.print(storage.tDiffON);
+  lcd.print(" tOFF:");  
+  lcd.print(storage.tDiffOFF);
+  lcd.setCursor(0,1);
+  lcd.print("Control:");  
+  lcd.print(storage.controlSensor);
+  delay(1000);
+  lcd.clear();
+
   keypad.begin();
   //keypad.addEventListener(keypadEvent); //add an event listener for this keypad  
-// #endif
   
-  lcd.begin();               // initialize the lcd 
-  // Switch on the backligckLight
-  backLight = EEPROM.read(backLightEEPROMAdr);
-  backLight=true;
-  if (backLight==true) {
+  if (storage.backLight==true) {
     lcd.backlight();
   }
   else {
@@ -353,15 +229,9 @@ void setup() {
   
 #ifdef serial
   Serial.begin(SERIAL_SPEED);
-  Serial.print(versionSWString);
-  Serial.println(versionSW);
+  Serial.print(SW_NAME);
+  Serial.println(VERSION);
 #endif
-  lcd.home();                   // go home
-  lcd.print(versionSWString);  
-  lcd.print(" ");
-  lcd.print (versionSW);
-  delay(1000);
-  lcd.clear();
 
   dsInit();
 
@@ -384,9 +254,9 @@ void setup() {
 #endif
   
   //read and set from EEPROM
-  readONOFFFromEEPROM();
-  readTotalEEPROM();
-  readAndSetControlSensorFromEEPROM();
+  // readONOFFFromEEPROM();
+  // readTotalEEPROM();
+  // readAndSetControlSensorFromEEPROM();
  
   if (MyRstFlags==4) status = STATUS_STARTAFTER_BROWNOUT;
   if (MyRstFlags==5) status = STATUS_STARTAFTER_POWERON;
@@ -424,7 +294,6 @@ void loop() {
       lastSend = millis();
     }
   }
-  //keyPressed();
   keyBoard();
 } //loop
 
@@ -432,7 +301,7 @@ void loop() {
 //--------------------------------------- F U N C T I O N S -----------------------------------------------------------------------------------
 void mainControl() {
   //safety function
-  if ((tP1In >= safetyON) || (tP1Out >= safetyON) || (tP2In >= safetyON) || (tP2Out >= safetyON)) {
+  if ((tP1In >= SAFETY_ON) || (tP1Out >= SAFETY_ON) || (tP2In >= SAFETY_ON) || (tP2Out >= SAFETY_ON)) {
     relay1=LOW; //relay ON
     //Serial.println("SAFETY CONTROL!!!!");
   } else if (manualON) {
@@ -441,16 +310,17 @@ void mainControl() {
     //pump is ON - relay ON = LOW
     if (relay1==LOW) { 
       //save totalEnergy to EEPROM
-      if ((millis() - lastWriteEEPROM) > lastWriteEEPROMDelay) {
-        writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_DELAY);
+      if ((millis() - lastWriteEEPROM) > LAST_WRITE_EEPROM_DELAY) {
+        saveConfig();
+        //writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_DELAY);
       }
       //if (((tP2Out - tControl) < tDiffOFF && (tP2In < tP2Out) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
-      if (((tP2Out - tControl) < tDiffOFF) && (millis() - delayAfterON >= lastOffOn)) { //switch pump ON->OFF
+      if (((tP2Out - tControl) < storage.tDiffOFF) && (millis() - DELAY_AFTER_ON >= lastOffOn)) { //switch pump ON->OFF
 #ifdef serial
         Serial.print("millis()=");
         Serial.print(millis());
         Serial.print(" delayAfterON=");
-        Serial.print(delayAfterON);
+        Serial.print(DELAY_AFTER_ON);
         Serial.print(" lastOffOn=");
         Serial.print(lastOffOn);
         Serial.print(" tP2Out=");
@@ -463,11 +333,12 @@ void mainControl() {
         lastOff=millis();
         lastOn4Delay=0;
         //save totalEnergy to EEPROM
-        writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_ONOFF);
+        saveConfig();
+        //writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_ONOFF);
       }
     } else { //pump is OFF - relay OFF = HIGH
       //if ((((tP2Out - tControl) >= tDiffON) || ((tP2In - tControl) >= tDiffON))) { //switch pump OFF->ON
-      if ((tP1Out - tControl) >= tDiffON || (tP2Out - tControl) >= tDiffON) { //switch pump OFF->ON
+      if ((tP1Out - tControl) >= storage.tDiffON || (tP2Out - tControl) >= storage.tDiffON) { //switch pump OFF->ON
         relay1=LOW; //relay ON = LOW
         //digitalWrite(RELAY1PIN, relay1);
         lastOn = millis();
@@ -475,7 +346,7 @@ void mainControl() {
         if (lastOn4Delay==0) {
           lastOn4Delay = lastOn;
         }
-        if ((millis()-lastOff)>=dayInterval) { //first ON in actual day
+        if ((millis()-lastOff)>=DAY_INTERVAL) { //first ON in actual day
           lcd.clear();
           lastOff=millis();
           energyADay=0;
@@ -499,7 +370,7 @@ void tempMeas() {
     //digitalWrite(13,HIGH);
     lastDsMeasStartTime = millis();
   }
-  else if (dsMeasStarted && (millis() - lastDsMeasStartTime>dsMeassureInterval)) {
+  else if (dsMeasStarted && (millis() - lastDsMeasStartTime>DS_MEASSURE_INTERVAL)) {
     dsMeasStarted=false;
     firstMeasComplete=true;
     //digitalWrite(13,LOW);
@@ -680,10 +551,9 @@ void keyBoard() {
         //save to EEPROM
         // controlSensor=3; //ROOM
         // controlSensor=0; //Bojler
-        // EEPROM.write(controlSensorEEPROMAdr, controlSensor);
-        tDiffON = 2;
-        tDiffOFF = 5;
-        writeONOFFToEEPROM();
+        // EEPROM.update(controlSensorEEPROMAdr, controlSensor);
+        //writeONOFFToEEPROM();
+        saveConfig();
       }
       if (key=='A') {
         display++;
@@ -701,16 +571,16 @@ void keyBoard() {
       }
       if (key=='C') {
         if (display==100) {
-          tDiffON++;
+          storage.tDiffON++;
         } else if (display==101) {
-          tDiffOFF++;
+          storage.tDiffOFF++;
         }
       }
       if (key=='D') {
         if (display==100) {
-          tDiffON--;
+          storage.tDiffON--;
         } else if (display==101) {
-          tDiffOFF--;
+          storage.tDiffOFF--;
         }
       }
     } else { //info
@@ -723,24 +593,25 @@ void keyBoard() {
         manualON = !manualON;
         if (manualON) {
           relay1=LOW;
-          manualSetFromKeyboard = true;
+          //manualSetFromKeyboard = true;
         } else {
           relay1=HIGH;
-          manualSetFromKeyboard = false;
+          //manualSetFromKeyboard = false;
         }
       }
       if (key=='C') {
         lcd.begin();               // reinitialize the lcd 
       }
       else if (key=='A') {
-        if (backLight==true) {
+        if (storage.backLight==true) {
           lcd.backlight();
         }
         else {
           lcd.noBacklight();
         }
-        backLight=!backLight;
-        EEPROM.write(backLightEEPROMAdr,backLight);
+        storage.backLight=!storage.backLight;
+        saveConfig();
+        //EEPROM.update(backLightEEPROMAdr,backLight);
       }
       else if (key=='0') { //main display
         //lcd.clear();
@@ -784,7 +655,8 @@ void keyBoard() {
       }
       else if (key=='B') { //Save total energy to EEPROM
         //lcd.clear();
-        writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_MANUAL);
+        //writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_MANUAL);
+        saveConfig();
         lcd.setCursor(0,0);
         lcd.print("Energy saved!  ");
         lcd.setCursor(0,1);
@@ -911,67 +783,71 @@ void displayRelayStatus(void) {
 */
 }
 
-void writeTotalEEPROM(byte typ) {
-  EEPROM.write(totalEnergyEEPROMAdrL, totalEnergy & 0xFF);
-  EEPROM.write(totalEnergyEEPROMAdrS, (totalEnergy >> 8) & 0xFF);
-  EEPROM.write(totalEnergyEEPROMAdrM, (totalEnergy >> 16) & 0xFF);
-  EEPROM.write(totalEnergyEEPROMAdrH, (totalEnergy >> 24) & 0xFF); 
-#ifdef serial
-  Serial.print("Save totalEnergy to EEPROM:");
-  Serial.print(totalEnergy);
-  Serial.println("Ws");
-#endif
-  EEPROM.write(totalSecEEPROMAdrL, totalSec & 0xFF);
-  EEPROM.write(totalSecEEPROMAdrS, (totalSec >> 8) & 0xFF);
-  EEPROM.write(totalSecEEPROMAdrM, (totalSec >> 16) & 0xFF);
-  EEPROM.write(totalSecEEPROMAdrH, (totalSec >> 24) & 0xFF); 
-#ifdef serial
-  Serial.print("Save totalSec to EEPROM:");
-  Serial.print(totalSec);
-  Serial.println("s");
-#endif
-  lastWriteEEPROM = millis();
-  status=typ;
-}
+// void writeTotalEEPROM(byte typ) {
+  // // EEPROM.update(totalEnergyEEPROMAdrL, totalEnergy & 0xFF);
+  // // EEPROM.update(totalEnergyEEPROMAdrS, (totalEnergy >> 8) & 0xFF);
+  // // EEPROM.update(totalEnergyEEPROMAdrM, (totalEnergy >> 16) & 0xFF);
+  // // EEPROM.update(totalEnergyEEPROMAdrH, (totalEnergy >> 24) & 0xFF); 
+  // EEPROM.put(totalEnergyEEPROMAdr, totalEnergy);
+// #ifdef serial
+  // Serial.print("Save totalEnergy to EEPROM:");
+  // Serial.print(totalEnergy);
+  // Serial.println("Ws");
+// #endif
+  // // EEPROM.update(totalSecEEPROMAdrL, totalSec & 0xFF);
+  // // EEPROM.update(totalSecEEPROMAdrS, (totalSec >> 8) & 0xFF);
+  // // EEPROM.update(totalSecEEPROMAdrM, (totalSec >> 16) & 0xFF);
+  // // EEPROM.update(totalSecEEPROMAdrH, (totalSec >> 24) & 0xFF); 
+  // EEPROM.put(totalSecEEPROMAdr, totalSec);
+// #ifdef serial
+  // Serial.print("Save totalSec to EEPROM:");
+  // Serial.print(totalSec);
+  // Serial.println("s");
+// #endif
+  // lastWriteEEPROM = millis();
+  // status=typ;
+// }
 
-void readTotalEEPROM() {
-  //read power from EEPROM
-  int valueIH = EEPROM.read(totalEnergyEEPROMAdrH);
-  int valueIM = EEPROM.read(totalEnergyEEPROMAdrM);
-  int valueIS = EEPROM.read(totalEnergyEEPROMAdrS);
-  int valueIL = EEPROM.read(totalEnergyEEPROMAdrL);
-  totalEnergy = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
-#ifdef serial
-  Serial.print("TotalEnergy from EEPROM:");
-  Serial.print(totalEnergy);
-  Serial.println("Ws");
-#endif
-  valueIH = EEPROM.read(totalSecEEPROMAdrH);
-  valueIM = EEPROM.read(totalSecEEPROMAdrM);
-  valueIS = EEPROM.read(totalSecEEPROMAdrS);
-  valueIL = EEPROM.read(totalSecEEPROMAdrL);
-  totalSec = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
-#ifdef serial
-  Serial.print("TotalSec from EEPROM:");
-  Serial.print(totalSec);
-  Serial.println("s");
-#endif
-}
+// void readTotalEEPROM() {
+  // //read power from EEPROM
+  // // int valueIH = EEPROM.read(totalEnergyEEPROMAdrH);
+  // // int valueIM = EEPROM.read(totalEnergyEEPROMAdrM);
+  // // int valueIS = EEPROM.read(totalEnergyEEPROMAdrS);
+  // // int valueIL = EEPROM.read(totalEnergyEEPROMAdrL);
+  // //totalEnergy = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
+  // EEPROM.get(totalEnergyEEPROMAdr, totalEnergy);
+// #ifdef serial
+  // Serial.print("TotalEnergy from EEPROM:");
+  // Serial.print(totalEnergy);
+  // Serial.println("Ws");
+// #endif
+  // // valueIH = EEPROM.read(totalSecEEPROMAdrH);
+  // // valueIM = EEPROM.read(totalSecEEPROMAdrM);
+  // // valueIS = EEPROM.read(totalSecEEPROMAdrS);
+  // // valueIL = EEPROM.read(totalSecEEPROMAdrL);
+  // // totalSec = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
+  // EEPROM.get(totalSecEEPROMAdr, totalSec);
+// #ifdef serial
+  // Serial.print("TotalSec from EEPROM:");
+  // Serial.print(totalSec);
+  // Serial.println("s");
+// #endif
+// }
 
-void writeONOFFToEEPROM() {
-  EEPROM.write(tDiffONEEPROMAdrH,tDiffON);
-  EEPROM.write(tDiffOFFEEPROMAdrH,tDiffOFF);
-  readONOFFFromEEPROM();
-}
+// void writeONOFFToEEPROM() {
+  // EEPROM.put(tDiffONEEPROMAdr,tDiffON);
+  // EEPROM.put(tDiffOFFEEPROMAdr,tDiffOFF);
+  // readONOFFFromEEPROM();
+// }
 
-void readONOFFFromEEPROM() {
-  tDiffON = EEPROM.read(tDiffONEEPROMAdrH);
-  Serial.print("Temp diff ON:");
-  Serial.println(tDiffON);
-  tDiffOFF = EEPROM.read(tDiffOFFEEPROMAdrH);
-  Serial.print("Temp diff OFF:");
-  Serial.println(tDiffOFF);
-}
+// void readONOFFFromEEPROM() {
+  // EEPROM.get(tDiffONEEPROMAdr, tDiffON);
+  // Serial.print("Temp diff ON:");
+  // Serial.println(tDiffON);
+  // EEPROM.get(tDiffOFFEEPROMAdr, tDiffOFF);
+  // Serial.print("Temp diff OFF:");
+  // Serial.println(tDiffOFF);
+// }
 
 unsigned int getPower() {
   /*
@@ -997,7 +873,7 @@ void lcdShow() {
     displayTemp(TEMP3X,TEMP3Y, tP2In);
     displayTemp(TEMP4X,TEMP4Y, tP2Out);
     displayTemp(TEMP5X,TEMP5Y, tControl);
-    if ((millis()-lastOff)>=dayInterval) {
+    if ((millis()-lastOff)>=DAY_INTERVAL) {
       lcd.setCursor(0,1);
       lcd.print("Bez slunce ");
       lcd.print((millis() - lastOff)/1000/3600);
@@ -1040,13 +916,13 @@ void lcdShow() {
     lcd.setCursor(0,0);
     lcd.print("TDiffON");
     lcd.setCursor(0,1);
-    lcd.print(tDiffON);
+    lcd.print(storage.tDiffON);
     lcd.print("     ");
   } else if (display==3) { //tDiffOFF
     lcd.setCursor(0,0);
     lcd.print("TDiffOFF");
     lcd.setCursor(0,1);
-    lcd.print(tDiffOFF);
+    lcd.print(storage.tDiffOFF);
     lcd.print("     ");
   } else if (display==4) { //prutok
     lcd.setCursor(0,0);
@@ -1105,11 +981,11 @@ void lcdShow() {
   } else if (display==100) { //tDiffON
     lcd.print("tDiffON");
     lcd.setCursor(0,1);
-    lcd.print(tDiffON);
+    lcd.print(storage.tDiffON);
   } else if (display==101) { //tDiffOFF
     lcd.print("tDiffOFF");
     lcd.setCursor(0,1);
-    lcd.print(tDiffOFF);
+    lcd.print(storage.tDiffOFF);
   } else if (display==102) { //panel1 IN
     lcd.print("Panel1 IN");
     lcd.setCursor(0,1);
@@ -1155,21 +1031,22 @@ void lcdShow() {
 
 #ifdef setEEPROM
 void setEEPROMFunc() {
-  totalEnergy = 162091 * 3600;  //Wh
-  totalSec    = 5820180;        //sec
-  writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_MANUAL);
-  readTotalEEPROM();
+  storage.totalEnergy = 162091 * 3600;  //Wh
+  storage.totalSec    = 5820180;        //sec
+  //writeTotalEEPROM(STATUS_WRITETOTALTOEEPROM_MANUAL);
+  //readTotalEEPROM();
+  saveConfig();
 }
 #endif
 
-void readAndSetControlSensorFromEEPROM() {
+/*void readAndSetControlSensorFromEEPROM() {
   controlSensor = EEPROM.read(controlSensorEEPROMAdr);
   if (controlSensor!=0 || controlSensor!=3) {
     controlSensor=0;
-    EEPROM.write(controlSensorEEPROMAdr, controlSensor);
+    EEPROM.update(controlSensorEEPROMAdr, controlSensor);
   }
 }
-
+*/
 
 float enegyWsTokWh(float e) {
   return e/3600.f/1000.f;
@@ -1347,79 +1224,18 @@ void send(float s) {
   }
 }
 
-#ifdef keypad
-// uint8_t read8() {
-  // Wire.beginTransmission(address);
-  // Wire.requestFrom(address, 1);
-  // data = Wire.read();
-  // error = Wire.endTransmission();
-  // //Serial.println(error);
-  // return data;
-// }
-// /*
-// uint8_t read(uint8_t pin) {
-  // read8();
-  // return (data & (1<<pin)) > 0;
-// }
-// */
-// void write8(uint8_t value) {
-  // Wire.beginTransmission(address);
-  // data = value;
-  // Wire.write(data);
-  // error = Wire.endTransmission();
-// }
-/*
-void write(uint8_t pin, uint8_t value) {
-  read8();
-  if (value == LOW) {
-    data &= ~(1<<pin);
-  }else{
-    data |= (1<<pin);
-  }
-  write8(data); 
+void loadConfig() {
+  // To make sure there are settings, and they are YOURS!
+  // If nothing is found it will use the default settings.
+  if (EEPROM.read(CONFIG_START + 0) == CONFIG_VERSION[0] &&
+      EEPROM.read(CONFIG_START + 1) == CONFIG_VERSION[1] &&
+      EEPROM.read(CONFIG_START + 2) == CONFIG_VERSION[2])
+    for (unsigned int t=0; t<sizeof(storage); t++)
+      *((char*)&storage + t) = EEPROM.read(CONFIG_START + t);
 }
-*/
-// void keyPressed() {
-  // byte row=0;
-  // byte col=255;
-  // byte b=127;
-  // if (millis() - lastKeyPressed > repeatAfterMs) {
-    // keyOld = 0;
-  // }
-  // //write8(1);
-  // //Serial.println(read8());
-  
-  // for (byte i=0; i<4; i++) {
-    // row=i;
-    // b=~(255&(1<<i+4));
-    // //Serial.println(b);
-    // write8(b);
-    // //Serial.println(read8());
-    // col = colTest(read8(), b);
-    // //Serial.println(col);
-    // if (col<255) {
-      // key = hexaKeys[row][col];
-      // //Serial.print(key);
-      // if (key!=keyOld) {
-        // lastKeyPressed = millis();
-        // keyOld=hexaKeys[row][col];
-        // /*Serial.print(row);
-        // Serial.print(",");
-        // Serial.print(col);
-        // Serial.print("=");
-        // Serial.println((char)key);
-        // */
-      // }
-      // break;
-    // }
-  // }
-// }
 
-// byte colTest(byte key, byte b) {
-  // if (key==b-8) return 0;
-  // else if (key==b-4) return 1;
-  // else if (key==b-2) return 2;
-  // else if (key==b-1) return 3;
-  // else return 255;
-// }
-#endif
+void saveConfig() {
+  for (unsigned int t=0; t<sizeof(storage); t++) {
+    EEPROM.update(CONFIG_START + t, *((char*)&storage + t));
+  }
+}
