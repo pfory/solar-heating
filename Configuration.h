@@ -2,7 +2,7 @@
 #define CONFIGURATION_H
 
 //SW name & version
-#define     VERSION                      '1.2'
+#define     VERSION                      '1.3'
 #define     SW_NAME                      'Solar'
 
 /*
