@@ -13,7 +13,7 @@ GIT - https://github.com/pfory/solar-heating
 #endif
 
 #define serial //serial monitor
-unsigned int const SERIAL_SPEED=19200;
+unsigned int const SERIAL_SPEED=115200;
 unsigned int const mySERIAL_SPEED=9600;
 
 #include <Wire.h>
@@ -275,6 +275,8 @@ void setup() {
   else {
     lcd.noBacklight();
   }
+  
+  Serial.println(LAST_WRITE_EEPROM_DELAY);
 } //setup
 
 
@@ -442,7 +444,7 @@ void tempMeas() {
 
 void calcPowerAndEnergy() {
   if (relay1==LOW) {  //pump is ON
-    if (tBojlerIn<tBojlerOut) {
+    if (tBojlerIn>tBojlerOut) {
       msDayON+=(millis()-lastOn);
       msDiff+=(millis()-lastOn);
       if (msDiff >= 1000) {
@@ -450,6 +452,7 @@ void calcPowerAndEnergy() {
         msDiff=msDiff%1000;
       }
       power = getPower(); //in W
+      //Serial.println(power);
       if (power > maxPower) {
         maxPower = power;
       }
@@ -642,20 +645,17 @@ void keyBoard() {
       }
       else if (key=='B') { //Save total energy to EEPROM
         saveConfig();
-        lcd.setCursor(0,0);
-        lcd.print("Energy saved!  ");
-        lcd.setCursor(0,1);
+        lcd.setCursor(0,3);
+        lcd.print("Energy ");
         lcd.print(enegyWsTokWh(totalEnergy));
-        lcd.print(" Ws");
-        delay(500);
-        lcd.clear();
+        lcd.print(" kWh");
       }
     }
     key = ' ';
   }
 }
 
-void displayTemp(int x, int y, float value) {
+void displayTemp(int x, int y, float value, bool des) {
   /*
   012345
   -25.3
@@ -683,9 +683,12 @@ void displayTemp(int x, int y, float value) {
     value=value-100.f;
   }
   
+  
   lcd.print(abs((int)value));
-  // lcd.print(".");
-  // lcd.print(desetina);
+  if (des) {
+    lcd.print(".");
+    lcd.print(desetina);
+  }
   lcd.print(" ");
   
   /*if (cela>-10) {
@@ -767,72 +770,6 @@ void displayRelayStatus(void) {
 */
 }
 
-// void writeTotalEEPROM(byte typ) {
-  // // EEPROM.update(totalEnergyEEPROMAdrL, totalEnergy & 0xFF);
-  // // EEPROM.update(totalEnergyEEPROMAdrS, (totalEnergy >> 8) & 0xFF);
-  // // EEPROM.update(totalEnergyEEPROMAdrM, (totalEnergy >> 16) & 0xFF);
-  // // EEPROM.update(totalEnergyEEPROMAdrH, (totalEnergy >> 24) & 0xFF); 
-  // EEPROM.put(totalEnergyEEPROMAdr, totalEnergy);
-// #ifdef serial
-  // Serial.print("Save totalEnergy to EEPROM:");
-  // Serial.print(totalEnergy);
-  // Serial.println("Ws");
-// #endif
-  // // EEPROM.update(totalSecEEPROMAdrL, totalSec & 0xFF);
-  // // EEPROM.update(totalSecEEPROMAdrS, (totalSec >> 8) & 0xFF);
-  // // EEPROM.update(totalSecEEPROMAdrM, (totalSec >> 16) & 0xFF);
-  // // EEPROM.update(totalSecEEPROMAdrH, (totalSec >> 24) & 0xFF); 
-  // EEPROM.put(totalSecEEPROMAdr, totalSec);
-// #ifdef serial
-  // Serial.print("Save totalSec to EEPROM:");
-  // Serial.print(totalSec);
-  // Serial.println("s");
-// #endif
-  // lastWriteEEPROM = millis();
-  // status=typ;
-// }
-
-// void readTotalEEPROM() {
-  // //read power from EEPROM
-  // // int valueIH = EEPROM.read(totalEnergyEEPROMAdrH);
-  // // int valueIM = EEPROM.read(totalEnergyEEPROMAdrM);
-  // // int valueIS = EEPROM.read(totalEnergyEEPROMAdrS);
-  // // int valueIL = EEPROM.read(totalEnergyEEPROMAdrL);
-  // //totalEnergy = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
-  // EEPROM.get(totalEnergyEEPROMAdr, totalEnergy);
-// #ifdef serial
-  // Serial.print("TotalEnergy from EEPROM:");
-  // Serial.print(totalEnergy);
-  // Serial.println("Ws");
-// #endif
-  // // valueIH = EEPROM.read(totalSecEEPROMAdrH);
-  // // valueIM = EEPROM.read(totalSecEEPROMAdrM);
-  // // valueIS = EEPROM.read(totalSecEEPROMAdrS);
-  // // valueIL = EEPROM.read(totalSecEEPROMAdrL);
-  // // totalSec = ((unsigned long)valueIH << 24) + ((unsigned long)valueIM << 16) + ((unsigned long)valueIS << 8) + ((unsigned long)valueIL);
-  // EEPROM.get(totalSecEEPROMAdr, totalSec);
-// #ifdef serial
-  // Serial.print("TotalSec from EEPROM:");
-  // Serial.print(totalSec);
-  // Serial.println("s");
-// #endif
-// }
-
-// void writeONOFFToEEPROM() {
-  // EEPROM.put(tDiffONEEPROMAdr,tDiffON);
-  // EEPROM.put(tDiffOFFEEPROMAdr,tDiffOFF);
-  // readONOFFFromEEPROM();
-// }
-
-// void readONOFFFromEEPROM() {
-  // EEPROM.get(tDiffONEEPROMAdr, tDiffON);
-  // Serial.print("Temp diff ON:");
-  // Serial.println(tDiffON);
-  // EEPROM.get(tDiffOFFEEPROMAdr, tDiffOFF);
-  // Serial.print("Temp diff OFF:");
-  // Serial.println(tDiffOFF);
-// }
-
 unsigned int getPower() {
   /*
   Q	0,00006	m3/s
@@ -841,7 +778,7 @@ unsigned int getPower() {
   t vystup	63,7	
   P = Q x K x (t1 - t2)	1832,592	W
   */
-  return (lMin * 1000.0 / 60.0) * 4184000.0 * (tBojlerIn - tBojlerOut);
+  return (lMin / 1000.0 / 60.0) * 4184000.0 * (tBojlerIn - tBojlerOut);
   //return (float)energyKoef*(tBojlerOut-tBojlerIn); //in W
 }
 
@@ -852,11 +789,13 @@ void lcdShow() {
   
   if (display==0) { //main display
     //display OUT  IN  ROOM
-    displayTemp(TEMP1X,TEMP1Y, tP1In);
-    displayTemp(TEMP2X,TEMP2Y, tP1Out);
-    displayTemp(TEMP3X,TEMP3Y, tP2In);
-    displayTemp(TEMP4X,TEMP4Y, tP2Out);
-    displayTemp(TEMP5X,TEMP5Y, tControl);
+    displayTemp(TEMP1X,TEMP1Y, tP1In, false);
+    displayTemp(TEMP2X,TEMP2Y, tP1Out, false);
+    displayTemp(TEMP3X,TEMP3Y, tP2In, false);
+    displayTemp(TEMP4X,TEMP4Y, tP2Out, false);
+    displayTemp(TEMP5X,TEMP5Y, tControl, true);
+    displayTemp(TEMP6X,TEMP6Y, tBojlerIn, false);
+    displayTemp(TEMP7X,TEMP7Y, tBojlerOut, false);
     if ((millis()-lastOff)>=DAY_INTERVAL) {
       lcd.setCursor(0,1);
       lcd.print("Bez slunce ");
@@ -876,10 +815,12 @@ void lcdShow() {
       if (p<10) lcd.print(" ");
       if (power<=65534) {
         lcd.print(p);
+        lcd.print("W");
       }
       
       lcd.setCursor(ENERGYX,ENERGYY);
       lcd.print(enegyWsTokWh(energyADay)); //Ws -> kWh (show it in kWh)
+      lcd.print("kWh");
       
       lcd.setCursor(TIMEX,TIMEY);
       p=(int)(msDayON/1000/60);
@@ -887,8 +828,12 @@ void lcdShow() {
       if (p<10) lcd.print(" ");
       if (p<=999) {
         lcd.print(p); //ms->min (show it in minutes)
+        lcd.print("m");
       }
-    }
+      lcd.setCursor(FLOWX,FLOWY);
+      lcd.print(lMin);
+      lcd.print("l/m");
+   }
     displayRelayStatus();
   } else if (display==1) { //total Energy
     lcd.setCursor(0,0);
@@ -1222,8 +1167,7 @@ void saveConfig() {
   for (unsigned int t=0; t<sizeof(storage); t++) {
     EEPROM.update(CONFIG_START + t, *((char*)&storage + t));
   }
-  lcd.clear();
+  lastWriteEEPROM = millis();
+  lcd.setCursor(0,3);
   lcd.print("Setup saved");
-  delay(1000);
-  lcd.clear();
 }

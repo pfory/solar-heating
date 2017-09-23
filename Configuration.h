@@ -2,11 +2,12 @@
 #define CONFIGURATION_H
 
 //SW name & version
-#define     VERSION                      "1.3"
+#define     VERSION                      "1.31"
 #define     SW_NAME                      "Solar"
 
 /*
 Version history:
+1.31 - change display to 4x20
 1.1  - 13.9.2017  pridany cidla teploty bojler vstup/vystup
 1.01 - 28.8.2017  pridani cidla prutoku
 1.00 - 28.8.2017  vypinani pouze na zaklade vystupni teploty e solaru na strese 
@@ -78,9 +79,9 @@ D13             - free
 #define TX 11
 
 //display
-#define LCDADDRESS   0x20
-#define LCDROWS      2
-#define LCDCOLS      16
+#define LCDADDRESS   0x27
+#define LCDROWS      4
+#define LCDCOLS      20
 
 //one wire bus
 #define ONE_WIRE_BUS A0
@@ -116,15 +117,21 @@ D13             - free
 #define TEMP4Y                               0
 #define TEMP5X                              12  //Control
 #define TEMP5Y                               0
+#define TEMP6X                              12  //Bojler in
+#define TEMP6Y                               2
+#define TEMP7X                              16  //Bojler out
+#define TEMP7Y                               2
 #define POWERX                               0
 #define POWERY                               1
-#define ENERGYX                              7
+#define ENERGYX                              8
 #define ENERGYY                              1
-#define TIMEX                               12
+#define TIMEX                               16
 #define TIMEY                                1
+#define FLOWX                                1
+#define FLOWY                                2
                           
                           
-#define RELAY1X                             15
+#define RELAY1X                             19
 #define RELAY1Y                              0
 /*#define RELAY2X                           15
 #define RELAY2Y                              1
@@ -134,7 +141,7 @@ D13             - free
 #define RELAY2PIN                           A2
 
 //keypad i2c address
-#define I2CADDR 0x27
+#define I2CADDR                             0x20
 
 //EEPROM config
 #define CONFIG_START 0
