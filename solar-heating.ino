@@ -13,8 +13,6 @@ GIT - https://github.com/pfory/solar-heating
 #endif
 
 #define serial //serial monitor
-unsigned int const SERIAL_SPEED=115200;
-unsigned int const mySERIAL_SPEED=9600;
 
 #include <Wire.h>
 #include <avr/pgmspace.h>
@@ -71,6 +69,7 @@ unsigned long msDiff                      = 0; //pocet ms ve stavu ON od posledn
 unsigned int  power                       = 0; //actual power in W
 unsigned int  maxPower                    = 0; //maximal power in W
 unsigned long energyADay                  = 0; //energy a day in Ws
+unsigned long showInfo                    = 0; //zobrazeni 4 radky na displeji
 float energyDiff                          = 0.f; //difference in Ws
 //unsigned int const energyKoef             = 343; //Ws TODO - read from configuration
 unsigned int pulseCount                   = 0; //
@@ -224,22 +223,17 @@ void setup() {
   lcd.print(SW_NAME);  
   lcd.print(" ");
   lcd.print (VERSION);
-  delay(1000);
-  lcd.clear();
-  lcd.home();                   
+  lcd.setCursor(0,1);
   lcd.print("tON:");  
   lcd.print(storage.tDiffON);
   lcd.print(" tOFF:");  
   lcd.print(storage.tDiffOFF);
-  lcd.setCursor(0,1);
+  lcd.setCursor(0,2);
   lcd.print("Control:");  
   lcd.print(storage.controlSensor);
-  delay(3000);
-  lcd.clear();
 
   keypad.begin();
   //keypad.addEventListener(keypadEvent); //add an event listener for this keypad  
-
   
   mySerial.begin(mySERIAL_SPEED);
   pinMode(LEDPIN,OUTPUT);
@@ -253,8 +247,6 @@ void setup() {
    cloopTime = 0;
 #endif
   
-  lcd.clear();
-
   pinMode(RELAY1PIN, OUTPUT);
   
   digitalWrite(RELAY1PIN, relay1);
@@ -276,7 +268,7 @@ void setup() {
     lcd.noBacklight();
   }
   
-  Serial.println(LAST_WRITE_EEPROM_DELAY);
+  lcd.clear();
 } //setup
 
 
@@ -719,14 +711,13 @@ void dsInit(void) {
   dsSensors.begin();
   numberOfDevices = dsSensors.getDeviceCount();
 
-  lcd.setCursor (0, 0);
+  lcd.setCursor(0,3);
   lcd.print(numberOfDevices);
   
   if (numberOfDevices==1)
     lcd.print(" sensor found");
   else
     lcd.print(" sensors found");
-  delay(1000);
   
 #ifdef serial
   Serial.print("Sensor(s):");
@@ -785,6 +776,11 @@ unsigned int getPower() {
 void lcdShow() {
   if (display>=100) { 
     lcd.setCursor(0,0);
+  }
+  if (millis() > SHOW_INFO_DELAY + showInfo) {
+    showInfo = millis();
+    lcd.setCursor(0,3);
+    lcd.print("                    ");
   }
   
   if (display==0) { //main display
@@ -1170,4 +1166,5 @@ void saveConfig() {
   lastWriteEEPROM = millis();
   lcd.setCursor(0,3);
   lcd.print("Setup saved");
+  showInfo = millis();
 }

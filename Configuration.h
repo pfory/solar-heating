@@ -67,6 +67,9 @@ D13             - free
 --------------------------------------------------------------------------------------------------------------------------
 */
 
+#define SERIAL_SPEED    57600
+#define mySERIAL_SPEED  9600
+
 #define START_BLOCK       '#'
 #define DELIMITER         ';'
 #define END_BLOCK         '$'
@@ -157,3 +160,4 @@ D13             - free
 #define SAFETY_ON                           80.0 //teplota, pri niz rele vzdy sepne
 
 #define SEND_DELAY                          10000  //prodleva mezi poslanim dat v ms
+#define SHOW_INFO_DELAY                     5000  //prodleva mezi poslanim dat v ms
