@@ -184,16 +184,19 @@ struct StoreStruct {
 
 //-------------------------------------------- S E T U P ------------------------------------------------------------------------------
 void setup() {
+#ifdef serial
+  Serial.begin(SERIAL_SPEED);
+#endif
+
 #ifdef watchdog
   wdt_enable(WDTO_8S);
 #endif
-
+  printConfigVersion();
   testConfigChange();
 
   loadConfig();
  
 #ifdef serial
-  Serial.begin(SERIAL_SPEED);
   Serial.print(SW_NAME);
   Serial.print(" ");
   Serial.println(VERSION);
@@ -1138,13 +1141,17 @@ void send(float s) {
 }
 
 void loadConfig() {
+  Serial.println("Load config from EEPROM");
   // To make sure there are settings, and they are YOURS!
   // If nothing is found it will use the default settings.
   if (EEPROM.read(CONFIG_START + 0) == CONFIG_VERSION[0] &&
       EEPROM.read(CONFIG_START + 1) == CONFIG_VERSION[1] &&
-      EEPROM.read(CONFIG_START + 2) == CONFIG_VERSION[2])
-    for (unsigned int t=0; t<sizeof(storage); t++)
+      EEPROM.read(CONFIG_START + 2) == CONFIG_VERSION[2]) {
+    for (unsigned int t=0; t<sizeof(storage); t++) {
       *((char*)&storage + t) = EEPROM.read(CONFIG_START + t);
+      Serial.println(EEPROM.read(CONFIG_START + t));
+    }
+  }
 }
 
 void saveConfig() {
@@ -1158,13 +1165,16 @@ void saveConfig() {
 }
 
 void testConfigChange() {
+  Serial.print("Test config change - ");
   if (EEPROM.read(CONFIG_START + 0) == CONFIG_VERSION[0] &&
     EEPROM.read(CONFIG_START + 1) == CONFIG_VERSION[1] &&
     EEPROM.read(CONFIG_START + 2) == CONFIG_VERSION[2]) {
+      Serial.println("NO change.");
   } else {
-    if (EEPROM.read(CONFIG_START + 0) == "v" &&
-    EEPROM.read(CONFIG_START + 1) == "0" &&
-    EEPROM.read(CONFIG_START + 2) == "1") {
+      Serial.println("change.");
+    if (EEPROM.read(CONFIG_START + 0) == 'v' &&
+    EEPROM.read(CONFIG_START + 1) == '0' &&
+    EEPROM.read(CONFIG_START + 2) == '1') {
 #ifdef serial      
       Serial.println("Zmena konfigurace na verzi v02");
 #endif
@@ -1176,10 +1186,18 @@ void testConfigChange() {
       storage.sensorOrder[5] = 3;
       storage.sensorOrder[6] = 6;
       storage.sensorOrder[7] = 0;
-      storage.version[0]="v";
-      storage.version[1]="0";
-      storage.version[2]="2";
+      storage.version[0]='v';
+      storage.version[1]='0';
+      storage.version[2]='2';
       saveConfig();
     }
   }
+}
+
+void printConfigVersion() {
+  Serial.print("Config version:");
+  Serial.write(EEPROM.read(CONFIG_START + 0));
+  Serial.write(EEPROM.read(CONFIG_START + 1));
+  Serial.write(EEPROM.read(CONFIG_START + 2));
+  Serial.println();
 }
