@@ -1141,7 +1141,9 @@ void send(float s) {
 }
 
 void loadConfig() {
+#ifdef serial
   Serial.println("Load config from EEPROM");
+#endif
   // To make sure there are settings, and they are YOURS!
   // If nothing is found it will use the default settings.
   if (EEPROM.read(CONFIG_START + 0) == CONFIG_VERSION[0] &&
@@ -1149,7 +1151,9 @@ void loadConfig() {
       EEPROM.read(CONFIG_START + 2) == CONFIG_VERSION[2]) {
     for (unsigned int t=0; t<sizeof(storage); t++) {
       *((char*)&storage + t) = EEPROM.read(CONFIG_START + t);
+#ifdef serial
       Serial.println(EEPROM.read(CONFIG_START + t));
+#endif
     }
   }
 }
@@ -1165,13 +1169,19 @@ void saveConfig() {
 }
 
 void testConfigChange() {
+#ifdef serial      
   Serial.print("Test config change - ");
+#endif
   if (EEPROM.read(CONFIG_START + 0) == CONFIG_VERSION[0] &&
     EEPROM.read(CONFIG_START + 1) == CONFIG_VERSION[1] &&
     EEPROM.read(CONFIG_START + 2) == CONFIG_VERSION[2]) {
+#ifdef serial      
       Serial.println("NO change.");
+#endif
   } else {
-      Serial.println("change.");
+#ifdef serial      
+    Serial.println("change.");
+#endif
     if (EEPROM.read(CONFIG_START + 0) == 'v' &&
     EEPROM.read(CONFIG_START + 1) == '0' &&
     EEPROM.read(CONFIG_START + 2) == '1') {
@@ -1194,6 +1204,7 @@ void testConfigChange() {
   }
 }
 
+#ifdef serial      
 void printConfigVersion() {
   Serial.print("Config version:");
   Serial.write(EEPROM.read(CONFIG_START + 0));
@@ -1201,3 +1212,4 @@ void printConfigVersion() {
   Serial.write(EEPROM.read(CONFIG_START + 2));
   Serial.println();
 }
+#endif
