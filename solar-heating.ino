@@ -525,15 +525,15 @@ void keyBoard() {
     /*
     100  - TDiffON           - nastavení teploty                     - klávesy C,D
     101  - TDiffOFF          - nastavení teploty                     - klávesy C,D
-    102  - Panel1 vstup      - výběr čidla                           - klávesy 1-9
-    103  - Panel1 výstup     - výběr čidla                           - klávesy 1-9
-    104  - Panel2 vstup      - výběr čidla                           - klávesy 1-9
-    105  - Panel2 výstup     - výběr čidla                           - klávesy 1-9
-    106  - Bojler vstup      - výběr čidla                           - klávesy 1-9
-    107  - Bojler výstup     - výběr čidla                           - klávesy 1-9
-    108  - Bojler            - výběr čidla                           - klávesy 1-9
-    109  - Teplota místnost  - výběr čidla                           - klávesy 1-9 
-    110  - Control sensor    - výběr čidla podle kterého se spíná    - klávesy 1 a 2
+    102  - Panel1 vstup      - výběr čidla                           - klávesy C,D
+    103  - Panel1 výstup     - výběr čidla                           - klávesy C,D
+    104  - Panel2 vstup      - výběr čidla                           - klávesy C,D
+    105  - Panel2 výstup     - výběr čidla                           - klávesy C,D
+    106  - Bojler vstup      - výběr čidla                           - klávesy C,D
+    107  - Bojler výstup     - výběr čidla                           - klávesy C,D
+    108  - Bojler            - výběr čidla                           - klávesy C,D
+    109  - Teplota místnost  - výběr čidla                           - klávesy C,D 
+    110  - Control sensor    - výběr čidla podle kterého se spíná    - klávesy C,D
     
     INFO
     1 - total energy
@@ -553,7 +553,8 @@ void keyBoard() {
     D - manual/auto
     */
     
-    if (displayMode==SETUP) { //setup
+    //SETUP MODE
+    if (displayMode==SETUP) {
       if (key=='#') {
         displayMode=INFO;
         display = 0;
@@ -574,20 +575,43 @@ void keyBoard() {
         }
       }
       if (key=='D') {
-        if (display==100) {
+        if (display==DISPLAY_T_DIFF_ON_SETUP) {
           storage.tDiffON++;
-        } else if (display==101) {
+        } else if (display==DISPLAY_T_DIFF_OFF_SETUP) {
           storage.tDiffOFF++;
+        } else if (display==DISPLAY_P1OUT_SETUP) {
+        } else if (display==DISPLAY_P2IN_SETUP) {
+        } else if (display==DISPLAY_P2OUT_SETUP) {
+        } else if (display==DISPLAY_BOJLERIN_SETUP) {
+        } else if (display==DISPLAY_BOJLEROUT_SETUP) {
+        } else if (display==DISPLAY_BOJLER_SETUP) {
+        } else if (display==DISPLAY_ROOM_SETUP) {
+        } else if (display==DISPLAY_CONTROL_SENSOR_SETUP) {
         }
       }
       if (key=='C') {
-        if (display==100) {
+        if (display==DISPLAY_T_DIFF_ON_SETUP) {
           storage.tDiffON--;
-        } else if (display==101) {
+          if (storage.tDiffON<0) {
+            storage.tDiffON=0;
+          }
+        } else if (display==DISPLAY_T_DIFF_OFF_SETUP) {
           storage.tDiffOFF--;
+          if (storage.tDiffOFF<0) {
+            storage.tDiffOFF=0;
+          }
+        } else if (display==DISPLAY_P1OUT_SETUP) {
+        } else if (display==DISPLAY_P2IN_SETUP) {
+        } else if (display==DISPLAY_P2OUT_SETUP) {
+        } else if (display==DISPLAY_BOJLERIN_SETUP) {
+        } else if (display==DISPLAY_BOJLEROUT_SETUP) {
+        } else if (display==DISPLAY_BOJLER_SETUP) {
+        } else if (display==DISPLAY_ROOM_SETUP) {
+        } else if (display==DISPLAY_CONTROL_SENSOR_SETUP) {
         }
       }
-    } else { //info
+    //INFO MODE
+    } else {
       if (key=='*') {
         displayMode=SETUP;
         display = MINSETUP;
@@ -634,13 +658,13 @@ void keyBoard() {
       else if (key=='6') { 
         display=DISPLAY_MAX_BOJLER;
       }
-      else if (key=='7') { //Max power today
+      else if (key=='7') { 
         display=DISPLAY_MAX_POWER_TODAY;
       }
-      else if (key=='8') { //Control sensor
+      else if (key=='8') { 
         display=DISPLAY_CONTROL_SENSOR;
       }
-      else if (key=='9') { //Total time
+      else if (key=='9') { 
         display=DISPLAY_TOTAL_TIME;
       }
       else if (key=='B') { //Save total energy to EEPROM
@@ -790,7 +814,9 @@ void lcdShow() {
   if (millis() > SHOW_INFO_DELAY + showInfo) {
     showInfo = millis();
     lcd.setCursor(0,3);
-    lcd.print(F("                    "));
+    for (byte i=0;i<18;i++) {
+      PRINT_SPACE;
+    }
   }
   
   if (display==DISPLAY_MAIN) {
@@ -838,8 +864,10 @@ void lcdShow() {
       lcd.setCursor(FLOWX,FLOWY);
       lcd.print(lMin);
       lcd.print(F("l/m"));
-   }
+    }
     displayRelayStatus();
+    lcd.setCursor(STATUSX, STATUSY);
+    lcd.print(status);
   } else if (display==DISPLAY_TOTAL_ENERGY) {
     lcd.setCursor(0,0);
     lcd.print(F("Total energy"));
