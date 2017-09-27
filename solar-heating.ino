@@ -147,6 +147,7 @@ void flow () { // Interrupt function
 }
 #endif
 
+#define PRINT_SPACE           lcd.print(F(" "));
 
 uint8_t MyRstFlags __attribute__ ((section(".noinit")));
 void SaveResetFlags(void) __attribute__ ((naked))
@@ -197,37 +198,37 @@ void setup() {
   loadConfig();
  
 #ifdef serial
-  Serial.print(SW_NAME);
-  Serial.print(" ");
-  Serial.println(VERSION);
-  Serial.print("tON:");  
+  Serial.print(F(SW_NAME));
+  Serial.print(F(" "));
+  Serial.println(F(VERSION));
+  Serial.print(F("tON:"));  
   Serial.println(storage.tDiffON);
-  Serial.print("tOFF:");  
+  Serial.print(F("tOFF:"));  
   Serial.println(storage.tDiffOFF);
-  Serial.print("Control:");  
+  Serial.print(F("Control:"));  
   Serial.println(storage.controlSensor);
-  Serial.print("TotalEnergy from EEPROM:");
+  Serial.print(F("TotalEnergy from EEPROM:"));
   Serial.print(storage.totalEnergy);
-  Serial.println("Ws");
-  Serial.print("TotalSec from EEPROM:");
+  Serial.println(F("Ws"));
+  Serial.print(F("TotalSec from EEPROM:"));
   Serial.print(storage.totalSec);
-  Serial.println("s");
-  Serial.print("backlight:");
+  Serial.println(F("s"));
+  Serial.print(F("backlight:"));
   Serial.println(storage.backLight);
 #endif
 
   lcd.begin();               // initialize the lcd 
   lcd.home();                   
   lcd.print(SW_NAME);  
-  lcd.print(" ");
+  PRINT_SPACE
   lcd.print (VERSION);
   lcd.setCursor(0,1);
-  lcd.print("tON:");  
+  lcd.print(F("tON:"));  
   lcd.print(storage.tDiffON);
-  lcd.print(" tOFF:");  
+  lcd.print(F(" tOFF:"));  
   lcd.print(storage.tDiffOFF);
   lcd.setCursor(0,2);
-  lcd.print("Control:");  
+  lcd.print(F("Control:"));  
   lcd.print(storage.controlSensor);
 
   keypad.begin();
@@ -301,9 +302,9 @@ void mainControl() {
   //safety function
   if ((tP1In >= SAFETY_ON) || (tP1Out >= SAFETY_ON) || (tP2In >= SAFETY_ON) || (tP2Out >= SAFETY_ON)) {
     relay1=LOW; //relay ON
-    //Serial.println("SAFETY CONTROL!!!!");
+    //Serial.println(F("SAFETY CONTROL!!!!"));
   } else if (manualON) {
-    //Serial.println("MANUAL CONTROL!!!!");
+    //Serial.println(F("MANUAL CONTROL!!!!"));
   } else {
     //pump is ON - relay ON = LOW
     if (relay1==LOW) { 
@@ -315,15 +316,15 @@ void mainControl() {
       //if (((tP2Out - tControl) < tDiffOFF && (tP2In < tP2Out) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
       if (((tP2Out - tControl) < storage.tDiffOFF) && (millis() - DELAY_AFTER_ON >= lastOffOn)) { //switch pump ON->OFF
 #ifdef serial
-        Serial.print("millis()=");
+        Serial.print(F("millis()="));
         Serial.print(millis());
-        Serial.print(" delayAfterON=");
+        Serial.print(F(" delayAfterON="));
         Serial.print(DELAY_AFTER_ON);
-        Serial.print(" lastOffOn=");
+        Serial.print(F(" lastOffOn="));
         Serial.print(lastOffOn);
-        Serial.print(" tP2Out=");
+        Serial.print(F(" tP2Out="));
         Serial.print(tP2Out);
-        Serial.print("tControl=");
+        Serial.print(F("tControl="));
         Serial.println(tControl);
 #endif
         relay1=HIGH; //relay OFF = HIGH
@@ -404,23 +405,23 @@ void tempMeas() {
     tControl    = sensor[controlSensor];
 
     /*
-    Serial.print("P1 In:");
+    Serial.print(F("P1 In:"));
     Serial.println(tP1In);
-    Serial.print("P1 Out:");
+    Serial.print(F("P1 Out:"));
     Serial.println(tP1Out);
-    Serial.print("P2 In:");
+    Serial.print(F("P2 In:"));
     Serial.println(tP2In);
-    Serial.print("P2 Out:");
+    Serial.print(F("P2 Out:"));
     Serial.println(tP2Out);
-    Serial.print("Room:");
+    Serial.print(F("Room:"));
     Serial.println(tRoom);
-    Serial.print("Bojler:");
+    Serial.print(F("Bojler:"));
     Serial.println(tBojler);
-    Serial.print("Bojler In:");
+    Serial.print(F("Bojler In:"));
     Serial.println(tBojlerIn);
-    Serial.print("Bojler Out:");
+    Serial.print(F("Bojler Out:"));
     Serial.println(tBojlerOut);
-    Serial.print("Control:");
+    Serial.print(F("Control:"));
     Serial.println(tControl);
 */
     
@@ -451,7 +452,7 @@ void calcPowerAndEnergy() {
         msDiff=msDiff%1000;
       }
       power = getPower(); //in W
-      //Serial.println(power);
+      //Serial.println(F(power);
       if (power > maxPower) {
         maxPower = power;
       }
@@ -474,8 +475,8 @@ void calcPowerAndEnergy() {
 void keypadEvent(KeypadEvent key){
   lcd.setCursor(0,1);
   lcd.print(key);
-  // Serial.println(key);
-  // Serial.println(keypad.getState());
+  // Serial.println(F(key);
+  // Serial.println(F(keypad.getState());
   switch (keypad.getState()){
     case PRESSED:
       switch (key){
@@ -509,7 +510,7 @@ void keyBoard() {
   char key = keypad.getKey();
   if (key!=NO_KEY){
     lcd.clear();
-    //Serial.println(key);
+    //Serial.println(F(key);
     /*
     Keyboard layout
     -----------
@@ -645,9 +646,9 @@ void keyBoard() {
       else if (key=='B') { //Save total energy to EEPROM
         saveConfig();
         lcd.setCursor(0,3);
-        lcd.print("Energy ");
+        lcd.print(F("Energy "));
         lcd.print(enegyWsTokWh(totalEnergy));
-        lcd.print(" kWh");
+        lcd.print(F(" kWh"));
       }
     }
     key = ' ';
@@ -667,14 +668,14 @@ void displayTemp(int x, int y, float value, bool des) {
   */
   lcd.setCursor(x,y);
   
-  //Serial.println(value);
+  //Serial.println(F(value);
   
   if (value<10.f && value>=0.f) {
-    //Serial.print("_");
-    lcd.print(" ");
+    //Serial.print(F("_"));
+    lcd.print(F(" "));
   } else if (value<0.f) {
-    lcd.print("-");
-    //Serial.print("-");
+    lcd.print(F("-"));
+    //Serial.print("-"));
   }
   
   int desetina=abs((int)(value*10)%10);
@@ -685,13 +686,13 @@ void displayTemp(int x, int y, float value, bool des) {
   
   lcd.print(abs((int)value));
   if (des) {
-    lcd.print(".");
+    lcd.print(F("."));
     lcd.print(desetina);
   }
-  lcd.print(" ");
+  lcd.print(F(" "));
   
   /*if (cela>-10) {
-    lcd.print(" ");
+    lcd.print(F(" ");
   }*/
 }
 
@@ -706,10 +707,10 @@ void calcFlow() {
     lMinCumul += lMin;
     numberOfCyclesFlow++;
 #ifdef serial
-    Serial.print("Pulsu: ");
+    Serial.print(F("Pulsu: "));
     Serial.println(numberOfPulsesFlow);
     Serial.print(lMin, DEC); // Print litres/min
-    Serial.println(" L/min");
+    Serial.println(F(" L/min"));
 #endif
     numberOfPulsesFlow = 0; // Reset Counter
   }
@@ -724,12 +725,12 @@ void dsInit(void) {
   lcd.print(numberOfDevices);
   
   if (numberOfDevices==1)
-    lcd.print(" sensor found");
+    lcd.print(F(" sensor found"));
   else
-    lcd.print(" sensors found");
+    lcd.print(F(" sensors found"));
   
 #ifdef serial
-  Serial.print("Sensor(s):");
+  Serial.print(F("Sensor(s):"));
   Serial.println(numberOfDevices);
 #endif
 
@@ -751,22 +752,22 @@ void dsInit(void) {
 void displayRelayStatus(void) {
   lcd.setCursor(RELAY1X,RELAY1Y);
   if (manualON) {
-    lcd.print("M");
+    lcd.print(F("M"));
   } else {
     if (relay1==LOW)
-      lcd.print("T");
+      lcd.print(F("T"));
     else
-      lcd.print("N");
+      lcd.print(F("N"));
   }
   if (manualON) {
-    //Serial.println("Manual");
+    //Serial.println(F("Manual"));
   } else {
   }
 /*  lcd.setCursor(RELAY2X,RELAY2Y);
   if (relay2==LOW)
-    lcd.print("T");
+    lcd.print(F("T"));
   else
-    lcd.print("N");
+    lcd.print(F("N"));
 */
 }
 
@@ -789,7 +790,7 @@ void lcdShow() {
   if (millis() > SHOW_INFO_DELAY + showInfo) {
     showInfo = millis();
     lcd.setCursor(0,3);
-    lcd.print("                    ");
+    lcd.print(F("                    "));
   }
   
   if (display==DISPLAY_MAIN) {
@@ -802,9 +803,9 @@ void lcdShow() {
     displayTemp(TEMP7X,TEMP7Y, tBojlerOut, false);
     if ((millis()-lastOff)>=DAY_INTERVAL) {
       lcd.setCursor(0,1);
-      lcd.print("Bez slunce ");
+      lcd.print(F("Bez slunce "));
       lcd.print((millis() - lastOff)/1000/3600);
-      lcd.print(" h");
+      lcd.print(F(" h"));
     } else {
       //zobrazeni okamziteho vykonu ve W
       //zobrazeni celkoveho vykonu za den v kWh
@@ -813,140 +814,140 @@ void lcdShow() {
       // 636 0.1234 720T
       unsigned int p=(int)power;
       lcd.setCursor(POWERX,POWERY);
-      if (p<10000) lcd.print(" ");
-      if (p<1000) lcd.print(" ");
-      if (p<100) lcd.print(" ");
-      if (p<10) lcd.print(" ");
+      if (p<10000) PRINT_SPACE
+      if (p<1000) PRINT_SPACE
+      if (p<100) PRINT_SPACE
+      if (p<10) PRINT_SPACE
       if (power<=65534) {
         lcd.print(p);
-        lcd.print("W");
+        lcd.print(F("W"));
       }
       
       lcd.setCursor(ENERGYX,ENERGYY);
       lcd.print(enegyWsTokWh(energyADay)); //Ws -> kWh (show it in kWh)
-      lcd.print("kWh");
+      lcd.print(F("kWh"));
       
       lcd.setCursor(TIMEX,TIMEY);
       p=(int)(msDayON/1000/60);
-      if (p<100) lcd.print(" ");
-      if (p<10) lcd.print(" ");
+      if (p<100) PRINT_SPACE
+      if (p<10) PRINT_SPACE
       if (p<=999) {
         lcd.print(p); //ms->min (show it in minutes)
-        lcd.print("m");
+        lcd.print(F("m"));
       }
       lcd.setCursor(FLOWX,FLOWY);
       lcd.print(lMin);
-      lcd.print("l/m");
+      lcd.print(F("l/m"));
    }
     displayRelayStatus();
   } else if (display==DISPLAY_TOTAL_ENERGY) {
     lcd.setCursor(0,0);
-    lcd.print("Total energy");
+    lcd.print(F("Total energy"));
     lcd.setCursor(0,1);
     lcd.print(enegyWsTokWh(totalEnergy));
-    lcd.print(" kWh     ");
+    lcd.print(F(" kWh     "));
   } else if (display==DISPLAY_T_DIFF_ON) {
     lcd.setCursor(0,0);
-    lcd.print("TDiffON");
+    lcd.print(F("TDiffON"));
     lcd.setCursor(0,1);
     lcd.print(storage.tDiffON);
-    lcd.print("     ");
+    lcd.print(F("     "));
   } else if (display==DISPLAY_T_DIFF_OFF) { 
     lcd.setCursor(0,0);
-    lcd.print("TDiffOFF");
+    lcd.print(F("TDiffOFF"));
     lcd.setCursor(0,1);
     lcd.print(storage.tDiffOFF);
-    lcd.print("     ");
+    lcd.print(F("     "));
   } else if (display==DISPLAY_FLOW) {
     lcd.setCursor(0,0);
-    lcd.print("Flow");
+    lcd.print(F("Flow"));
     lcd.setCursor(0,1);
     lcd.print(lMin);
-    lcd.print(" l/min    ");
+    lcd.print(F(" l/min    "));
   } else if (display==DISPLAY_MAX_IO_TEMP) {
     lcd.setCursor(0,0);
-    lcd.print("Max IN:");
+    lcd.print(F("Max IN:"));
     lcd.print(tMaxIn);
-    lcd.print("     ");
+    lcd.print(F("     "));
     lcd.setCursor(0,1);
-    lcd.print("Max OUT:");
+    lcd.print(F("Max OUT:"));
     lcd.print(tMaxOut);
-    lcd.print("     ");
+    lcd.print(F("     "));
   } else if (display==DISPLAY_MAX_BOJLER) {
     lcd.setCursor(0,0);
-    lcd.print("Max bojler");
+    lcd.print(F("Max bojler"));
     lcd.setCursor(0,1);
     lcd.print(tMaxBojler);
-    lcd.print("     ");
+    lcd.print(F("     "));
   } else if (display==DISPLAY_MAX_POWER_TODAY) { 
     lcd.setCursor(0,0);
-    lcd.print("Max power today");
+    lcd.print(F("Max power today"));
     lcd.setCursor(0,1);
     lcd.print(maxPower);
-    lcd.print(" W     ");
+    lcd.print(F(" W     "));
   } else if (display==DISPLAY_CONTROL_SENSOR) {
     lcd.setCursor(0,0);
-    lcd.print("Control sensor");
+    lcd.print(F("Control sensor"));
     lcd.setCursor(0,1);
     if (controlSensor==3) {
-      lcd.print("Room");
+      lcd.print(F("Room"));
     } else if (controlSensor==0) {
-      lcd.print("Bojler");
+      lcd.print(F("Bojler"));
     } else {
-      lcd.print("Unknown");
+      lcd.print(F("Unknown"));
     }
-    lcd.print(" [");
+    lcd.print(F(" ["));
     lcd.print(sensor[controlSensor]);
-    lcd.print("]   ");
+    lcd.print(F("]   "));
   } else if (display==DISPLAY_TOTAL_TIME) { 
     lcd.setCursor(0,0);
-    lcd.print("Total time");
+    lcd.print(F("Total time"));
     lcd.setCursor(0,1);
     lcd.print(totalSec/60/60);
-    lcd.print(" hours   ");
+    lcd.print(F(" hours   "));
 
   } else if (display==DISPLAY_T_DIFF_ON_SETUP) {
-    lcd.print("tDiffON");
+    lcd.print(F("tDiffON"));
     lcd.setCursor(0,1);
     lcd.print(storage.tDiffON);
   } else if (display==DISPLAY_T_DIFF_OFF_SETUP) {
-    lcd.print("tDiffOFF");
+    lcd.print(F("tDiffOFF"));
     lcd.setCursor(0,1);
     lcd.print(storage.tDiffOFF);
   } else if (display==DISPLAY_P1IN_SETUP) {
-    lcd.print("Panel1 IN");
+    lcd.print(F("Panel1 IN"));
     lcd.setCursor(0,1);
     lcd.print(tP1In);
   } else if (display==DISPLAY_P1OUT_SETUP) {
-    lcd.print("Panel1 OUT");
+    lcd.print(F("Panel1 OUT"));
     lcd.setCursor(0,1);
     lcd.print(tP1Out);
   } else if (display==DISPLAY_P2IN_SETUP) {
-    lcd.print("Panel2 IN");
+    lcd.print(F("Panel2 IN"));
     lcd.setCursor(0,1);
     lcd.print(tP2In);
   } else if (display==DISPLAY_P2OUT_SETUP) {
-    lcd.print("Panel2 OUT");
+    lcd.print(F("Panel2 OUT"));
     lcd.setCursor(0,1);
     lcd.print(tP2Out);
   } else if (display==DISPLAY_BOJLERIN_SETUP) {
-    lcd.print("Bojler IN");
+    lcd.print(F("Bojler IN"));
     lcd.setCursor(0,1);
     lcd.print(tBojlerIn);
   } else if (display==DISPLAY_BOJLEROUT_SETUP) {
-    lcd.print("Bojler OUT");
+    lcd.print(F("Bojler OUT"));
     lcd.setCursor(0,1);
     lcd.print(tBojlerOut);
   } else if (display==DISPLAY_BOJLER_SETUP) {
-    lcd.print("Bojler");
+    lcd.print(F("Bojler"));
     lcd.setCursor(0,1);
     lcd.print(tBojler);
   } else if (display==DISPLAY_ROOM_SETUP) {
-    lcd.print("Room");
+    lcd.print(F("Room"));
     lcd.setCursor(0,1);
     lcd.print(tRoom);
   } else if (display==DISPLAY_CONTROL_SENSOR_SETUP) {
-    lcd.print("Control sensor");
+    lcd.print(F("Control sensor"));
     lcd.setCursor(0,1);
     lcd.print(tControl);
   }
@@ -986,7 +987,7 @@ void sendDataSerial() {
 
   if (firstMeasComplete==false) return;
 #ifdef serial
-  Serial.print("DATA:");
+  Serial.print(F("DATA:"));
 #endif
   digitalWrite(LEDPIN,HIGH);
   crc = ~0L;
@@ -1142,13 +1143,11 @@ void send(float s) {
 
 void loadConfig() {
 #ifdef serial
-  Serial.println("Load config from EEPROM");
+  Serial.println(F("Load config from EEPROM"));
 #endif
   // To make sure there are settings, and they are YOURS!
   // If nothing is found it will use the default settings.
-  if (EEPROM.read(CONFIG_START + 0) == CONFIG_VERSION[0] &&
-      EEPROM.read(CONFIG_START + 1) == CONFIG_VERSION[1] &&
-      EEPROM.read(CONFIG_START + 2) == CONFIG_VERSION[2]) {
+  if (!isConfigVersionChanged()) {
     for (unsigned int t=0; t<sizeof(storage); t++) {
       *((char*)&storage + t) = EEPROM.read(CONFIG_START + t);
 #ifdef serial
@@ -1164,29 +1163,27 @@ void saveConfig() {
   }
   lastWriteEEPROM = millis();
   lcd.setCursor(0,3);
-  lcd.print("Setup saved");
+  lcd.print(F("Setup saved"));
   showInfo = millis();
 }
 
 void testConfigChange() {
 #ifdef serial      
-  Serial.print("Test config change - ");
+  Serial.print(F("Test config change - "));
 #endif
-  if (EEPROM.read(CONFIG_START + 0) == CONFIG_VERSION[0] &&
-    EEPROM.read(CONFIG_START + 1) == CONFIG_VERSION[1] &&
-    EEPROM.read(CONFIG_START + 2) == CONFIG_VERSION[2]) {
+  if (!isConfigVersionChanged()) {
 #ifdef serial      
-      Serial.println("NO change.");
+      Serial.println(F("NO change."));
 #endif
   } else {
 #ifdef serial      
-    Serial.println("change.");
+    Serial.println(F("change."));
 #endif
     if (EEPROM.read(CONFIG_START + 0) == 'v' &&
     EEPROM.read(CONFIG_START + 1) == '0' &&
     EEPROM.read(CONFIG_START + 2) == '1') {
 #ifdef serial      
-      Serial.println("Zmena konfigurace na verzi v02");
+      Serial.println(F("Zmena konfigurace na verzi v02"));
 #endif
       storage.sensorOrder[0] = 7;
       storage.sensorOrder[1] = 4;
@@ -1204,9 +1201,18 @@ void testConfigChange() {
   }
 }
 
+bool isConfigVersionChanged() {
+  if (EEPROM.read(CONFIG_START + 0) == CONFIG_VERSION[0] &&
+    EEPROM.read(CONFIG_START + 1) == CONFIG_VERSION[1] &&
+    EEPROM.read(CONFIG_START + 2) == CONFIG_VERSION[2])
+    return false;
+  else
+    return true;
+}
+
 #ifdef serial      
 void printConfigVersion() {
-  Serial.print("Config version:");
+  Serial.print(F("Config version:"));
   Serial.write(EEPROM.read(CONFIG_START + 0));
   Serial.write(EEPROM.read(CONFIG_START + 1));
   Serial.write(EEPROM.read(CONFIG_START + 2));
