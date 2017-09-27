@@ -260,6 +260,11 @@ void setup() {
   if (MyRstFlags==8) status = STATUS_STARTAFTER_WATCHDOGOREXTERNAL;
   else status = STATUS_AFTER_START;
 
+#ifdef serial
+  Serial.print(F("Status:"));
+  Serial.println(status);
+#endif
+  
   if (storage.backLight==true) {
     lcd.backlight();
   }
