@@ -2,8 +2,12 @@
 #define CONFIGURATION_H
 
 //SW name & version
-#define     VERSION                      "1.32"
+#define     VERSION                      "1.33"
 #define     SW_NAME                      "Solar"
+
+//EEPROM config
+#define CONFIG_START 0
+#define CONFIG_VERSION "v02"
 
 /*
 Version history:
@@ -120,9 +124,9 @@ D13             - free
 #define TEMP4Y                               0
 #define TEMP5X                              12  //Control
 #define TEMP5Y                               0
-#define TEMP6X                              12  //Bojler in
+#define TEMP6X                               9  //Bojler in
 #define TEMP6Y                               2
-#define TEMP7X                              16  //Bojler out
+#define TEMP7X                              12  //Bojler out
 #define TEMP7Y                               2
 #define POWERX                               0
 #define POWERY                               1
@@ -132,6 +136,10 @@ D13             - free
 #define TIMEY                                1
 #define FLOWX                                1
 #define FLOWY                                2
+#define STATUSX                              19
+#define STATUSY                              2
+#define MINRUNX                              14
+#define MINRUNY                              3
 
 #define DISPLAY_MAIN                         0
 #define DISPLAY_TOTAL_ENERGY                 1
@@ -166,11 +174,6 @@ D13             - free
 
 //keypad i2c address
 #define I2CADDR                             0x20
-
-//EEPROM config
-#define CONFIG_START 0
-#define CONFIG_VERSION "v02"
-
 
 #define DS_MEASSURE_INTERVAL                750 //inteval between meassurements
 #define DELAY_AFTER_ON                      120000 //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel

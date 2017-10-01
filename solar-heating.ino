@@ -68,6 +68,8 @@ unsigned int pulseCount                   = 0; //
 //unsigned long lastPulse                   = 0;
 //unsigned int cycles                       = 0;
 unsigned long lastSend                    = 0;  //ms posledniho poslani dat
+unsigned long lastRunMin                  = 0;
+unsigned long milisLastRunMinOld          = 0;
 
 //MODE
 //byte modeSolar                            = 0;
@@ -187,7 +189,11 @@ struct StoreStruct {
 void setup() {
 #ifdef serial
   Serial.begin(SERIAL_SPEED);
+  Serial.print(F(SW_NAME));
+  Serial.print(F(" "));
+  Serial.println(F(VERSION));
 #endif
+
 
 #ifdef watchdog
   wdt_enable(WDTO_8S);
@@ -198,9 +204,6 @@ void setup() {
   loadConfig();
  
 #ifdef serial
-  Serial.print(F(SW_NAME));
-  Serial.print(F(" "));
-  Serial.println(F(VERSION));
   Serial.print(F("tON:"));  
   Serial.println(storage.tDiffON);
   Serial.print(F("tOFF:"));  
@@ -299,6 +302,12 @@ void loop() {
     }
   }
   keyBoard();
+  
+  if (millis() - milisLastRunMinOld > 60000) {
+    milisLastRunMinOld = millis();
+    lastRunMin += 1;
+  }
+    
 } //loop
 
 
@@ -630,6 +639,7 @@ void keyBoard() {
         }
       }
       if (key=='C') {
+        saveConfig();
         asm volatile ("  jmp 0");  
       }
       else if (key=='A') {
@@ -676,7 +686,7 @@ void keyBoard() {
         saveConfig();
         lcd.setCursor(0,3);
         lcd.print(F("Energy "));
-        lcd.print(enegyWsTokWh(totalEnergy));
+        lcd.print(enegyWsTokWh(storage.totalEnergy));
         lcd.print(F(" kWh"));
       }
     }
@@ -819,7 +829,7 @@ void lcdShow() {
   if (millis() > SHOW_INFO_DELAY + showInfo) {
     showInfo = millis();
     lcd.setCursor(0,3);
-    for (byte i=0;i<18;i++) {
+    for (byte i=0;i<14;i++) {
       PRINT_SPACE;
     }
   }
@@ -873,6 +883,13 @@ void lcdShow() {
     displayRelayStatus();
     lcd.setCursor(STATUSX, STATUSY);
     lcd.print(status);
+    lcd.setCursor(MINRUNX, MINRUNY);
+    if (lastRunMin<100000) PRINT_SPACE
+    if (lastRunMin<10000) PRINT_SPACE
+    if (lastRunMin<1000) PRINT_SPACE
+    if (lastRunMin<100) PRINT_SPACE
+    if (lastRunMin<10) PRINT_SPACE
+    lcd.print(lastRunMin);
   } else if (display==DISPLAY_TOTAL_ENERGY) {
     lcd.setCursor(0,0);
     lcd.print(F("Total energy"));
