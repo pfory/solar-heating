@@ -11,6 +11,7 @@
 
 /*
 Version history:
+1.4  - 20.10.2017 doplneny hodiny RTC a zobrazeni uhlu kolektoru na displeji
 1.31 - change display to 4x20
 1.1  - 13.9.2017  pridany cidla teploty bojler vstup/vystup
 1.01 - 28.8.2017  pridani cidla prutoku
