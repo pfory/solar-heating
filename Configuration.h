@@ -97,8 +97,6 @@ D13             - free
 //#define dallasMinimal           //-956 Bytes
 #ifndef NUMBER_OF_DEVICES
 #define NUMBER_OF_DEVICES 10
-#endif
-
 
 #define STATUS_NORMAL0                        0
 #define STATUS_NORMAL1                        1
@@ -188,3 +186,4 @@ D13             - free
 #define SHOW_INFO_DELAY                     5000  //prodleva mezi poslanim dat v ms
 
 #define T_MIN                               -128.0
+#endif
