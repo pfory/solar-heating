@@ -174,6 +174,8 @@ D13             - free
 
 //keypad i2c address
 #define I2CADDR                             0x20
+#define PRINT_SPACE           lcd.print(F(" "));
+
 
 #define DS_MEASSURE_INTERVAL                750 //inteval between meassurements
 #define DELAY_AFTER_ON                      120000 //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel

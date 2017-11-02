@@ -111,13 +111,9 @@ byte status                               = STATUS_NORMAL0;
 bool relay1                               = HIGH; 
 bool relay2                               = HIGH;
 
-
-// #define keypad
-// #ifdef keypad
 #include <Keypad_I2C.h>
 #include <Keypad.h>          // GDY120705
 #include <Wire.h>
-
 
 const byte ROWS = 4; //four rows
 const byte COLS = 4; //three columns
@@ -148,8 +144,6 @@ void flow () { // Interrupt function
    numberOfPulsesFlow++;
 }
 #endif
-
-#define PRINT_SPACE           lcd.print(F(" "));
 
 uint8_t MyRstFlags __attribute__ ((section(".noinit")));
 void SaveResetFlags(void) __attribute__ ((naked))
@@ -224,7 +218,7 @@ void setup() {
   lcd.home();                   
   lcd.print(SW_NAME);  
   PRINT_SPACE
-  lcd.print (VERSION);
+  lcd.print(VERSION);
   lcd.setCursor(0,1);
   lcd.print(F("tON:"));  
   lcd.print(storage.tDiffON);
@@ -520,11 +514,10 @@ void keypadEvent(KeypadEvent key){
 
 
 void keyBoard() {
-//#ifdef keypad
   char key = keypad.getKey();
   if (key!=NO_KEY){
     lcd.clear();
-    //Serial.println(F(key);
+    //Serial.println(key);
     /*
     Keyboard layout
     -----------
