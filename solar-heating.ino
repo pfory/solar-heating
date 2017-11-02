@@ -32,6 +32,29 @@ const unsigned int serialTimeout=2000;
 #include <LiquidCrystal_I2C.h>
 LiquidCrystal_I2C lcd(LCDADDRESS,LCDCOLS,LCDROWS);  // set the LCD
 
+#define DS1307
+#ifdef DS1307
+#include <DS1307RTC.h>
+#include <Time.h>
+#include <TimeLib.h>
+#define time
+#endif
+
+
+#ifdef time
+#include <Time.h>
+//#include <Streaming.h>        
+#include <Time.h>             
+bool            parse                      = false;
+bool            config                     = false;
+tmElements_t    tm;
+bool            isTime                     = true;
+bool            zobrazNastavovaciHlasku    = false;
+int             uhelKolektoru              = 0;
+//uhly pro 49 viz http://www.reneslacal.eu/photogallery/software/VyskaSlunceWEB.xls
+const byte uhelMesic[12]                   = {18,23,33,45,56,63,64,59,49,37,26,19};
+#endif
+
 #include <OneWire.h>
 OneWire onewire(ONE_WIRE_BUS);  // pin for onewire DALLAS bus
 #ifdef dallasMinimal
@@ -195,6 +218,46 @@ void setup() {
   printConfigVersion();
   testConfigChange();
 
+  #ifdef DS1307
+  if (RTC.read(tm)) {
+    Serial.print(F("RTC OK, Time = "));
+    print2digits(tm.Hour);
+    Serial.write(':');
+    print2digits(tm.Minute);
+    Serial.write(':');
+    print2digits(tm.Second);
+    Serial.print(F(", Date (D/M/Y) = "));
+    Serial.print(tm.Day);
+    Serial.write('/');
+    Serial.print(tm.Month);
+    Serial.write('/');
+    //Serial.print(tmYearToCalendar(tm.Year));
+    Serial.print(tm.Year);
+    Serial.println();
+  } else {
+    if (RTC.chipPresent()) {
+      Serial.println(F("The DS1307 is stopped.  Please run the SetTime"));
+      Serial.println(F("example to initialize the time and begin running."));
+      Serial.println();
+    } else {
+      Serial.println(F("DS1307 read error!  Please check the circuitry."));
+      Serial.println();
+    }
+  }
+#endif
+
+#ifdef time
+  // Setup time library  
+  Serial.print(F("RTC Sync"));
+  setSyncProvider(RTC.get);          // the function to get the time from the RTC
+  if(timeStatus() == timeSet) {
+    Serial.println(F(" OK!"));
+  } else {
+    Serial.println(F(" FAIL!"));
+  }
+#endif
+
+  
   loadConfig();
  
 #ifdef serial
@@ -688,6 +751,9 @@ void keyBoard() {
 }
 
 void displayTemp(int x, int y, float value, bool des) {
+#ifdef time
+  displayTime();
+#endif
   /*
   012345
   -25.3
@@ -728,6 +794,36 @@ void displayTemp(int x, int y, float value, bool des) {
   }*/
 }
 
+#ifdef time
+//display time on LCD
+void lcd2digits(int number) {
+  if (number >= 0 && number < 10) {
+    lcd.write('0');
+  }
+  lcd.print(number);
+}
+
+void print2digits(int number) {
+  if (number >= 0 && number < 10) {
+    Serial.write('0');
+  }
+  Serial.print(number);
+}
+
+void displayTime() {
+  lcd.setCursor(12, 0); //col,row
+  if (RTC.read(tm)) {
+    lcd2digits(tm.Hour);
+    lcd.write(':');
+    lcd2digits(tm.Minute);
+    lcd.write(':');
+    lcd2digits(tm.Second);
+  } else {
+    lcd.write('        ');
+  }
+  //zobrazeni hlasky o zmene uhlu kolektoru
+}
+#endif
 
 #ifdef flowSensor
 void calcFlow() {
@@ -1260,5 +1356,18 @@ void printConfigVersion() {
   Serial.write(EEPROM.read(CONFIG_START + 1));
   Serial.write(EEPROM.read(CONFIG_START + 2));
   Serial.println();
+}
+#endif
+
+#ifdef time
+int getAngle() {
+  if (RTC.read(tm)) {
+    if (!zobrazNastavovaciHlasku) {
+      if (tm.Day==1) {
+        zobrazNastavovaciHlasku = true;
+        uhelKolektoru = uhelMesic[tm.Month - 1];
+      }
+    }
+  }
 }
 #endif
