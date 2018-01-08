@@ -2,6 +2,7 @@
 #include <WiFiClient.h>
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
+#include <WiFiManager.h> 
 
 const char *ssid = "Datlovo";
 const char *password = "Nu6kMABmseYwbCoJ7LyG";
@@ -12,6 +13,7 @@ const char *password = "Nu6kMABmseYwbCoJ7LyG";
 #define AIO_KEY         "hanka12"
 
 WiFiClient client;
+WiFiManager wifiManager;
 
 byte heartBeat                    = 12;
 String received                   = "";
@@ -46,7 +48,15 @@ void setup() {
   Serial.print(versionSWString);
   Serial.print(versionSW);
   
-  WiFi.begin(ssid, password);
+  //WiFi.begin(ssid, password);
+  //wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
+  //WiFi.begin(ssid, password);
+  if (!wifiManager.autoConnect("AutoConnectAP", "password")) {
+    Serial.println("failed to connect, we should reset as see if it connects");
+    delay(3000);
+    ESP.reset();
+    delay(5000);
+  }
 
 	// Wait for connection
 	while (WiFi.status() != WL_CONNECTED) {
