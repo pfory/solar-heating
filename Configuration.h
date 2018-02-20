@@ -2,7 +2,7 @@
 #define CONFIGURATION_H
 
 //SW name & version
-#define     VERSION                      "1.33"
+#define     VERSION                      "1.34"
 #define     SW_NAME                      "Solar"
 
 //EEPROM config
@@ -72,7 +72,7 @@ D13             - free
 --------------------------------------------------------------------------------------------------------------------------
 */
 
-#define SERIAL_SPEED    57600
+#define SERIAL_SPEED    115200
 #define mySERIAL_SPEED  9600
 
 #define START_BLOCK       '#'
@@ -121,12 +121,14 @@ D13             - free
 #define TEMP3Y                               0
 #define TEMP4X                               9  //P2 Out
 #define TEMP4Y                               0
-#define TEMP5X                              12  //Control
+#define TEMP5X                              13  //Control
 #define TEMP5Y                               0
 #define TEMP6X                               9  //Bojler in
 #define TEMP6Y                               2
 #define TEMP7X                              12  //Bojler out
 #define TEMP7Y                               2
+#define TEMP8X                              15  //Bojler
+#define TEMP8Y                               2
 #define POWERX                               0
 #define POWERY                               1
 #define ENERGYX                              8

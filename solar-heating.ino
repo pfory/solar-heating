@@ -115,7 +115,7 @@ float tMaxIn                              = 0; //maximal input temperature (just
 float tMaxOut                             = 0; //maximal output temperature (just for statistics)
 float tMaxBojler                          = 0; //maximal boiler temperature (just for statistics)
 
-byte controlSensor                        = 0; //control sensor index
+//byte controlSensor                        = 0; //control sensor index
 
 //int powerOff                            = 200;     //minimalni vykon, pokud je vykon nizssi, rele vzdy vypne
 
@@ -473,7 +473,7 @@ void tempMeas() {
     tBojlerOut  = sensor[storage.sensorOrder[5]];
     tRoom       = sensor[storage.sensorOrder[6]];
     tBojler     = sensor[storage.sensorOrder[7]];
-    tControl    = sensor[controlSensor];
+    tControl    = sensor[storage.controlSensor];
 
     /*
     Serial.print(F("P1 In:"));
@@ -657,6 +657,11 @@ void keyBoard() {
         } else if (display==DISPLAY_BOJLER_SETUP) {
         } else if (display==DISPLAY_ROOM_SETUP) {
         } else if (display==DISPLAY_CONTROL_SENSOR_SETUP) {
+          if (storage.controlSensor>numberOfDevices) {
+            storage.controlSensor=0;
+          } else {
+            storage.controlSensor++;
+          }
         }
       }
       if (key=='C') {
@@ -678,6 +683,11 @@ void keyBoard() {
         } else if (display==DISPLAY_BOJLER_SETUP) {
         } else if (display==DISPLAY_ROOM_SETUP) {
         } else if (display==DISPLAY_CONTROL_SENSOR_SETUP) {
+          if (storage.controlSensor==0) {
+            storage.controlSensor=numberOfDevices;
+          } else {
+            storage.controlSensor--;
+          }
         }
       }
     //INFO MODE
@@ -769,6 +779,9 @@ void displayTemp(int x, int y, float value, bool des) {
   //Serial.println(F(value);
   
   if (value<10.f && value>=0.f) {
+    //Serial.print(F("_"));
+    lcd.print(F(" "));
+  } else if (value<0.f && value>-1.f) {
     //Serial.print(F("_"));
     lcd.print(F(" "));
   } else if (value<0.f) {
@@ -931,6 +944,7 @@ void lcdShow() {
     displayTemp(TEMP5X,TEMP5Y, tControl, true);
     displayTemp(TEMP6X,TEMP6Y, tBojlerIn, false);
     displayTemp(TEMP7X,TEMP7Y, tBojlerOut, false);
+    displayTemp(TEMP8X,TEMP8Y, tBojler, false);
     if ((millis()-lastOff)>=DAY_INTERVAL) {
       lcd.setCursor(0,1);
       lcd.print(F("Bez slunce "));
@@ -1028,15 +1042,15 @@ void lcdShow() {
     lcd.setCursor(0,0);
     lcd.print(F("Control sensor"));
     lcd.setCursor(0,1);
-    if (controlSensor==3) {
-      lcd.print(F("Room"));
-    } else if (controlSensor==0) {
-      lcd.print(F("Bojler"));
-    } else {
-      lcd.print(F("Unknown"));
-    }
+    // if (storage.controlSensor==3) {
+      // lcd.print(F("Room"));
+    // } else if (storage.controlSensor==0) {
+      // lcd.print(F("Bojler"));
+    // } else {
+      // lcd.print(F("Unknown"));
+    // }
     lcd.print(F(" ["));
-    lcd.print(sensor[controlSensor]);
+    lcd.print(sensor[storage.controlSensor]);
     lcd.print(F("]   "));
   } else if (display==DISPLAY_TOTAL_TIME) { 
     lcd.setCursor(0,0);
@@ -1046,47 +1060,80 @@ void lcdShow() {
     lcd.print(F(" hours   "));
 
   } else if (display==DISPLAY_T_DIFF_ON_SETUP) {
+    lcd.setCursor(0,0);
     lcd.print(F("tDiffON"));
+    lcd.setCursor(0,1);
+    lcd.print("         ");
     lcd.setCursor(0,1);
     lcd.print(storage.tDiffON);
   } else if (display==DISPLAY_T_DIFF_OFF_SETUP) {
+    lcd.setCursor(0,0);
     lcd.print(F("tDiffOFF"));
+    lcd.setCursor(0,1);
+    lcd.print("         ");
     lcd.setCursor(0,1);
     lcd.print(storage.tDiffOFF);
   } else if (display==DISPLAY_P1IN_SETUP) {
+    lcd.setCursor(0,0);
     lcd.print(F("Panel1 IN"));
+    lcd.setCursor(0,1);
+    lcd.print("         ");
     lcd.setCursor(0,1);
     lcd.print(tP1In);
   } else if (display==DISPLAY_P1OUT_SETUP) {
+    lcd.setCursor(0,0);
     lcd.print(F("Panel1 OUT"));
+    lcd.setCursor(0,1);
+    lcd.print("         ");
     lcd.setCursor(0,1);
     lcd.print(tP1Out);
   } else if (display==DISPLAY_P2IN_SETUP) {
+    lcd.setCursor(0,0);
     lcd.print(F("Panel2 IN"));
+    lcd.setCursor(0,1);
+    lcd.print("         ");
     lcd.setCursor(0,1);
     lcd.print(tP2In);
   } else if (display==DISPLAY_P2OUT_SETUP) {
+    lcd.setCursor(0,0);
     lcd.print(F("Panel2 OUT"));
+    lcd.setCursor(0,1);
+    lcd.print("         ");
     lcd.setCursor(0,1);
     lcd.print(tP2Out);
   } else if (display==DISPLAY_BOJLERIN_SETUP) {
+    lcd.setCursor(0,0);
     lcd.print(F("Bojler IN"));
+    lcd.setCursor(0,1);
+    lcd.print("         ");
     lcd.setCursor(0,1);
     lcd.print(tBojlerIn);
   } else if (display==DISPLAY_BOJLEROUT_SETUP) {
+    lcd.setCursor(0,0);
     lcd.print(F("Bojler OUT"));
+    lcd.setCursor(0,1);
+    lcd.print("         ");
     lcd.setCursor(0,1);
     lcd.print(tBojlerOut);
   } else if (display==DISPLAY_BOJLER_SETUP) {
+    lcd.setCursor(0,0);
     lcd.print(F("Bojler"));
+    lcd.setCursor(0,1);
+    lcd.print("         ");
     lcd.setCursor(0,1);
     lcd.print(tBojler);
   } else if (display==DISPLAY_ROOM_SETUP) {
+    lcd.setCursor(0,0);
     lcd.print(F("Room"));
+    lcd.setCursor(0,1);
+    lcd.print("         ");
     lcd.setCursor(0,1);
     lcd.print(tRoom);
   } else if (display==DISPLAY_CONTROL_SENSOR_SETUP) {
+    lcd.setCursor(0,0);
     lcd.print(F("Control sensor"));
+    lcd.setCursor(0,1);
+    lcd.print("         ");
     lcd.setCursor(0,1);
     lcd.print(tControl);
   }
