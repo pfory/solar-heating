@@ -9,6 +9,26 @@
 #define CONFIG_START 0
 #define CONFIG_VERSION "v02"
 
+
+#define verbose
+#ifdef verbose
+ #define DEBUG_PRINT(x)         Serial.print (x)
+ #define DEBUG_PRINTDEC(x)      Serial.print (x, DEC)
+ #define DEBUG_PRINTLN(x)       Serial.println (x)
+ #define DEBUG_PRINTF(x, y)     Serial.printf (x, y)
+ #define PORTSPEED 115200
+ #define DEBUG_WRITE(x)         Serial.write (x)
+ #define DEBUG_PRINTHEX(x)      Serial.print (x, HEX)
+
+#else
+ #define DEBUG_PRINT(x)
+ #define DEBUG_PRINTDEC(x)
+ #define DEBUG_PRINTLN(x)
+ #define DEBUG_PRINTF(x, y)
+ #define DEBUG_WRITE(x)
+#endif 
+
+
 /*
 Version history:
 1.4  - 20.10.2017 doplneny hodiny RTC a zobrazeni uhlu kolektoru na displeji

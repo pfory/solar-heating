@@ -206,9 +206,9 @@ struct StoreStruct {
 void setup() {
 #ifdef serial
   Serial.begin(SERIAL_SPEED);
-  Serial.print(F(SW_NAME));
-  Serial.print(F(" "));
-  Serial.println(F(VERSION));
+  DEBUG_PRINT(F(SW_NAME));
+  DEBUG_PRINT(F(" "));
+  DEBUG_PRINTLN(F(VERSION));
 #endif
 
 
@@ -220,40 +220,40 @@ void setup() {
 
   #ifdef DS1307
   if (RTC.read(tm)) {
-    Serial.print(F("RTC OK, Time = "));
+    DEBUG_PRINT(F("RTC OK, Time = "));
     print2digits(tm.Hour);
-    Serial.write(':');
+    DEBUG_WRITE(':');
     print2digits(tm.Minute);
-    Serial.write(':');
+    DEBUG_WRITE(':');
     print2digits(tm.Second);
-    Serial.print(F(", Date (D/M/Y) = "));
-    Serial.print(tm.Day);
-    Serial.write('/');
-    Serial.print(tm.Month);
-    Serial.write('/');
-    //Serial.print(tmYearToCalendar(tm.Year));
-    Serial.print(tm.Year);
-    Serial.println();
+    DEBUG_PRINT(F(", Date (D/M/Y) = "));
+    DEBUG_PRINT(tm.Day);
+    DEBUG_WRITE('/');
+    DEBUG_PRINT(tm.Month);
+    DEBUG_WRITE('/');
+    //DEBUG_PRINT(tmYearToCalendar(tm.Year));
+    DEBUG_PRINT(tm.Year);
+    DEBUG_PRINTLN();
   } else {
     if (RTC.chipPresent()) {
-      Serial.println(F("The DS1307 is stopped.  Please run the SetTime"));
-      Serial.println(F("example to initialize the time and begin running."));
-      Serial.println();
+      DEBUG_PRINTLN(F("The DS1307 is stopped.  Please run the SetTime"));
+      DEBUG_PRINTLN(F("example to initialize the time and begin running."));
+      DEBUG_PRINTLN();
     } else {
-      Serial.println(F("DS1307 read error!  Please check the circuitry."));
-      Serial.println();
+      DEBUG_PRINTLN(F("DS1307 read error!  Please check the circuitry."));
+      DEBUG_PRINTLN();
     }
   }
 #endif
 
 #ifdef time
   // Setup time library  
-  Serial.print(F("RTC Sync"));
+  DEBUG_PRINT(F("RTC Sync"));
   setSyncProvider(RTC.get);          // the function to get the time from the RTC
   if(timeStatus() == timeSet) {
-    Serial.println(F(" OK!"));
+    DEBUG_PRINTLN(F(" OK!"));
   } else {
-    Serial.println(F(" FAIL!"));
+    DEBUG_PRINTLN(F(" FAIL!"));
   }
 #endif
 
@@ -261,20 +261,20 @@ void setup() {
   loadConfig();
  
 #ifdef serial
-  Serial.print(F("tON:"));  
-  Serial.println(storage.tDiffON);
-  Serial.print(F("tOFF:"));  
-  Serial.println(storage.tDiffOFF);
-  Serial.print(F("Control:"));  
-  Serial.println(storage.controlSensor);
-  Serial.print(F("TotalEnergy from EEPROM:"));
-  Serial.print(storage.totalEnergy);
-  Serial.println(F("Ws"));
-  Serial.print(F("TotalSec from EEPROM:"));
-  Serial.print(storage.totalSec);
-  Serial.println(F("s"));
-  Serial.print(F("backlight:"));
-  Serial.println(storage.backLight);
+  DEBUG_PRINT(F("tON:"));  
+  DEBUG_PRINTLN(storage.tDiffON);
+  DEBUG_PRINT(F("tOFF:"));  
+  DEBUG_PRINTLN(storage.tDiffOFF);
+  DEBUG_PRINT(F("Control:"));  
+  DEBUG_PRINTLN(storage.controlSensor);
+  DEBUG_PRINT(F("TotalEnergy from EEPROM:"));
+  DEBUG_PRINT(storage.totalEnergy);
+  DEBUG_PRINTLN(F("Ws"));
+  DEBUG_PRINT(F("TotalSec from EEPROM:"));
+  DEBUG_PRINT(storage.totalSec);
+  DEBUG_PRINTLN(F("s"));
+  DEBUG_PRINT(F("backlight:"));
+  DEBUG_PRINTLN(storage.backLight);
 #endif
 
   lcd.begin();               // initialize the lcd 
@@ -321,8 +321,8 @@ void setup() {
   else status = STATUS_AFTER_START;
 
 #ifdef serial
-  Serial.print(F("Status:"));
-  Serial.println(status);
+  DEBUG_PRINT(F("Status:"));
+  DEBUG_PRINTLN(status);
 #endif
   
   if (storage.backLight==true) {
@@ -373,9 +373,9 @@ void mainControl() {
   //safety function
   if ((tP1In >= SAFETY_ON) || (tP1Out >= SAFETY_ON) || (tP2In >= SAFETY_ON) || (tP2Out >= SAFETY_ON)) {
     relay1=LOW; //relay ON
-    //Serial.println(F("SAFETY CONTROL!!!!"));
+    //DEBUG_PRINTLN(F("SAFETY CONTROL!!!!"));
   } else if (manualON) {
-    //Serial.println(F("MANUAL CONTROL!!!!"));
+    //DEBUG_PRINTLN(F("MANUAL CONTROL!!!!"));
   } else {
     //pump is ON - relay ON = LOW
     if (relay1==LOW) { 
@@ -387,16 +387,16 @@ void mainControl() {
       //if (((tP2Out - tControl) < tDiffOFF && (tP2In < tP2Out) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
       if (((tP2Out - tControl) < storage.tDiffOFF) && (millis() - DELAY_AFTER_ON >= lastOffOn)) { //switch pump ON->OFF
 #ifdef serial
-        Serial.print(F("millis()="));
-        Serial.print(millis());
-        Serial.print(F(" delayAfterON="));
-        Serial.print(DELAY_AFTER_ON);
-        Serial.print(F(" lastOffOn="));
-        Serial.print(lastOffOn);
-        Serial.print(F(" tP2Out="));
-        Serial.print(tP2Out);
-        Serial.print(F("tControl="));
-        Serial.println(tControl);
+        DEBUG_PRINT(F("millis()="));
+        DEBUG_PRINT(millis());
+        DEBUG_PRINT(F(" delayAfterON="));
+        DEBUG_PRINT(DELAY_AFTER_ON);
+        DEBUG_PRINT(F(" lastOffOn="));
+        DEBUG_PRINT(lastOffOn);
+        DEBUG_PRINT(F(" tP2Out="));
+        DEBUG_PRINT(tP2Out);
+        DEBUG_PRINT(F("tControl="));
+        DEBUG_PRINTLN(tControl);
 #endif
         relay1=HIGH; //relay OFF = HIGH
         //digitalWrite(RELAY1PIN, relay1);
@@ -476,24 +476,24 @@ void tempMeas() {
     tControl    = sensor[storage.controlSensor];
 
     /*
-    Serial.print(F("P1 In:"));
-    Serial.println(tP1In);
-    Serial.print(F("P1 Out:"));
-    Serial.println(tP1Out);
-    Serial.print(F("P2 In:"));
-    Serial.println(tP2In);
-    Serial.print(F("P2 Out:"));
-    Serial.println(tP2Out);
-    Serial.print(F("Room:"));
-    Serial.println(tRoom);
-    Serial.print(F("Bojler:"));
-    Serial.println(tBojler);
-    Serial.print(F("Bojler In:"));
-    Serial.println(tBojlerIn);
-    Serial.print(F("Bojler Out:"));
-    Serial.println(tBojlerOut);
-    Serial.print(F("Control:"));
-    Serial.println(tControl);
+    DEBUG_PRINT(F("P1 In:"));
+    DEBUG_PRINTLN(tP1In);
+    DEBUG_PRINT(F("P1 Out:"));
+    DEBUG_PRINTLN(tP1Out);
+    DEBUG_PRINT(F("P2 In:"));
+    DEBUG_PRINTLN(tP2In);
+    DEBUG_PRINT(F("P2 Out:"));
+    DEBUG_PRINTLN(tP2Out);
+    DEBUG_PRINT(F("Room:"));
+    DEBUG_PRINTLN(tRoom);
+    DEBUG_PRINT(F("Bojler:"));
+    DEBUG_PRINTLN(tBojler);
+    DEBUG_PRINT(F("Bojler In:"));
+    DEBUG_PRINTLN(tBojlerIn);
+    DEBUG_PRINT(F("Bojler Out:"));
+    DEBUG_PRINTLN(tBojlerOut);
+    DEBUG_PRINT(F("Control:"));
+    DEBUG_PRINTLN(tControl);
 */
     
     if (tP2Out>tMaxOut)       tMaxOut      = tP2Out;
@@ -523,7 +523,7 @@ void calcPowerAndEnergy() {
         msDiff=msDiff%1000;
       }
       power = getPower(); //in W
-      //Serial.println(F(power);
+      //DEBUG_PRINTLN(F(power);
       if (power > maxPower) {
         maxPower = power;
       }
@@ -546,8 +546,8 @@ void calcPowerAndEnergy() {
 void keypadEvent(KeypadEvent key){
   lcd.setCursor(0,1);
   lcd.print(key);
-  // Serial.println(F(key);
-  // Serial.println(F(keypad.getState());
+  // DEBUG_PRINTLN(F(key);
+  // DEBUG_PRINTLN(F(keypad.getState());
   switch (keypad.getState()){
     case PRESSED:
       switch (key){
@@ -580,7 +580,7 @@ void keyBoard() {
   char key = keypad.getKey();
   if (key!=NO_KEY){
     lcd.clear();
-    //Serial.println(key);
+    //DEBUG_PRINTLN(key);
     /*
     Keyboard layout
     -----------
@@ -776,17 +776,17 @@ void displayTemp(int x, int y, float value, bool des) {
   */
   lcd.setCursor(x,y);
   
-  //Serial.println(F(value);
+  //DEBUG_PRINTLN(F(value);
   
   if (value<10.f && value>=0.f) {
-    //Serial.print(F("_"));
+    //DEBUG_PRINT(F("_"));
     lcd.print(F(" "));
   } else if (value<0.f && value>-1.f) {
-    //Serial.print(F("_"));
+    //DEBUG_PRINT(F("_"));
     lcd.print(F(" "));
   } else if (value<0.f) {
     lcd.print(F("-"));
-    //Serial.print("-"));
+    //DEBUG_PRINT("-"));
   }
   
   int desetina=abs((int)(value*10)%10);
@@ -818,9 +818,9 @@ void lcd2digits(int number) {
 
 void print2digits(int number) {
   if (number >= 0 && number < 10) {
-    Serial.write('0');
+    DEBUG_WRITE('0');
   }
-  Serial.print(number);
+  DEBUG_PRINT(number);
 }
 
 void displayTime() {
@@ -848,10 +848,10 @@ void calcFlow() {
     lMinCumul += lMin;
     numberOfCyclesFlow++;
 #ifdef serial
-    Serial.print(F("Pulsu: "));
-    Serial.println(numberOfPulsesFlow);
-    Serial.print(lMin, DEC); // Print litres/min
-    Serial.println(F(" L/min"));
+    DEBUG_PRINT(F("Pulsu: "));
+    DEBUG_PRINTLN(numberOfPulsesFlow);
+    DEBUG_PRINTDEC(lMin); // Print litres/min
+    DEBUG_PRINTLN(F(" L/min"));
 #endif
     numberOfPulsesFlow = 0; // Reset Counter
   }
@@ -871,8 +871,8 @@ void dsInit(void) {
     lcd.print(F(" sensors found"));
   
 #ifdef serial
-  Serial.print(F("Sensor(s):"));
-  Serial.println(numberOfDevices);
+  DEBUG_PRINT(F("Sensor(s):"));
+  DEBUG_PRINTLN(numberOfDevices);
 #endif
 
   // Loop through each device, print out address
@@ -901,7 +901,7 @@ void displayRelayStatus(void) {
       lcd.print(F("N"));
   }
   if (manualON) {
-    //Serial.println(F("Manual"));
+    //DEBUG_PRINTLN(F("Manual"));
   } else {
   }
 /*  lcd.setCursor(RELAY2X,RELAY2Y);
@@ -1173,7 +1173,7 @@ void sendDataSerial() {
 
   if (firstMeasComplete==false) return;
 #ifdef serial
-  Serial.print(F("DATA:"));
+  DEBUG_PRINT(F("DATA:"));
 #endif
   digitalWrite(LEDPIN,HIGH);
   crc = ~0L;
@@ -1242,7 +1242,7 @@ void sendDataSerial() {
   send(END_TRANSMITION);
   mySerial.flush();
 #ifdef serial 
-  Serial.println();
+  DEBUG_PRINTLN();
 #endif
 }
 
@@ -1254,13 +1254,13 @@ void send(char s) {
 void send(char s, char type) {
   if (type=='X') {
 #ifdef serial
-    Serial.print(s, HEX);
+    DEBUG_PRINTHEX(s);
 #endif
     mySerial.print(s, HEX);
   }
   else {
 #ifdef serial
-    Serial.print(s);
+    DEBUG_PRINT(s);
 #endif
     mySerial.print(s);
   }
@@ -1274,13 +1274,13 @@ void send(byte s) {
 void send(byte s, char type) {
   if (type=='X') {
 #ifdef serial
-    Serial.print(s, HEX);
+    DEBUG_PRINTHEX(s);
 #endif
     mySerial.print(s, HEX);
   }
   else {
 #ifdef serial
-    Serial.print(s);
+    DEBUG_PRINT(s);
 #endif
     mySerial.print(s);
   }
@@ -1306,14 +1306,14 @@ unsigned long crc_update(unsigned long crc, byte data)
 
 void send(unsigned long s) {
 #ifdef serial
-  Serial.print(s);
+  DEBUG_PRINT(s);
 #endif
   mySerial.print(s);
 }
 
 void send(unsigned int s) {
 #ifdef serial
-  Serial.print(s);
+  DEBUG_PRINT(s);
 #endif
   mySerial.print(s);
 }
@@ -1329,7 +1329,7 @@ void send(float s) {
 
 void loadConfig() {
 #ifdef serial
-  Serial.println(F("Load config from EEPROM"));
+  DEBUG_PRINTLN(F("Load config from EEPROM"));
 #endif
   // To make sure there are settings, and they are YOURS!
   // If nothing is found it will use the default settings.
@@ -1337,7 +1337,7 @@ void loadConfig() {
     for (unsigned int t=0; t<sizeof(storage); t++) {
       *((char*)&storage + t) = EEPROM.read(CONFIG_START + t);
 #ifdef serial
-      Serial.println(EEPROM.read(CONFIG_START + t));
+      DEBUG_PRINTLN(EEPROM.read(CONFIG_START + t));
 #endif
     }
   }
@@ -1355,21 +1355,21 @@ void saveConfig() {
 
 void testConfigChange() {
 #ifdef serial      
-  Serial.print(F("Test config change - "));
+  DEBUG_PRINT(F("Test config change - "));
 #endif
   if (!isConfigVersionChanged()) {
 #ifdef serial      
-      Serial.println(F("NO change."));
+      DEBUG_PRINTLN(F("NO change."));
 #endif
   } else {
 #ifdef serial      
-    Serial.println(F("change."));
+    DEBUG_PRINTLN(F("change."));
 #endif
     if (EEPROM.read(CONFIG_START + 0) == 'v' &&
     EEPROM.read(CONFIG_START + 1) == '0' &&
     EEPROM.read(CONFIG_START + 2) == '1') {
 #ifdef serial      
-      Serial.println(F("Zmena konfigurace na verzi v02"));
+      DEBUG_PRINTLN(F("Zmena konfigurace na verzi v02"));
 #endif
       storage.sensorOrder[0] = 7;
       storage.sensorOrder[1] = 4;
@@ -1398,11 +1398,11 @@ bool isConfigVersionChanged() {
 
 #ifdef serial      
 void printConfigVersion() {
-  Serial.print(F("Config version:"));
-  Serial.write(EEPROM.read(CONFIG_START + 0));
-  Serial.write(EEPROM.read(CONFIG_START + 1));
-  Serial.write(EEPROM.read(CONFIG_START + 2));
-  Serial.println();
+  DEBUG_PRINT(F("Config version:"));
+  DEBUG_WRITE(EEPROM.read(CONFIG_START + 0));
+  DEBUG_WRITE(EEPROM.read(CONFIG_START + 1));
+  DEBUG_WRITE(EEPROM.read(CONFIG_START + 2));
+  DEBUG_PRINTLN();
 }
 #endif
 
