@@ -2,12 +2,12 @@
 #define CONFIGURATION_H
 
 //SW name & version
-#define     VERSION                      "1.34"
+#define     VERSION                      "1.40"
 #define     SW_NAME                      "Solar"
 
 //EEPROM config
 #define CONFIG_START 0
-#define CONFIG_VERSION "v02"
+#define CONFIG_VERSION "v04"
 
 /*
 Version history:
@@ -163,6 +163,7 @@ D13             - free
 #define DISPLAY_BOJLER_SETUP                 108
 #define DISPLAY_ROOM_SETUP                   109
 #define DISPLAY_CONTROL_SENSOR_SETUP         110
+#define DISPLAY_CONTROL_SENSOR_SETUP_TEXT    111
                           
 #define RELAY1X                             19
 #define RELAY1Y                              0
