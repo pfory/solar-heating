@@ -4,9 +4,6 @@
 #include "Adafruit_MQTT_Client.h"
 #include <WiFiManager.h> 
 
-const char *ssid = "Datlovo";
-const char *password = "Nu6kMABmseYwbCoJ7LyG";
-
 #define AIO_SERVER      "192.168.1.56"
 #define AIO_SERVERPORT  1883
 #define AIO_USERNAME    "datel"
@@ -102,8 +99,6 @@ void setup() {
 	}
 
 	DEBUG_PRINTLN("");
-	DEBUG_PRINT("Connected to ");
-	DEBUG_PRINTLN(ssid);
 	DEBUG_PRINT("IP address: ");
 	DEBUG_PRINTLN(WiFi.localIP());
   pinMode(pinLed,OUTPUT); 
