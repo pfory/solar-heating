@@ -2,15 +2,36 @@
 #define CONFIGURATION_H
 
 //SW name & version
-#define     VERSION                      "1.40"
+#define     VERSION                      "1.41"
 #define     SW_NAME                      "Solar"
 
 //EEPROM config
 #define CONFIG_START 0
 #define CONFIG_VERSION "v04"
 
+
+#define verbose
+#ifdef verbose
+ #define DEBUG_PRINT(x)         Serial.print (x)
+ #define DEBUG_PRINTDEC(x)      Serial.print (x, DEC)
+ #define DEBUG_PRINTLN(x)       Serial.println (x)
+ #define DEBUG_PRINTF(x, y)     Serial.printf (x, y)
+ #define PORTSPEED 115200
+ #define DEBUG_WRITE(x)         Serial.write (x)
+ #define DEBUG_PRINTHEX(x)      Serial.print (x, HEX)
+
+#else
+ #define DEBUG_PRINT(x)
+ #define DEBUG_PRINTDEC(x)
+ #define DEBUG_PRINTLN(x)
+ #define DEBUG_PRINTF(x, y)
+ #define DEBUG_WRITE(x)
+#endif 
+
+
 /*
 Version history:
+1.41 - debug serial.print
 1.4  - 20.10.2017 doplneny hodiny RTC a zobrazeni uhlu kolektoru na displeji
 1.31 - change display to 4x20
 1.1  - 13.9.2017  pridany cidla teploty bojler vstup/vystup
@@ -72,7 +93,6 @@ D13             - free
 --------------------------------------------------------------------------------------------------------------------------
 */
 
-#define SERIAL_SPEED    115200
 #define mySERIAL_SPEED  9600
 
 #define START_BLOCK       '#'
@@ -141,6 +161,11 @@ D13             - free
 #define STATUSY                              2
 #define MINRUNX                              14
 #define MINRUNY                              3
+#define TIMEX                                12
+#define TIMEY                                0
+#define POZ0X                                0
+#define POZ0Y                                0
+#define POZ1Y                                1
 
 #define DISPLAY_MAIN                         0
 #define DISPLAY_TOTAL_ENERGY                 1

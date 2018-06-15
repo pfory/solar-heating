@@ -220,10 +220,20 @@ struct StoreStruct {
 
 //-------------------------------------------- S E T U P ------------------------------------------------------------------------------
 void setup() {
+<<<<<<< HEAD
   Serial.begin(SERIAL_SPEED);
   DEBUG_PRINT(F(SW_NAME));
   DEBUG_PRINT(F(" "));
   DEBUG_PRINTLN(F(VERSION));
+=======
+#ifdef serial
+  Serial.begin(PORTSPEED);
+  DEBUG_PRINT(F(SW_NAME));
+  DEBUG_PRINT(F(" "));
+  DEBUG_PRINTLN(F(VERSION));
+#endif
+
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
 
 #ifdef watchdog
   wdt_enable(WDTO_8S);
@@ -235,15 +245,21 @@ void setup() {
   if (RTC.read(tm)) {
     DEBUG_PRINT(F("RTC OK, Time = "));
     print2digits(tm.Hour);
-    Serial.write(':');
+    DEBUG_WRITE(':');
     print2digits(tm.Minute);
-    Serial.write(':');
+    DEBUG_WRITE(':');
     print2digits(tm.Second);
     DEBUG_PRINT(F(", Date (D/M/Y) = "));
     DEBUG_PRINT(tm.Day);
+<<<<<<< HEAD
     Serial.write('/');
     DEBUG_PRINT(tm.Month);
     Serial.write('/');
+=======
+    DEBUG_WRITE('/');
+    DEBUG_PRINT(tm.Month);
+    DEBUG_WRITE('/');
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
     //DEBUG_PRINT(tmYearToCalendar(tm.Year));
     DEBUG_PRINT(tm.Year);
     DEBUG_PRINTLN();
@@ -273,17 +289,25 @@ void setup() {
   
   loadConfig();
  
+<<<<<<< HEAD
+=======
+#ifdef serial
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
   DEBUG_PRINT(F("tON:"));  
   DEBUG_PRINTLN(storage.tDiffON);
   DEBUG_PRINT(F("tOFF:"));  
   DEBUG_PRINTLN(storage.tDiffOFF);
   DEBUG_PRINT(F("Control:"));  
+<<<<<<< HEAD
   DEBUG_PRINT(storage.controlSensor);
   if (storage.controlSensorBojler) {
     DEBUG_PRINTLN(" - Bojler");
   } else {
     DEBUG_PRINTLN(" - Room");
   }
+=======
+  DEBUG_PRINTLN(storage.controlSensor);
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
   DEBUG_PRINT(F("TotalEnergy from EEPROM:"));
   DEBUG_PRINT(storage.totalEnergy);
   DEBUG_PRINTLN(F("Ws"));
@@ -292,6 +316,10 @@ void setup() {
   DEBUG_PRINTLN(F("s"));
   DEBUG_PRINT(F("backlight:"));
   DEBUG_PRINTLN(storage.backLight);
+<<<<<<< HEAD
+=======
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
 
   lcd.begin();               // initialize the lcd 
   lcd.home();                   
@@ -341,8 +369,15 @@ void setup() {
   if (MyRstFlags==8) status = STATUS_STARTAFTER_WATCHDOGOREXTERNAL;
   else status = STATUS_AFTER_START;
 
+<<<<<<< HEAD
   DEBUG_PRINT(F("Status:"));
   DEBUG_PRINTLN(status);
+=======
+#ifdef serial
+  DEBUG_PRINT(F("Status:"));
+  DEBUG_PRINTLN(status);
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
   
   if (storage.backLight==true) {
     lcd.backlight();
@@ -405,6 +440,10 @@ void mainControl() {
       }
       //if (((tP2Out - tControl) < tDiffOFF && (tP2In < tP2Out) || ) /*|| (int)getPower() < powerOff)*/) { //switch pump ON->OFF
       if (((tP2Out - tControl) < storage.tDiffOFF) && (millis() - DELAY_AFTER_ON >= lastOffOn)) { //switch pump ON->OFF
+<<<<<<< HEAD
+=======
+#ifdef serial
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
         DEBUG_PRINT(F("millis()="));
         DEBUG_PRINT(millis());
         DEBUG_PRINT(F(" delayAfterON="));
@@ -415,6 +454,10 @@ void mainControl() {
         DEBUG_PRINT(tP2Out);
         DEBUG_PRINT(F("tControl="));
         DEBUG_PRINTLN(tControl);
+<<<<<<< HEAD
+=======
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
         relay1=HIGH; //relay OFF = HIGH
         //digitalWrite(RELAY1PIN, relay1);
         lastOff=millis();
@@ -549,7 +592,11 @@ void calcPowerAndEnergy() {
         totalSec+=msDiff/1000;
         msDiff=msDiff%1000;
       }
+<<<<<<< HEAD
       power = getPower(t1, t2); //in W
+=======
+      power = getPower(); //in W
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
       //DEBUG_PRINTLN(F(power);
       if (power > maxPower) {
         maxPower = power;
@@ -801,19 +848,23 @@ void keyBoard() {
 }
 
 void displayTemp(int x, int y, float value, bool des) {
-#ifdef time
-  displayTime();
-#endif
   /*
-  012345
-  -25.3
-  -5.3
-  -0.1
-   0.1
-   5.3
-  25.3
-   0.5 //100.5
-  */
+  value     des=true   des=false
+            0123       0123
+  89.3      89.3       89
+  10.0      10.0       10
+   9.9       9.9        9
+   1.1       1.1        1
+   0.9       0.9        0
+   0.1       0.0        0
+   0.0       0.0        0
+  -0.1      -0.1       -0
+  -0.9      -0.9       -0
+  -1.0      -1.0       -1
+  -9.9      -9.9       -9
+ -10.0      -10        -10
+ -25.2      -25        -25  
+   */
   lcd.setCursor(x,y);
   
   //DEBUG_PRINTLN(F(value);
@@ -821,30 +872,32 @@ void displayTemp(int x, int y, float value, bool des) {
   if (value<10.f && value>=0.f) {
     //DEBUG_PRINT(F("_"));
     lcd.print(F(" "));
+<<<<<<< HEAD
   } else if (value<0.f && value>-1.f) {
     //DEBUG_PRINT(F("_"));
     lcd.print(F(" "));
   } else if (value<0.f) {
     lcd.print(F("-"));
+=======
+  } else if (value<0.f && value>-10.f) {
+    //DEBUG_PRINT(F("_"));
+    lcd.print(F("-"));
+  } else if (value<-10.f) {
+    des = false;
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
     //DEBUG_PRINT("-"));
   }
   
-  int desetina=abs((int)(value*10)%10);
   if (value>=100.f) {
     value=value-100.f;
   }
-  
-  
+ 
   lcd.print(abs((int)value));
   if (des) {
     lcd.print(F("."));
-    lcd.print(desetina);
+    lcd.print(abs((int)(value*10)%10));
   }
   lcd.print(F(" "));
-  
-  /*if (cela>-10) {
-    lcd.print(F(" ");
-  }*/
 }
 
 #ifdef time
@@ -858,13 +911,13 @@ void lcd2digits(int number) {
 
 void print2digits(int number) {
   if (number >= 0 && number < 10) {
-    Serial.write('0');
+    DEBUG_WRITE('0');
   }
   DEBUG_PRINT(number);
 }
 
 void displayTime() {
-  lcd.setCursor(12, 0); //col,row
+  lcd.setCursor(TIMEX, TIMEY); //col,row
   if (RTC.read(tm)) {
     lcd2digits(tm.Hour);
     lcd.write(':');
@@ -887,10 +940,19 @@ void calcFlow() {
     cloopTime = millis(); // Updates cloopTime
     lMinCumul += lMin;
     numberOfCyclesFlow++;
+<<<<<<< HEAD
     DEBUG_PRINT(F("Pulsu: "));
     DEBUG_PRINTLN(numberOfPulsesFlow);
     Serial.print(lMin, DEC); // Print litres/min
     DEBUG_PRINTLN(F(" L/min"));
+=======
+#ifdef serial
+    DEBUG_PRINT(F("Pulsu: "));
+    DEBUG_PRINTLN(numberOfPulsesFlow);
+    DEBUG_PRINTDEC(lMin); // Print litres/min
+    DEBUG_PRINTLN(F(" L/min"));
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
     numberOfPulsesFlow = 0; // Reset Counter
   }
 }
@@ -908,8 +970,15 @@ void dsInit(void) {
   else
     lcd.print(F(" sensors found"));
   
+<<<<<<< HEAD
   DEBUG_PRINT(F("Sensor(s):"));
   DEBUG_PRINTLN(numberOfDevices);
+=======
+#ifdef serial
+  DEBUG_PRINT(F("Sensor(s):"));
+  DEBUG_PRINTLN(numberOfDevices);
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
 
   // Loop through each device, print out address
   for (byte i=0;i<numberOfDevices; i++) {
@@ -962,7 +1031,7 @@ unsigned int getPower(float t1, float t2) {
 
 void lcdShow() {
   if (display>=100) { 
-    lcd.setCursor(0,0);
+    lcd.setCursor(POZ0X,POZ0Y);
   }
   if (millis() > SHOW_INFO_DELAY + showInfo) {
     showInfo = millis();
@@ -973,6 +1042,14 @@ void lcdShow() {
   }
   
   if (display==DISPLAY_MAIN) {
+    //    012345678901234567890
+    //00  10  9  0  -0 -9.1  T    
+    //01   555W   12.3kWh 124m                    
+    //02   2.1l/m  55 45 48  0
+    //03                123456
+    #ifdef time
+      displayTime();
+    #endif
     displayTemp(TEMP1X,TEMP1Y, tP1In, false);
     displayTemp(TEMP2X,TEMP2Y, tP1Out, false);
     displayTemp(TEMP3X,TEMP3Y, tP2In, false);
@@ -1030,31 +1107,15 @@ void lcdShow() {
     if (lastRunMin<10) PRINT_SPACE
     lcd.print(lastRunMin);
   } else if (display==DISPLAY_TOTAL_ENERGY) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Total energy"));
-    lcd.setCursor(0,1);
-    lcd.print(enegyWsTokWh(totalEnergy));
-    lcd.print(F(" kWh     "));
+    displayInfoValue('Total energy', enegyWsTokWh(totalEnergy), 'kWh');
   } else if (display==DISPLAY_T_DIFF_ON) {
-    lcd.setCursor(0,0);
-    lcd.print(F("TDiffON"));
-    lcd.setCursor(0,1);
-    lcd.print(storage.tDiffON);
-    lcd.print(F("     "));
+    displayInfoValue('TDiffON', storage.tDiffON, 'C');
   } else if (display==DISPLAY_T_DIFF_OFF) { 
-    lcd.setCursor(0,0);
-    lcd.print(F("TDiffOFF"));
-    lcd.setCursor(0,1);
-    lcd.print(storage.tDiffOFF);
-    lcd.print(F("     "));
+    displayInfoValue('TDiffOFF', storage.tDiffOFF, 'C');
   } else if (display==DISPLAY_FLOW) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Flow"));
-    lcd.setCursor(0,1);
-    lcd.print(lMin);
-    lcd.print(F(" l/min    "));
+    displayInfoValue('Flow', lMin, 'l/min');
   } else if (display==DISPLAY_MAX_IO_TEMP) {
-    lcd.setCursor(0,0);
+    lcd.setCursor(POZ0X,POZ0Y);
     lcd.print(F("Max IN:"));
     lcd.print(tMaxIn);
     lcd.print(F("     "));
@@ -1063,28 +1124,13 @@ void lcdShow() {
     lcd.print(tMaxOut);
     lcd.print(F("     "));
   } else if (display==DISPLAY_MAX_BOJLER) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Max bojler"));
-    lcd.setCursor(0,1);
-    lcd.print(tMaxBojler);
-    lcd.print(F("     "));
+    displayInfoValue('Max bojler', tMaxBojler, 'C');
   } else if (display==DISPLAY_MAX_POWER_TODAY) { 
-    lcd.setCursor(0,0);
-    lcd.print(F("Max power today"));
-    lcd.setCursor(0,1);
-    lcd.print(maxPower);
-    lcd.print(F(" W     "));
+    displayInfoValue('Max power today', maxPower, 'W');
   } else if (display==DISPLAY_CONTROL_SENSOR) {
-    lcd.setCursor(0,0);
+    lcd.setCursor(POZ0X,POZ0Y);
     lcd.print(F("Control sensor"));
     lcd.setCursor(0,1);
-    // if (storage.controlSensor==3) {
-      // lcd.print(F("Room"));
-    // } else if (storage.controlSensor==0) {
-      // lcd.print(F("Bojler"));
-    // } else {
-      // lcd.print(F("Unknown"));
-    // }
     lcd.print(F(" ["));
     lcd.print(sensor[storage.controlSensor]);
     lcd.print(F("]   "));
@@ -1095,13 +1141,10 @@ void lcdShow() {
       lcd.print(F("Room"));
     }
   } else if (display==DISPLAY_TOTAL_TIME) { 
-    lcd.setCursor(0,0);
-    lcd.print(F("Total time"));
-    lcd.setCursor(0,1);
-    lcd.print(totalSec/60/60);
-    lcd.print(F(" hours   "));
-
+    displayInfoValue('Total time', totalSec/60/60, 'hours');
+    
   } else if (display==DISPLAY_T_DIFF_ON_SETUP) {
+<<<<<<< HEAD
     lcd.setCursor(0,0);
     lcd.print(F("tDiffON"));
     lcd.setCursor(0,1);
@@ -1177,6 +1220,29 @@ void lcdShow() {
       lcd.print("Room  ");
     }
     lcd.print("         ");
+=======
+    displayInfoValue('tDiffON', storage.tDiffON, 'C');
+  } else if (display==DISPLAY_T_DIFF_OFF_SETUP) {
+    displayInfoValue('tDiffOFF', storage.tDiffOFF, 'C');
+  } else if (display==DISPLAY_P1IN_SETUP) {
+    displayInfoValue('Panel1 IN', tP1In, 'C');
+  } else if (display==DISPLAY_P1OUT_SETUP) {
+    displayInfoValue('Panel1 OUT', tP1Out, 'C');
+  } else if (display==DISPLAY_P2IN_SETUP) {
+    displayInfoValue('Panel2 IN', tP2In, 'C');
+  } else if (display==DISPLAY_P2OUT_SETUP) {
+    displayInfoValue('Panel2 OUT', tP2Out, 'C');
+  } else if (display==DISPLAY_BOJLERIN_SETUP) {
+    displayInfoValue('Bojler IN', tBojlerIn, 'C');
+  } else if (display==DISPLAY_BOJLEROUT_SETUP) {
+    displayInfoValue('Bojler OUT', tBojlerOut, 'C');
+  } else if (display==DISPLAY_BOJLER_SETUP) {
+    displayInfoValue('Bojler', tBojler, 'C');
+  } else if (display==DISPLAY_ROOM_SETUP) {
+    displayInfoValue('Room', tRoom, 'C');
+  } else if (display==DISPLAY_CONTROL_SENSOR_SETUP) {
+    displayInfoValue('Control sensor', tControl, 'C');
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
   }
 }
 
@@ -1213,7 +1279,13 @@ void sendDataSerial() {
   //#B;25.31#M;25.19#S;25.10#T;50.5#I;25.10#O;50.5#C;50.5#D;40.5#Q;10.2#R;1$3600177622*
 
   if (firstMeasComplete==false) return;
+<<<<<<< HEAD
   DEBUG_PRINT(F("DATA:"));
+=======
+#ifdef serial
+  DEBUG_PRINT(F("DATA:"));
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
   digitalWrite(LEDPIN,HIGH);
   crc = ~0L;
   send(START_BLOCK);
@@ -1280,7 +1352,13 @@ void sendDataSerial() {
   //myDEBUG_PRINT(crc);
   send(END_TRANSMITION);
   mySerial.flush();
+<<<<<<< HEAD
   DEBUG_PRINTLN();
+=======
+#ifdef serial 
+  DEBUG_PRINTLN();
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
 }
 
 void send(char s) {
@@ -1290,11 +1368,23 @@ void send(char s) {
 
 void send(char s, char type) {
   if (type=='X') {
+<<<<<<< HEAD
     DEBUG_PRINTHEX(s);
     mySerial.print(s, HEX);
   }
   else {
     DEBUG_PRINT(s);
+=======
+#ifdef serial
+    DEBUG_PRINTHEX(s);
+#endif
+    mySerial.print(s, HEX);
+  }
+  else {
+#ifdef serial
+    DEBUG_PRINT(s);
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
     mySerial.print(s);
   }
   crc_string(byte(s));
@@ -1306,11 +1396,23 @@ void send(byte s) {
 
 void send(byte s, char type) {
   if (type=='X') {
+<<<<<<< HEAD
     DEBUG_PRINTHEX(s);
     mySerial.print(s, HEX);
   }
   else {
     DEBUG_PRINT(s);
+=======
+#ifdef serial
+    DEBUG_PRINTHEX(s);
+#endif
+    mySerial.print(s, HEX);
+  }
+  else {
+#ifdef serial
+    DEBUG_PRINT(s);
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
     mySerial.print(s);
   }
   crc_string(s);
@@ -1334,12 +1436,24 @@ unsigned long crc_update(unsigned long crc, byte data)
 
 
 void send(unsigned long s) {
+<<<<<<< HEAD
   DEBUG_PRINT(s);
+=======
+#ifdef serial
+  DEBUG_PRINT(s);
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
   mySerial.print(s);
 }
 
 void send(unsigned int s) {
+<<<<<<< HEAD
   DEBUG_PRINT(s);
+=======
+#ifdef serial
+  DEBUG_PRINT(s);
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
   mySerial.print(s);
 }
 
@@ -1353,13 +1467,25 @@ void send(float s) {
 }
 
 void loadConfig() {
+<<<<<<< HEAD
   DEBUG_PRINTLN(F("Load config from EEPROM"));
+=======
+#ifdef serial
+  DEBUG_PRINTLN(F("Load config from EEPROM"));
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
   // To make sure there are settings, and they are YOURS!
   // If nothing is found it will use the default settings.
   if (!isConfigVersionChanged()) {
     for (unsigned int t=0; t<sizeof(storage); t++) {
       *((char*)&storage + t) = EEPROM.read(CONFIG_START + t);
+<<<<<<< HEAD
       DEBUG_PRINTLN(EEPROM.read(CONFIG_START + t));
+=======
+#ifdef serial
+      DEBUG_PRINTLN(EEPROM.read(CONFIG_START + t));
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
     }
   }
 }
@@ -1375,6 +1501,7 @@ void saveConfig() {
 }
 
 void testConfigChange() {
+<<<<<<< HEAD
   DEBUG_PRINT(F("Test config change - "));
   if (!isConfigVersionChanged()) {
       DEBUG_PRINTLN(F("NO change."));
@@ -1384,6 +1511,25 @@ void testConfigChange() {
         EEPROM.read(CONFIG_START + 1) == '0' &&
         EEPROM.read(CONFIG_START + 2) == '3') {
       DEBUG_PRINTLN(F("Zmena konfigurace na verzi v04"));
+=======
+#ifdef serial      
+  DEBUG_PRINT(F("Test config change - "));
+#endif
+  if (!isConfigVersionChanged()) {
+#ifdef serial      
+      DEBUG_PRINTLN(F("NO change."));
+#endif
+  } else {
+#ifdef serial      
+    DEBUG_PRINTLN(F("change."));
+#endif
+    if (EEPROM.read(CONFIG_START + 0) == 'v' &&
+    EEPROM.read(CONFIG_START + 1) == '0' &&
+    EEPROM.read(CONFIG_START + 2) == '1') {
+#ifdef serial      
+      DEBUG_PRINTLN(F("Zmena konfigurace na verzi v02"));
+#endif
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
       storage.sensorOrder[0] = 7;
       storage.sensorOrder[1] = 4;
       storage.sensorOrder[2] = 2;
@@ -1413,9 +1559,15 @@ bool isConfigVersionChanged() {
 #ifdef verbose
 void printConfigVersion() {
   DEBUG_PRINT(F("Config version:"));
+<<<<<<< HEAD
   Serial.write(EEPROM.read(CONFIG_START + 0));
   Serial.write(EEPROM.read(CONFIG_START + 1));
   Serial.write(EEPROM.read(CONFIG_START + 2));
+=======
+  DEBUG_WRITE(EEPROM.read(CONFIG_START + 0));
+  DEBUG_WRITE(EEPROM.read(CONFIG_START + 1));
+  DEBUG_WRITE(EEPROM.read(CONFIG_START + 2));
+>>>>>>> a375e8bd11e5c847dd3adffbf9c04d2afa0cb453
   DEBUG_PRINTLN();
 }
 #endif
@@ -1432,3 +1584,14 @@ int getAngle() {
   }
 }
 #endif
+
+
+void displayInfoValue(char text1, float value, char text2) {
+  lcd.setCursor(POZ0X,POZ0Y);
+  lcd.print(text1);
+  lcd.setCursor(POZ0X,POZ1Y);
+  lcd.print(value);
+  lcd.print(" ");
+  lcd.print(text2);
+  lcd.print("          ");
+}

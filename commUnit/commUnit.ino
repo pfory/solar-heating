@@ -4,19 +4,36 @@
 #include "Adafruit_MQTT_Client.h"
 #include <WiFiManager.h> 
 
-const char *ssid = "Datlovo";
-const char *password = "Nu6kMABmseYwbCoJ7LyG";
-
 #define AIO_SERVER      "192.168.1.56"
 #define AIO_SERVERPORT  1883
 #define AIO_USERNAME    "datel"
 #define AIO_KEY         "hanka12"
 
+#define verbose
+#ifdef verbose
+ #define DEBUG_PRINT(x)         Serial.print (x)
+ #define DEBUG_PRINTDEC(x)      Serial.print (x, DEC)
+ #define DEBUG_PRINTLN(x)       Serial.println (x)
+ #define DEBUG_PRINTF(x, y)     Serial.printf (x, y)
+ #define PORTSPEED 115200
+#else
+ #define DEBUG_PRINT(x)
+ #define DEBUG_PRINTDEC(x)
+ #define DEBUG_PRINTLN(x)
+ #define DEBUG_PRINTF(x, y)
+#endif 
+
 WiFiClient client;
 WiFiManager wifiManager;
 
-byte heartBeat                    = 12;
-String received                   = "";
+uint32_t heartBeat                    = 12;
+String received                       = "";
+unsigned long milisLastRunMinOld      = 0;
+
+IPAddress _ip           = IPAddress(192, 168, 1, 108);
+IPAddress _gw           = IPAddress(192, 168, 1, 1);
+IPAddress _sn           = IPAddress(255, 255, 255, 0);
+
 
 #define pinLed                    2
 
@@ -40,19 +57,36 @@ Adafruit_MQTT_Publish tBojlerOUT          = Adafruit_MQTT_Publish(&mqtt, "/home/
 
 void MQTT_connect(void);
 
-float versionSW                   = 0.61;
+float versionSW                   = 0.62;
 String versionSWString            = "Solar v";
 
 void setup() {
   Serial.begin(SERIALSPEED);
-  Serial.print(versionSWString);
-  Serial.print(versionSW);
+  DEBUG_PRINT(versionSWString);
+  DEBUG_PRINT(versionSW);
   
-  //WiFi.begin(ssid, password);
-  //wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
-  //WiFi.begin(ssid, password);
+  
+  DEBUG_PRINTLN(ESP.getResetReason());
+  if (ESP.getResetReason()=="Software/System restart") {
+    heartBeat=1;
+  } else if (ESP.getResetReason()=="Power on") {
+    heartBeat=2;
+  } else if (ESP.getResetReason()=="External System") {
+    heartBeat=3;
+  } else if (ESP.getResetReason()=="Hardware Watchdog") {
+    heartBeat=4;
+  } else if (ESP.getResetReason()=="Exception") {
+    heartBeat=5;
+  } else if (ESP.getResetReason()=="Software Watchdog") {
+    heartBeat=6;
+  } else if (ESP.getResetReason()=="Deep-Sleep Wake") {
+    heartBeat=7;
+  }
+  
+  //WiFi.config(ip); 
+  wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
   if (!wifiManager.autoConnect("AutoConnectAP", "password")) {
-    Serial.println("failed to connect, we should reset as see if it connects");
+    DEBUG_PRINTLN("failed to connect, we should reset as see if it connects");
     delay(3000);
     ESP.reset();
     delay(5000);
@@ -61,14 +95,12 @@ void setup() {
 	// Wait for connection
 	while (WiFi.status() != WL_CONNECTED) {
 		delay(500);
-		Serial.print(".");
+		DEBUG_PRINT(".");
 	}
 
-	Serial.println("");
-	Serial.print("Connected to ");
-	Serial.println(ssid);
-	Serial.print("IP address: ");
-	Serial.println(WiFi.localIP());
+	DEBUG_PRINTLN("");
+	DEBUG_PRINT("IP address: ");
+	DEBUG_PRINTLN(WiFi.localIP());
   pinMode(pinLed,OUTPUT); 
   digitalWrite(pinLed,LOW);
   delay(1000);
@@ -81,13 +113,13 @@ void loop() {
   // function definition further below.
   if (Serial.available()>0) { 
     received=Serial.readStringUntil('*');
-    Serial.println(received);
+    DEBUG_PRINTLN(received);
     
     float _tP1INSolar, _tP1OUTSolar, _tP2INSolar, _tP2OUTSolar, _tBojler, _tBojlerIN, _tBojlerOUT, _tRoom, _qSolar;
     int _pumpStatus=0;
     
     bool emptyData=false;
-    Serial.println(received);
+    DEBUG_PRINTLN(received);
     
     //received="#B;39.44#M;21.19#I;45.50#O;43.44#R;0$*
 
@@ -130,77 +162,80 @@ void loop() {
         i++;
       }
 
-      Serial.println("I am sending data from Solar unit to HomeAssistant");
+      DEBUG_PRINTLN("I am sending data from Solar unit to HomeAssistant");
     
       MQTT_connect();
       if (! tBojler.publish(_tBojler)) {
-        Serial.println("failed");
+        DEBUG_PRINTLN("failed");
       } else {
-        Serial.println("OK!");
+        DEBUG_PRINTLN("OK!");
       }
       if (! tBojlerIN.publish(_tBojlerIN)) {
-        Serial.println("failed");
+        DEBUG_PRINTLN("failed");
       } else {
-        Serial.println("OK!");
+        DEBUG_PRINTLN("OK!");
       }
       if (! tBojlerOUT.publish(_tBojlerOUT)) {
-        Serial.println("failed");
+        DEBUG_PRINTLN("failed");
       } else {
-        Serial.println("OK!");
+        DEBUG_PRINTLN("OK!");
       }
       if (! tRoom.publish(_tRoom)) {
-        Serial.println("failed");
+        DEBUG_PRINTLN("failed");
       } else {
-        Serial.println("OK!");
+        DEBUG_PRINTLN("OK!");
       }
       if (! tP1INSolar.publish(_tP1INSolar)) {
-        Serial.println("failed");
+        DEBUG_PRINTLN("failed");
       } else {
-        Serial.println("OK!");
+        DEBUG_PRINTLN("OK!");
       }
       if (! tP1OUTSolar.publish(_tP1OUTSolar)) {
-        Serial.println("failed");
+        DEBUG_PRINTLN("failed");
       } else {
-        Serial.println("OK!");
+        DEBUG_PRINTLN("OK!");
       }
       if (! tP2INSolar.publish(_tP2INSolar)) {
-        Serial.println("failed");
+        DEBUG_PRINTLN("failed");
       } else {
-        Serial.println("OK!");
+        DEBUG_PRINTLN("OK!");
       }
       if (! tP2OUTSolar.publish(_tP2OUTSolar)) {
-        Serial.println("failed");
+        DEBUG_PRINTLN("failed");
       } else {
-        Serial.println("OK!");
+        DEBUG_PRINTLN("OK!");
       }
       if (! qSolar.publish(_qSolar)) {
-        Serial.println("failed");
+        DEBUG_PRINTLN("failed");
       } else {
-        Serial.println("OK!");
+        DEBUG_PRINTLN("OK!");
       }
       if (! sPumpSolar.publish(_pumpStatus)) {
-        Serial.println("failed");
+        DEBUG_PRINTLN("failed");
       } else {
-        Serial.println("OK!");
+        DEBUG_PRINTLN("OK!");
       }
      
-      if (! version.publish(versionSW)) {
-        Serial.println("failed");
-      } else {
-        Serial.println("OK!");
+     
+      if (millis() - milisLastRunMinOld > 60000) {
+        milisLastRunMinOld = millis();
+        if (! hb.publish(heartBeat)) {
+          DEBUG_PRINTLN("Send HB failed");
+        } else {
+          DEBUG_PRINTLN("Send HB OK!");
+        }
+        heartBeat++;
+        if (! version.publish(versionSW)) {
+          DEBUG_PRINT(F("Send verSW failed!"));
+        } else {
+          DEBUG_PRINT(F("Send verSW OK!"));
+        }
       }
-      if (! hb.publish(heartBeat++)) {
-        Serial.println("failed");
-      } else {
-        Serial.println("OK!");
-      }
-      if (heartBeat>1) {
-        heartBeat=0;
-      }
+  
       digitalWrite(pinLed,HIGH);
     } else {
         emptyData=true;
-        Serial.println("empty data");
+        DEBUG_PRINTLN("empty data");
     }
   }
   // ping the server to keep the mqtt connection alive
@@ -223,12 +258,12 @@ void MQTT_connect() {
     return;
   }
 
-  Serial.print("Connecting to MQTT... ");
+  DEBUG_PRINT("Connecting to MQTT... ");
 
   uint8_t retries = 3;
   while ((ret = mqtt.connect()) != 0) { // connect will return 0 for connected
-       Serial.println(mqtt.connectErrorString(ret));
-       Serial.println("Retrying MQTT connection in 5 seconds...");
+       DEBUG_PRINTLN(mqtt.connectErrorString(ret));
+       DEBUG_PRINTLN("Retrying MQTT connection in 5 seconds...");
        mqtt.disconnect();
        delay(5000);  // wait 5 seconds
        retries--;
@@ -237,7 +272,7 @@ void MQTT_connect() {
          while (1);
        }
   }
-  Serial.println("MQTT Connected!");
+  DEBUG_PRINTLN("MQTT Connected!");
 }
 
 String getValue(String data, char separator, int index) {
