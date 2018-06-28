@@ -17,10 +17,8 @@ GIT - https://github.com/pfory/solar-heating
  #define DEBUG_PRINT(x)         Serial.print (x)
  #define DEBUG_PRINTDEC(x)      Serial.print (x, DEC)
  #define DEBUG_PRINTHEX(x)      Serial.print(x, HEX);
-
  #define DEBUG_PRINTLN(x)       Serial.println (x)
  #define DEBUG_PRINTF(x, y)     Serial.printf (x, y)
- #define PORTSPEED 115200
 #else
  #define DEBUG_PRINT(x)
  #define DEBUG_PRINTDEC(x)
@@ -220,7 +218,9 @@ struct StoreStruct {
 
 //-------------------------------------------- S E T U P ------------------------------------------------------------------------------
 void setup() {
-  Serial.begin(SERIAL_SPEED);
+#ifdef verbose
+  Serial.begin(PORTSPEED);
+#endif
   DEBUG_PRINT(F(SW_NAME));
   DEBUG_PRINT(F(" "));
   DEBUG_PRINTLN(F(VERSION));
