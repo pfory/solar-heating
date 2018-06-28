@@ -53,15 +53,15 @@ Adafruit_MQTT_Publish tBojler             = Adafruit_MQTT_Publish(&mqtt, "/home/
 Adafruit_MQTT_Publish tBojlerIN           = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tBojlerIN");
 Adafruit_MQTT_Publish tBojlerOUT          = Adafruit_MQTT_Publish(&mqtt, "/home/Corridor/esp07/tBojlerOUT");
 
-#define SERIALSPEED 9600
-
 void MQTT_connect(void);
 
 float versionSW                   = 0.62;
 String versionSWString            = "Solar v";
 
 void setup() {
-  Serial.begin(SERIALSPEED);
+  #ifdef verbose
+  Serial.begin(PORTSPEED);
+  #endif
   DEBUG_PRINT(versionSWString);
   DEBUG_PRINT(versionSW);
   
