@@ -23,6 +23,17 @@
  #define DEBUG_PRINTF(x, y)
 #endif 
 
+//for LED status
+#include <Ticker.h>
+Ticker ticker;
+
+void tick()
+{
+  //toggle state
+  int state = digitalRead(BUILTIN_LED);  // get the current state of GPIO1 pin
+  digitalWrite(BUILTIN_LED, !state);     // set pin to the opposite state
+}
+
 WiFiClient client;
 WiFiManager wifiManager;
 
@@ -55,7 +66,17 @@ Adafruit_MQTT_Publish tBojlerOUT          = Adafruit_MQTT_Publish(&mqtt, "/home/
 
 void MQTT_connect(void);
 
-float versionSW                   = 0.62;
+//gets called when WiFiManager enters configuration mode
+void configModeCallback (WiFiManager *myWiFiManager) {
+  Serial.println("Entered config mode");
+  Serial.println(WiFi.softAPIP());
+  //if you used auto generated SSID, print it
+  Serial.println(myWiFiManager->getConfigPortalSSID());
+  //entered config mode, make led toggle faster
+  ticker.attach(0.2, tick);
+}
+
+float versionSW                   = 0.63;
 String versionSWString            = "Solar v";
 
 void setup() {
@@ -64,6 +85,10 @@ void setup() {
   #endif
   DEBUG_PRINT(versionSWString);
   DEBUG_PRINT(versionSW);
+  //set led pin as output
+  pinMode(BUILTIN_LED, OUTPUT);
+  // start ticker with 0.5 because we start in AP mode and try to connect
+  ticker.attach(0.6, tick);
   
   
   DEBUG_PRINTLN(ESP.getResetReason());
@@ -83,6 +108,12 @@ void setup() {
     heartBeat=7;
   }
   
+  wifiManager.setConnectTimeout(600); //5min
+
+  //set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
+  wifiManager.setAPCallback(configModeCallback);
+
+  
   //WiFi.config(ip); 
   wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
   if (!wifiManager.autoConnect("AutoConnectAP", "password")) {
@@ -92,19 +123,9 @@ void setup() {
     delay(5000);
   }
 
-	// Wait for connection
-	while (WiFi.status() != WL_CONNECTED) {
-		delay(500);
-		DEBUG_PRINT(".");
-	}
-
-	DEBUG_PRINTLN("");
-	DEBUG_PRINT("IP address: ");
-	DEBUG_PRINTLN(WiFi.localIP());
-  pinMode(pinLed,OUTPUT); 
-  digitalWrite(pinLed,LOW);
-  delay(1000);
-  digitalWrite(pinLed,HIGH);
+  ticker.detach();
+  //keep LED on
+  digitalWrite(BUILTIN_LED, LOW);
 }
 
 void loop() {
