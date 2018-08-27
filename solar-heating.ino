@@ -273,8 +273,6 @@ void setup() {
   
   loadConfig();
  
-<<<<<<< HEAD
-=======
   DEBUG_PRINT(F("tON:"));  
   DEBUG_PRINTLN(storage.tDiffON);
   DEBUG_PRINT(F("tOFF:"));  
