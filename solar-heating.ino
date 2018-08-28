@@ -17,8 +17,10 @@ GIT - https://github.com/pfory/solar-heating
  #define DEBUG_PRINT(x)         Serial.print (x)
  #define DEBUG_PRINTDEC(x)      Serial.print (x, DEC)
  #define DEBUG_PRINTHEX(x)      Serial.print(x, HEX);
+
  #define DEBUG_PRINTLN(x)       Serial.println (x)
  #define DEBUG_PRINTF(x, y)     Serial.printf (x, y)
+ #define PORTSPEED 115200
 #else
  #define DEBUG_PRINT(x)
  #define DEBUG_PRINTDEC(x)
@@ -218,9 +220,7 @@ struct StoreStruct {
 
 //-------------------------------------------- S E T U P ------------------------------------------------------------------------------
 void setup() {
-#ifdef verbose
   Serial.begin(PORTSPEED);
-#endif
   DEBUG_PRINT(F(SW_NAME));
   DEBUG_PRINT(F(" "));
   DEBUG_PRINTLN(F(VERSION));
@@ -235,15 +235,15 @@ void setup() {
   if (RTC.read(tm)) {
     DEBUG_PRINT(F("RTC OK, Time = "));
     print2digits(tm.Hour);
-    Serial.write(':');
+    DEBUG_WRITE(':');
     print2digits(tm.Minute);
-    Serial.write(':');
+    DEBUG_WRITE(':');
     print2digits(tm.Second);
     DEBUG_PRINT(F(", Date (D/M/Y) = "));
     DEBUG_PRINT(tm.Day);
-    Serial.write('/');
+    DEBUG_WRITE('/');
     DEBUG_PRINT(tm.Month);
-    Serial.write('/');
+    DEBUG_WRITE('/');
     //DEBUG_PRINT(tmYearToCalendar(tm.Year));
     DEBUG_PRINT(tm.Year);
     DEBUG_PRINTLN();
@@ -801,19 +801,23 @@ void keyBoard() {
 }
 
 void displayTemp(int x, int y, float value, bool des) {
-#ifdef time
-  displayTime();
-#endif
   /*
-  012345
-  -25.3
-  -5.3
-  -0.1
-   0.1
-   5.3
-  25.3
-   0.5 //100.5
-  */
+  value     des=true   des=false
+            0123       0123
+  89.3      89.3       89
+  10.0      10.0       10
+   9.9       9.9        9
+   1.1       1.1        1
+   0.9       0.9        0
+   0.1       0.0        0
+   0.0       0.0        0
+  -0.1      -0.1       -0
+  -0.9      -0.9       -0
+  -1.0      -1.0       -1
+  -9.9      -9.9       -9
+ -10.0      -10        -10
+ -25.2      -25        -25  
+   */
   lcd.setCursor(x,y);
   
   //DEBUG_PRINTLN(F(value);
@@ -821,30 +825,24 @@ void displayTemp(int x, int y, float value, bool des) {
   if (value<10.f && value>=0.f) {
     //DEBUG_PRINT(F("_"));
     lcd.print(F(" "));
-  } else if (value<0.f && value>-1.f) {
+  } else if (value<0.f && value>-10.f) {
     //DEBUG_PRINT(F("_"));
-    lcd.print(F(" "));
-  } else if (value<0.f) {
     lcd.print(F("-"));
+  } else if (value<-10.f) {
+    des = false;
     //DEBUG_PRINT("-"));
   }
   
-  int desetina=abs((int)(value*10)%10);
   if (value>=100.f) {
     value=value-100.f;
   }
-  
-  
+ 
   lcd.print(abs((int)value));
   if (des) {
     lcd.print(F("."));
-    lcd.print(desetina);
+    lcd.print(abs((int)(value*10)%10));
   }
   lcd.print(F(" "));
-  
-  /*if (cela>-10) {
-    lcd.print(F(" ");
-  }*/
 }
 
 #ifdef time
@@ -858,13 +856,13 @@ void lcd2digits(int number) {
 
 void print2digits(int number) {
   if (number >= 0 && number < 10) {
-    Serial.write('0');
+    DEBUG_WRITE('0');
   }
   DEBUG_PRINT(number);
 }
 
 void displayTime() {
-  lcd.setCursor(12, 0); //col,row
+  lcd.setCursor(TIMEX, TIMEY); //col,row
   if (RTC.read(tm)) {
     lcd2digits(tm.Hour);
     lcd.write(':');
@@ -962,7 +960,7 @@ unsigned int getPower(float t1, float t2) {
 
 void lcdShow() {
   if (display>=100) { 
-    lcd.setCursor(0,0);
+    lcd.setCursor(POZ0X,POZ0Y);
   }
   if (millis() > SHOW_INFO_DELAY + showInfo) {
     showInfo = millis();
@@ -973,6 +971,14 @@ void lcdShow() {
   }
   
   if (display==DISPLAY_MAIN) {
+    //    012345678901234567890
+    //00  10  9  0  -0 -9.1  T    
+    //01   555W   12.3kWh 124m                    
+    //02   2.1l/m  55 45 48  0
+    //03                123456
+    #ifdef time
+      displayTime();
+    #endif
     displayTemp(TEMP1X,TEMP1Y, tP1In, false);
     displayTemp(TEMP2X,TEMP2Y, tP1Out, false);
     displayTemp(TEMP3X,TEMP3Y, tP2In, false);
@@ -1030,31 +1036,15 @@ void lcdShow() {
     if (lastRunMin<10) PRINT_SPACE
     lcd.print(lastRunMin);
   } else if (display==DISPLAY_TOTAL_ENERGY) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Total energy"));
-    lcd.setCursor(0,1);
-    lcd.print(enegyWsTokWh(totalEnergy));
-    lcd.print(F(" kWh     "));
+    displayInfoValue('Total energy', enegyWsTokWh(totalEnergy), 'kWh');
   } else if (display==DISPLAY_T_DIFF_ON) {
-    lcd.setCursor(0,0);
-    lcd.print(F("TDiffON"));
-    lcd.setCursor(0,1);
-    lcd.print(storage.tDiffON);
-    lcd.print(F("     "));
+    displayInfoValue('TDiffON', storage.tDiffON, 'C');
   } else if (display==DISPLAY_T_DIFF_OFF) { 
-    lcd.setCursor(0,0);
-    lcd.print(F("TDiffOFF"));
-    lcd.setCursor(0,1);
-    lcd.print(storage.tDiffOFF);
-    lcd.print(F("     "));
+    displayInfoValue('TDiffOFF', storage.tDiffOFF, 'C');
   } else if (display==DISPLAY_FLOW) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Flow"));
-    lcd.setCursor(0,1);
-    lcd.print(lMin);
-    lcd.print(F(" l/min    "));
+    displayInfoValue('Flow', lMin, 'l/min');
   } else if (display==DISPLAY_MAX_IO_TEMP) {
-    lcd.setCursor(0,0);
+    lcd.setCursor(POZ0X,POZ0Y);
     lcd.print(F("Max IN:"));
     lcd.print(tMaxIn);
     lcd.print(F("     "));
@@ -1063,28 +1053,13 @@ void lcdShow() {
     lcd.print(tMaxOut);
     lcd.print(F("     "));
   } else if (display==DISPLAY_MAX_BOJLER) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Max bojler"));
-    lcd.setCursor(0,1);
-    lcd.print(tMaxBojler);
-    lcd.print(F("     "));
+    displayInfoValue('Max bojler', tMaxBojler, 'C');
   } else if (display==DISPLAY_MAX_POWER_TODAY) { 
-    lcd.setCursor(0,0);
-    lcd.print(F("Max power today"));
-    lcd.setCursor(0,1);
-    lcd.print(maxPower);
-    lcd.print(F(" W     "));
+    displayInfoValue('Max power today', maxPower, 'W');
   } else if (display==DISPLAY_CONTROL_SENSOR) {
-    lcd.setCursor(0,0);
+    lcd.setCursor(POZ0X,POZ0Y);
     lcd.print(F("Control sensor"));
     lcd.setCursor(0,1);
-    // if (storage.controlSensor==3) {
-      // lcd.print(F("Room"));
-    // } else if (storage.controlSensor==0) {
-      // lcd.print(F("Bojler"));
-    // } else {
-      // lcd.print(F("Unknown"));
-    // }
     lcd.print(F(" ["));
     lcd.print(sensor[storage.controlSensor]);
     lcd.print(F("]   "));
@@ -1095,88 +1070,30 @@ void lcdShow() {
       lcd.print(F("Room"));
     }
   } else if (display==DISPLAY_TOTAL_TIME) { 
-    lcd.setCursor(0,0);
-    lcd.print(F("Total time"));
-    lcd.setCursor(0,1);
-    lcd.print(totalSec/60/60);
-    lcd.print(F(" hours   "));
-
+    displayInfoValue('Total time', totalSec/60/60, 'hours');
+    
   } else if (display==DISPLAY_T_DIFF_ON_SETUP) {
-    lcd.setCursor(0,0);
-    lcd.print(F("tDiffON"));
-    lcd.setCursor(0,1);
-    lcd.print(storage.tDiffON);
-    lcd.print("         ");
+    displayInfoValue('tDiffON', storage.tDiffON, 'C');
   } else if (display==DISPLAY_T_DIFF_OFF_SETUP) {
-    lcd.setCursor(0,0);
-    lcd.print(F("tDiffOFF"));
-    lcd.setCursor(0,1);
-    lcd.print(storage.tDiffOFF);
-    lcd.print("         ");
+    displayInfoValue('tDiffOFF', storage.tDiffOFF, 'C');
   } else if (display==DISPLAY_P1IN_SETUP) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Panel1 IN"));
-    lcd.setCursor(0,1);
-    lcd.print(tP1In);
-    lcd.print("         ");
+    displayInfoValue('Panel1 IN', tP1In, 'C');
   } else if (display==DISPLAY_P1OUT_SETUP) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Panel1 OUT"));
-    lcd.setCursor(0,1);
-    lcd.print(tP1Out);
-    lcd.print("         ");
+    displayInfoValue('Panel1 OUT', tP1Out, 'C');
   } else if (display==DISPLAY_P2IN_SETUP) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Panel2 IN"));
-    lcd.setCursor(0,1);
-    lcd.print(tP2In);
-    lcd.print("         ");
+    displayInfoValue('Panel2 IN', tP2In, 'C');
   } else if (display==DISPLAY_P2OUT_SETUP) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Panel2 OUT"));
-    lcd.setCursor(0,1);
-    lcd.print(tP2Out);
-    lcd.print("         ");
+    displayInfoValue('Panel2 OUT', tP2Out, 'C');
   } else if (display==DISPLAY_BOJLERIN_SETUP) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Bojler IN"));
-    lcd.setCursor(0,1);
-    lcd.print(tBojlerIn);
-    lcd.print("         ");
+    displayInfoValue('Bojler IN', tBojlerIn, 'C');
   } else if (display==DISPLAY_BOJLEROUT_SETUP) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Bojler OUT"));
-    lcd.setCursor(0,1);
-    lcd.print(tBojlerOut);
-    lcd.print("         ");
+    displayInfoValue('Bojler OUT', tBojlerOut, 'C');
   } else if (display==DISPLAY_BOJLER_SETUP) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Bojler"));
-    lcd.setCursor(0,1);
-    lcd.print(tBojler);
-    lcd.print("         ");
+    displayInfoValue('Bojler', tBojler, 'C');
   } else if (display==DISPLAY_ROOM_SETUP) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Room"));
-    lcd.setCursor(0,1);
-    lcd.print(tRoom);
-    lcd.print("         ");
+    displayInfoValue('Room', tRoom, 'C');
   } else if (display==DISPLAY_CONTROL_SENSOR_SETUP) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Control sensor"));
-    lcd.setCursor(0,1);
-    lcd.print(tControl);
-    lcd.print("         ");
-  } else if (display==DISPLAY_CONTROL_SENSOR_SETUP_TEXT) {
-    lcd.setCursor(0,0);
-    lcd.print(F("Control sensor"));
-    lcd.setCursor(0,1);
-    if (storage.controlSensorBojler) {
-      lcd.print("Bojler");
-    } else {
-      lcd.print("Room  ");
-    }
-    lcd.print("         ");
+    displayInfoValue('Control sensor', tControl, 'C');
   }
 }
 
@@ -1432,3 +1349,14 @@ int getAngle() {
   }
 }
 #endif
+
+
+void displayInfoValue(char text1, float value, char text2) {
+  lcd.setCursor(POZ0X,POZ0Y);
+  lcd.print(text1);
+  lcd.setCursor(POZ0X,POZ1Y);
+  lcd.print(value);
+  lcd.print(" ");
+  lcd.print(text2);
+  lcd.print("          ");
+}

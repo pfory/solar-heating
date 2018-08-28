@@ -15,13 +15,14 @@
  #define DEBUG_PRINTDEC(x)      Serial.print (x, DEC)
  #define DEBUG_PRINTLN(x)       Serial.println (x)
  #define DEBUG_PRINTF(x, y)     Serial.printf (x, y)
- #define PORTSPEED 115200
 #else
  #define DEBUG_PRINT(x)
  #define DEBUG_PRINTDEC(x)
  #define DEBUG_PRINTLN(x)
  #define DEBUG_PRINTF(x, y)
 #endif 
+
+ #define PORTSPEED 9600
 
 //for LED status
 #include <Ticker.h>
@@ -37,16 +38,13 @@ void tick()
 WiFiClient client;
 WiFiManager wifiManager;
 
-uint32_t heartBeat                    = 12;
+uint32_t heartBeat                    = 0;
 String received                       = "";
 unsigned long milisLastRunMinOld      = 0;
 
 IPAddress _ip           = IPAddress(192, 168, 1, 108);
 IPAddress _gw           = IPAddress(192, 168, 1, 1);
 IPAddress _sn           = IPAddress(255, 255, 255, 0);
-
-
-#define pinLed                    2
 
 Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
 
@@ -80,9 +78,9 @@ float versionSW                   = 0.63;
 String versionSWString            = "Solar v";
 
 void setup() {
-  #ifdef verbose
+#ifdef verbose
   Serial.begin(PORTSPEED);
-  #endif
+#endif
   DEBUG_PRINT(versionSWString);
   DEBUG_PRINT(versionSW);
   //set led pin as output
@@ -116,7 +114,7 @@ void setup() {
   
   //WiFi.config(ip); 
   wifiManager.setSTAStaticIPConfig(_ip, _gw, _sn);
-  if (!wifiManager.autoConnect("AutoConnectAP", "password")) {
+  if (!wifiManager.autoConnect("Solar", "password")) {
     DEBUG_PRINTLN("failed to connect, we should reset as see if it connects");
     delay(3000);
     ESP.reset();
@@ -125,7 +123,7 @@ void setup() {
 
   ticker.detach();
   //keep LED on
-  digitalWrite(BUILTIN_LED, LOW);
+  digitalWrite(BUILTIN_LED, HIGH);
 }
 
 void loop() {
@@ -146,7 +144,7 @@ void loop() {
 
     received.trim();
     if (received!="") {
-      digitalWrite(pinLed,LOW);
+      digitalWrite(BUILTIN_LED,LOW);
       byte i=1;
       while (i<=11) {
         String val = getValue(received, '#', i);
@@ -237,7 +235,7 @@ void loop() {
         DEBUG_PRINTLN("OK!");
       }
      
-      digitalWrite(pinLed,HIGH);
+      digitalWrite(BUILTIN_LED,HIGH);
     } else {
         emptyData=true;
         DEBUG_PRINTLN("empty data");
