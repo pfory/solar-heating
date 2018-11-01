@@ -1,7 +1,8 @@
 //SOLAR COMMUNICATION UNIT
 //ESP8266-01
 //kompilovat jako Generic ESP8266 Module
-//BUILTIN_LED ON 1
+//BUILTIN_LED ON 2
+//1M 64k SPIFSS
 
 #include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
 #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
@@ -609,7 +610,7 @@ bool sendStatisticHA(void *) {
   DEBUG_PRINTLN(F(" - I am sending statistic to HA"));
 
   SenderClass sender;
-  sender.add("VersionSW", versionSW);
+  sender.add("VersionSWSolar", versionSW);
   sender.add("Napeti",  ESP.getVcc());
   sender.add("HeartBeat", heartBeat++);
   sender.add("RSSI", WiFi.RSSI());
