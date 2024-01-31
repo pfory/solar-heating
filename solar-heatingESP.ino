@@ -88,8 +88,7 @@ unsigned int displayType                    = DISPLAY_MAIN;
 unsigned long showInfo                      = 0; //zobrazeni 4 radky na displeji
 
 
-//LiquidCrystal_I2C lcd(LCDADDRESS,LCDCOLS,LCDROWS);  // set the LCD
-LCD_I2C lcd(LCDADDRESS, LCDCOLS, LCDROWS); // Default address of most PCF8574 modules, change according
+LiquidCrystal_I2C lcd(LCDADDRESS,LCDCOLS,LCDROWS);  // set the LCD
 
 //promenne ulozene v pameti (viz CFGFILE "/config.json")
 byte            tDiffON                    = 5; //rozdil vystupni teploty panelu 1 tP1Out nebo panelu 2 tP2Out proti teplote bojleru1 pri kterem dojde ke spusteni cerpadla
@@ -167,10 +166,10 @@ void setup() {
   pinMode(RELAYPIN, OUTPUT);
   digitalWrite(RELAYPIN, RELAY_ON);
 
-  lcd.begin();               // initialize the lcd 
+  lcd.init();               // initialize the lcd 
   lcd.backlight();
-  //lcd.home();                   
-  lcd.print(SW_NAME);  
+  lcd.home();
+  lcd.print(SW_NAME);
   PRINT_SPACE
   lcd.print(VERSION);
   lcd.createChar(0, customChar);
@@ -243,15 +242,15 @@ void setup() {
 #ifdef flowSensor
   timer.every(CALC_DELAY, calcFlow);
 #endif
-  timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
-#ifdef time
+  //timer.every(SENDSTAT_DELAY, sendStatisticMQTT);
+#ifdef cas
   timer.every(CALC_DELAY/2, displayTime);
 #endif
 #endif
 
-  void * a;
+  void * a=0;
   reconnect(a);
-  sendStatisticMQTT(a);
+  //sendStatisticMQTT(a);
   sendNetInfoMQTT();
   
   ticker.detach();
@@ -295,7 +294,7 @@ void loop() {
   
   //handle ftp server
   //ftpSrv.handleFTP();
-#ifdef time
+#ifdef cas
   displayClear();
   nulStat();
 #endif
@@ -313,7 +312,7 @@ void printMessageToLCD(char* t, String v) {
   lcd.clear();
 }
 
-#ifdef time
+#ifdef cas
 void displayClear() {
   if (minute()==0 && second()==0) {
     if (!dispClear) { 
@@ -379,7 +378,7 @@ bool calcPowerAndEnergy(void *) {
 void handleRoot() {
 	#define TEXTLEN 1000
   char temp[TEXTLEN];
-#ifdef time  
+#ifdef cas  
   printSystemTime();
 #endif
   DEBUG_PRINTLN(" Client request");
@@ -503,7 +502,7 @@ bool saveConfig() {
     lcd.clear();
     return false;
   } else {
-    if (isDebugEnabled()) {
+    if (isDebugEnabled) {
       serializeJson(doc, Serial);
     }
     serializeJson(doc, configFile);
@@ -597,12 +596,12 @@ bool sendDataMQTT(void *) {
   return true;
 }
 
-void print2digits(int number) {
-  if (number >= 0 && number < 10) {
-    DEBUG_WRITE('0');
-  }
-  DEBUG_PRINT(number);
-}
+// void print2digits(int number) {
+  // if (number >= 0 && number < 10) {
+    // DEBUG_WRITE('0');
+  // }
+  // DEBUG_PRINT(number);
+// }
 
 bool tempMeas(void *) {
   DEBUG_PRINT(F("Requesting temperatures..."));
@@ -763,7 +762,7 @@ void display() {
 
     lcd.setCursor(CONTROLSENSORX, CONTROLSENSORY);
     //controlSensorBojler==1 ? lcd.print(F("B")) : lcd.print(F("R"));
-#ifdef time
+#ifdef cas
     lcd.setCursor(SUNANGLEX,SUNANGLEY);
     lcd.print("Uhel:");
     lcd.print(90- sunAngle[month()-1]);
@@ -1011,7 +1010,7 @@ void displayValue(int x, int y, float value, byte cela, byte des) {
   }
 }
 
-#ifdef time
+#ifdef cas
 bool displayTime(void *) {
   lcd.setCursor(TIMEX, TIMEY); //col,row
   char buffer[6];

@@ -2,9 +2,9 @@
 #define CONFIGURATION_H
 
 //#include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
-//#include <FS.h>          //this needs to be first
-//#include <LittleFS.h>
-//#include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
+#include <FS.h>          //this needs to be first
+#include <LittleFS.h>
+#include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
 #include <LiquidCrystal_I2C.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
