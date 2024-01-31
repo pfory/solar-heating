@@ -1,36 +1,46 @@
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 
+#include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
+#include <FS.h>          //this needs to be first
+#include <LittleFS.h>
+#include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
+#include <LCD_I2C.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
 //SW name & version
-#define     VERSION                      "1.41"
-#define     SW_NAME                      "Solar"
+#define     VERSION                       "2.41"
+#define     SW_NAME                       "Solar"
 
-//EEPROM config
-#define CONFIG_START 0
-#define CONFIG_VERSION "v04"
-
-
+#define ota
+#define cas
 #define verbose
-#ifdef verbose
- #define DEBUG_PRINT(x)         Serial.print (x)
- #define DEBUG_PRINTDEC(x)      Serial.print (x, DEC)
- #define DEBUG_PRINTLN(x)       Serial.println (x)
- #define DEBUG_PRINTF(x, y)     Serial.printf (x, y)
- #define PORTSPEED 115200
- #define DEBUG_WRITE(x)         Serial.write (x)
- #define DEBUG_PRINTHEX(x)      Serial.print (x, HEX)
+#define flowSensor
+//#define serverHTTP
+#define PIR
+#define timers
 
-#else
- #define DEBUG_PRINT(x)
- #define DEBUG_PRINTDEC(x)
- #define DEBUG_PRINTLN(x)
- #define DEBUG_PRINTF(x, y)
- #define DEBUG_WRITE(x)
-#endif 
+#define CFGFILE "/config.json"
 
+static const char* const      mqtt_server                    = "192.168.1.56";
+static const uint16_t         mqtt_port                      = 1883;
+static const char* const      mqtt_username                  = "datel";
+static const char* const      mqtt_key                       = "hanka12";
+static const char* const      mqtt_base                      = "/home/Corridor/esp07";
+static const char* const      mqtt_topic_relay               = "manualRelay";
+static const char* const      mqtt_topic_restart             = "restart";
+static const char* const      mqtt_topic_netinfo             = "netinfo";
+static const char* const      mqtt_config_portal             = "config";
+static const char* const      mqtt_config_portal_stop        = "disconfig";
+static const char* const      mqtt_topic_tDiffOFF            = "tDiffOFF";
+static const char* const      mqtt_topic_tDiffON             = "tDiffON";
+static const char* const      mqtt_topic_controlSensor       = "controlSensorBojler";
+static const char* const      mqtt_topic_DSAddr              = "DSAddr";
 
 /*
 Version history:
+1.5  -            first version with Wemos D1 Mini ESP8266
 1.41 - debug serial.print
 1.4  - 20.10.2017 doplneny hodiny RTC a zobrazeni uhlu kolektoru na displeji
 1.31 - change display to 4x20
@@ -60,75 +70,44 @@ Version history:
 0.60 - 16.3.2014
 0.50 - 1.12.2013
 0.41 - 20.10.2013
-TODO - odladit CRC kod
 --------------------------------------------------------------------------------------------------------------------------
 HW
-Pro Mini 328 with Optiboot!!!! data are sent via serial line to comunication unit
+ESP8266 - Wemos D1 Mini
 I2C display
 2 Relays module
-DALLAS
+DALLAS temperature sensor
 keyboard
-Pro Mini 328 Layout
-------------------------------------------
-A0              - DALLAS temperature sensors
-A1              - relay 1
-A2              - relay 2
-A3              - free
-A4              - I2C display SDA 0x20, keypad 0x27
-A5              - I2C display SCL 0x20, keypad 0x27
-D0              - Rx
-D1              - Tx
-D2              - flow sensor
-D3              - free
-D4              - free
-D5              - free
-D6              - free
-D7              - free
-D8              - free
-D9              - free
-D10             - Rx 
-D11             - Tx
-D12             - free
-D13             - free
---------------------------------------------------------------------------------------------------------------------------
+
 */
 
-#define mySERIAL_SPEED  9600
-
-#define START_BLOCK       '#'
-#define DELIMITER         ';'
-#define END_BLOCK         '$'
-#define END_TRANSMITION   '*'
-
-#define LEDPIN 13
-
-//pins for softwareserial
-#define RX 10
-#define TX 11
+//keypad i2c address
+//#define I2CADDR                              0x20
 
 //display
-#define LCDADDRESS   0x27
-#define LCDROWS      4
-#define LCDCOLS      20
+#define LCDADDRESS                           0x27
+#define LCDROWS                              4
+#define LCDCOLS                              20
 
-//one wire bus
-#define ONE_WIRE_BUS A0
-
-//#define dallasMinimal           //-956 Bytes
-#ifndef NUMBER_OF_DEVICES
-#define NUMBER_OF_DEVICES 10
-
-#define STATUS_NORMAL0                        0
-#define STATUS_NORMAL1                        1
-#define STATUS_AFTER_START                    2
-#define STATUS_WRITETOTALTOEEPROM_DELAY       3
-#define STATUS_WRITETOTALTOEEPROM_ONOFF       4
-#define STATUS_WRITETOTALTOEEPROM_MANUAL      5
-#define STATUS_STARTAFTER_BROWNOUT            6
-#define STATUS_STARTAFTER_POWERON             7
-#define STATUS_STARTAFTER_WATCHDOGOREXTERNAL  8
+//All of the IO pins have interrupt/pwm/I2C/one-wire support except D0.
+//#define STATUS_LED                           BUILTIN_LED //status LED
+#define PIRPIN                               D0 //                           GPIO16
+#define RELAYPIN                             D3 //relay 10k Pull-up        GPIO0
+#ifdef flowSensor
+#define FLOWSENSORPIN                        D6 //flow sensor MISO           GPIO12
 #endif
+#define ONE_WIRE_BUS                         D7 //MOSI                       GPIO13
+//#define RELAY2PIN                          D8 //10k Pull-down, SS          GPIO15
+//SDA                                        D2 //                           GPIO4
+//SCL                                        D1 //                           GPIO5
+//BUILTIN_LED                                D4 //10k Pull-up, BUILTIN_LED   GPIO2
+//                                           D5 //SCK                        GPIO14
 
+#define RELAY_ON                            LOW
+#define RELAY_OFF                           HIGH
+
+#ifndef NUMBER_OF_DEVICES
+#define NUMBER_OF_DEVICES                    10
+#endif
 
 //0123456789012345
 //15.6 15.8 15.8 V
@@ -141,34 +120,34 @@ D13             - free
 #define TEMP3Y                               0
 #define TEMP4X                               9  //P2 Out
 #define TEMP4Y                               0
-#define TEMP5X                              13  //Control
+#define TEMP5X                              12  //Control
 #define TEMP5Y                               0
 #define TEMP6X                               9  //Bojler in
-#define TEMP6Y                               2
+#define TEMP6Y                               1
 #define TEMP7X                              12  //Bojler out
-#define TEMP7Y                               2
+#define TEMP7Y                               1
 #define TEMP8X                              15  //Bojler
-#define TEMP8Y                               2
+#define TEMP8Y                               1
 #define POWERX                               0
-#define POWERY                               1
+#define POWERY                               2
 #define ENERGYX                              8
-#define ENERGYY                              1
-#define TIMEX                               16
-#define TIMEY                                1
+#define ENERGYY                              2
 #define FLOWX                                1
-#define FLOWY                                2
-#define STATUSX                              19
-#define STATUSY                              2
-#define MINRUNX                              14
-#define MINRUNY                              3
-#define TIMEX                                12
-#define TIMEY                                0
+#define FLOWY                                1
+#define RUNMINTODAY_X                       16
+#define RUNMINTODAY_Y                        2
+#define TIMEX                                0
+#define TIMEY                                3
 #define POZ0X                                0
 #define POZ0Y                                0
-#define POZ1Y                                1
+#define POZ1Y                                2
+#define CONTROLSENSORX                      19
+#define CONTROLSENSORY                       0
+#define SUNANGLEX                            6
+#define SUNANGLEY                            3
 
 #define DISPLAY_MAIN                         0
-#define DISPLAY_TOTAL_ENERGY                 1
+
 #define DISPLAY_T_DIFF_ON                    2
 #define DISPLAY_T_DIFF_OFF                   3
 #define DISPLAY_FLOW                         4
@@ -176,44 +155,25 @@ D13             - free
 #define DISPLAY_MAX_BOJLER                   6
 #define DISPLAY_MAX_POWER_TODAY              7
 #define DISPLAY_CONTROL_SENSOR               8
-#define DISPLAY_TOTAL_TIME                   9      
-#define DISPLAY_T_DIFF_ON_SETUP              100
-#define DISPLAY_T_DIFF_OFF_SETUP             101
-#define DISPLAY_P1IN_SETUP                   102
-#define DISPLAY_P1OUT_SETUP                  103
-#define DISPLAY_P2IN_SETUP                   104
-#define DISPLAY_P2OUT_SETUP                  105
-#define DISPLAY_BOJLERIN_SETUP               106
-#define DISPLAY_BOJLEROUT_SETUP              107
-#define DISPLAY_BOJLER_SETUP                 108
-#define DISPLAY_ROOM_SETUP                   109
-#define DISPLAY_CONTROL_SENSOR_SETUP         110
-#define DISPLAY_CONTROL_SENSOR_SETUP_TEXT    111
-                          
-#define RELAY1X                             19
-#define RELAY1Y                              0
-/*#define RELAY2X                           15
-#define RELAY2Y                              1
-*/                          
-                          
-#define RELAY1PIN                           A1
-#define RELAY2PIN                           A2
+#define RELAY_STATUSX                       17
+#define RELAY_STATUSY                        3
 
-//keypad i2c address
-#define I2CADDR                             0x20
-#define PRINT_SPACE           lcd.print(F(" "));
+#define PRINT_SPACE                          lcd.print(F(" "));
 
+#define DELAY_AFTER_ON                       120000 //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
+  
+#define SAFETY_ON                            86.0 //teplota, pri niz rele vzdy sepne
+#define ROOMTEMPON                           25.0 //teplota, pri niz sepne rele kdyz je kontrolni cidlo mistnost
+  
+#define SEND_DELAY                           20000  //prodleva mezi poslanim dat v ms
+#define SHOW_INFO_DELAY                      5000  //
+#define SENDSTAT_DELAY                       60000 //poslani statistiky kazdou minutu
+#define MEAS_DELAY                           2000  //mereni teplot
+#define CALC_DELAY                           1000  //mereni prutoku a vypocet energie kazdou sekundu
+#define CONNECT_DELAY                        5000 //ms
+  
+#define TEMP_ERR                            -127
 
-#define DS_MEASSURE_INTERVAL                750 //inteval between meassurements
-#define DELAY_AFTER_ON                      120000 //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
+#include <fce.h>
 
-#define DAY_INTERVAL                        43200000 //1000*60*60*12; //
-
-#define LAST_WRITE_EEPROM_DELAY             3600000 //in ms = 1 hod
-#define SAFETY_ON                           80.0 //teplota, pri niz rele vzdy sepne
-
-#define SEND_DELAY                          10000  //prodleva mezi poslanim dat v ms
-#define SHOW_INFO_DELAY                     5000  //prodleva mezi poslanim dat v ms
-
-#define T_MIN                               -128.0
 #endif
