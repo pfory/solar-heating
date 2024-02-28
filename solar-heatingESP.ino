@@ -59,8 +59,8 @@ unsigned long lastOffOn                     = 0; //zamezuje cyklickemu zapinani 
 //unsigned long lastOff                       = 0;  //ms posledniho vypnuti rele
 bool dispClear                              = false;
 
-DeviceAddress T1Addr                        = { 0x28, 0xE6, 0xFB, 0x80, 0x04, 0x00, 0x00, 0x14 };
-DeviceAddress T2Addr                        = { 0x28, 0x0E, 0xC9, 0x80, 0x04, 0x00, 0x00, 0x9B };
+DeviceAddress T1Addr                        = { 0x28, 0xFF, 0x64, 0x1E, 0x9D, 0xB9, 0x0A, 0x9D };
+DeviceAddress T2Addr                        = { 0x28, 0xFF, 0x82, 0xF7, 0x02, 0x17, 0x03, 0xD8 };
 DeviceAddress T3Addr                        = { 0x28, 0xFF, 0x94, 0x27, 0x74, 0x16, 0x04, 0x40 };
 DeviceAddress T4Addr                        = { 0x28, 0xFF, 0x78, 0x33, 0x03, 0x17, 0x04, 0xDC };
 DeviceAddress T5Addr                        = { 0x28, 0xEA, 0x67, 0x6B, 0x05, 0x00, 0x00, 0x89 };
@@ -217,7 +217,7 @@ void setup() {
   DEBUG_PRINTLN(tDiffON);
   DEBUG_PRINT(F("tOFF:"));  
   DEBUG_PRINTLN(tDiffOFF);
-  DEBUG_PRINT(F("Control:"));  
+  //DEBUG_PRINT(F("Control:"));  
   //DEBUG_PRINT(controlSensor);
   // if (controlSensorBojler==1) {
     // DEBUG_PRINTLN("Bojler");
@@ -257,7 +257,7 @@ void setup() {
   //keep LED on
   digitalWrite(LED_BUILTIN, HIGH);
 
-  drd.stop();
+  drd->stop();
 
   lcd.clear();
   DEBUG_PRINTLN(F("SETUP END......................."));
@@ -1027,6 +1027,7 @@ bool displayTime(void *) {
 
 void sendDSAddrMQTT() {
   byte i;
+  byte cidlo = 1;
   byte addr[8];
   char buffer[256];
   DynamicJsonDocument doc(1024);
@@ -1055,8 +1056,8 @@ void sendDSAddrMQTT() {
     doc["Addr"]   = s;
     
     serializeJson(doc, buffer);
-    client.publish((String(mqtt_base) + "/DSAddresses").c_str(), buffer);
-    
+    client.publish((String(mqtt_base) + "/DSAddress[" + String(cidlo) + "]").c_str(), buffer);
+    cidlo++;
     if (OneWire::crc8( addr, 7) != addr[7]) {
         DEBUG_PRINTLN("CRC is not valid!");
         return;
