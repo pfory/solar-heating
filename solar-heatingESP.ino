@@ -1036,6 +1036,7 @@ void sendDSAddrMQTT() {
   while(onewire.search(addr)) {
     DEBUG_PRINTLN("\n\rFound \'1-Wire\' device with address:");
     String s = String(40);
+    s = "";
     String s1 = String(2);
     for (i = 0; i < 8; i++) {
       DEBUG_PRINT("0x");
@@ -1056,8 +1057,7 @@ void sendDSAddrMQTT() {
     doc["Addr"]   = s;
     
     serializeJson(doc, buffer);
-    client.publish((String(mqtt_base) + "/DSAddress[" + String(cidlo) + "]").c_str(), buffer);
-    cidlo++;
+    client.publish((String(mqtt_base) + "/DSAddress[" + String(cidlo++) + "]").c_str(), buffer);
     if (OneWire::crc8( addr, 7) != addr[7]) {
         DEBUG_PRINTLN("CRC is not valid!");
         return;
