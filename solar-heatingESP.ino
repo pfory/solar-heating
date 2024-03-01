@@ -21,10 +21,6 @@ unsigned int numberOfDevices                = 0; // Number of temperature device
 
 float sensor[NUMBER_OF_DEVICES];
 
-#ifdef serverHTTP
-ESP8266WebServer server(80);
-#endif
-
 //navrhar - https://maxpromer.github.io/LCD-Character-Creator/
 byte customChar[] = {
   B01110,
@@ -163,6 +159,13 @@ void IRAM_ATTR flow();
 void setup() {
   preSetup();
   
+#ifdef serverHTTP
+  server.on ( "/", handleRoot );
+  server.begin();
+  DEBUG_PRINTLN ( "HTTP server started!!" );
+#endif
+
+  
   pinMode(RELAYPIN, OUTPUT);
   digitalWrite(RELAYPIN, RELAY_ON);
 
@@ -201,7 +204,7 @@ void setup() {
   lcd.print(F(" tOFF:"));  
   lcd.print(tDiffOFF);
   lcd.setCursor(0,3);
-  lcd.print(F("Control:"));  
+  //lcd.print(F("Control:"));  
   //lcd.print(controlSensor);
   // if (controlSensorBojler==1) {
     // lcd.print("Bojler");
@@ -384,75 +387,88 @@ void handleRoot() {
   DEBUG_PRINTLN(" Client request");
   digitalWrite(LED_BUILTIN, LOW);
   
-	snprintf ( temp, TEXTLEN,
-      "<html>\
-        <head>\
-          <meta charset='UTF-8'>\
-        </head>\
-        <body>\
-          <b>Sensors:</b><br />\
-          sensor[0]:%s%d.%02d<br />\
-          sensor[1]:%s%d.%02d<br />\
-          sensor[2]:%s%d.%02d<br />\
-          sensor[3]:%s%d.%02d<br />\
-          sensor[4]:%s%d.%02d<br />\
-          sensor[5]:%s%d.%02d<br />\
-          sensor[6]:%s%d.%02d<br />\
-          sensor[7]:%s%d.%02d<br />\
-          <br /><br />\
-          <b>Temperatures:</b><br />\
-          so0-Panel 1 Input:%d.%02d<br />\
-          so1-Panel 1 Output:%d.%02d<br />\
-          so2-Panel 2 Input:%d.%02d<br />\
-          so3-Panel 2 Output:%d.%02d<br />\
-          so4-Bojler Input:%d.%02d<br />\
-          so5-Bojler Output:%d.%02d<br />\
-          so6-Bojler:%d.%02d<br />\
-          so7-Room:%d.%02d<br />\
-        </body>\
-      </html>",
-      sensor[0]<0 && sensor[0]>-1 ? "-":"",
-      (int)sensor[0], 
-      abs((sensor[0] - (int)sensor[0]) * 100),
-      sensor[1]<0 && sensor[1]>-1 ? "-":"",
-      (int)sensor[1], 
-      abs((sensor[1] - (int)sensor[1]) * 100),
-      sensor[2]<0 && sensor[2]>-1 ? "-":"",
-      (int)sensor[2], 
-      abs((sensor[2] - (int)sensor[2]) * 100),
-      sensor[3]<0 && sensor[3]>-1 ? "-":"",
-      (int)sensor[3], 
-      abs((sensor[3] - (int)sensor[3]) * 100),
-      sensor[4]<0 && sensor[4]>-1 ? "-":"",
-      (int)sensor[4], 
-      abs((sensor[4] - (int)sensor[4]) * 100),
-      sensor[5]<0 && sensor[5]>-1 ? "-":"",
-      (int)sensor[5], 
-      abs((sensor[5] - (int)sensor[5]) * 100),
-      sensor[6]<0 && sensor[6]>-1 ? "-":"",
-      (int)sensor[6], 
-      abs((sensor[6] - (int)sensor[6]) * 100),
-      sensor[7]<0 && sensor[7]>-1 ? "-":"",
-      (int)sensor[7], 
-      abs((sensor[7] - (int)sensor[7]) * 100),
-      (int)tP1In,
-      abs((tP1In - (int)tP1In) * 100),
-      (int)tP1Out,
-      abs((tP1Out - (int)tP1Out) * 100),
-      (int)tP2In,
-      abs((tP2In - (int)tP2In) * 100),
-      (int)tP2Out,
-      abs((tP2Out - (int)tP2Out) * 100),
-      (int)tBojlerIn,
-      abs((tBojlerIn - (int)tBojlerIn) * 100),
-      (int)tBojlerOut,
-      abs((tBojlerOut - (int)tBojlerOut) * 100),
-      (int)tBojler1,
-      abs((tBojler1 - (int)tBojler1) * 100)
-      // ,
-      // (int)tRoom,
-      // abs((tRoom - (int)tRoom) * 100)
-);
+  snprintf ( temp, TEXTLEN, "<html><head><meta charset='UTF-8'></head><body>\
+            %2d.%02d.%02d% 02d:%02d\
+            <br>Teplota P1In:%2.1f°C\
+            <br>Teplota P1Out:%2.1f°C\
+            <br>Teplota P2In:%2.1f°C\
+            <br>Teplota P2Out:%2.1f°C\
+            </body></html>",
+            day(), month(), year(), hour(), minute(),
+            tP1In,
+            tP1Out,
+            tP2In,
+            tP2Out
+    );
+  
+	// snprintf ( temp, TEXTLEN,
+      // "<html>\
+        // <head>\
+          // <meta charset='UTF-8'>\
+        // </head>\
+        // <body>\
+          // <b>Sensors:</b><br />\
+          // sensor[0]:%s%d.%02d<br />\
+          // sensor[1]:%s%d.%02d<br />\
+          // sensor[2]:%s%d.%02d<br />\
+          // sensor[3]:%s%d.%02d<br />\
+          // sensor[4]:%s%d.%02d<br />\
+          // sensor[5]:%s%d.%02d<br />\
+          // sensor[6]:%s%d.%02d<br />\
+          // sensor[7]:%s%d.%02d<br />\
+          // <br /><br />\
+          // <b>Temperatures:</b><br />\
+          // so0-Panel 1 Input:%d.%02d<br />\
+          // so1-Panel 1 Output:%d.%02d<br />\
+          // so2-Panel 2 Input:%d.%02d<br />\
+          // so3-Panel 2 Output:%d.%02d<br />\
+          // so4-Bojler Input:%d.%02d<br />\
+          // so5-Bojler Output:%d.%02d<br />\
+          // so6-Bojler:%d.%02d<br />\
+        // </body>\
+      // </html>",
+      // sensor[0]<0 && sensor[0]>-1 ? "-":"",
+      // (int)sensor[0], 
+      // abs((sensor[0] - (int)sensor[0]) * 100),
+      // sensor[1]<0 && sensor[1]>-1 ? "-":"",
+      // (int)sensor[1], 
+      // abs((sensor[1] - (int)sensor[1]) * 100),
+      // sensor[2]<0 && sensor[2]>-1 ? "-":"",
+      // (int)sensor[2], 
+      // abs((sensor[2] - (int)sensor[2]) * 100),
+      // sensor[3]<0 && sensor[3]>-1 ? "-":"",
+      // (int)sensor[3], 
+      // abs((sensor[3] - (int)sensor[3]) * 100),
+      // sensor[4]<0 && sensor[4]>-1 ? "-":"",
+      // (int)sensor[4], 
+      // abs((sensor[4] - (int)sensor[4]) * 100),
+      // sensor[5]<0 && sensor[5]>-1 ? "-":"",
+      // (int)sensor[5], 
+      // abs((sensor[5] - (int)sensor[5]) * 100),
+      // sensor[6]<0 && sensor[6]>-1 ? "-":"",
+      // (int)sensor[6], 
+      // abs((sensor[6] - (int)sensor[6]) * 100),
+      // sensor[7]<0 && sensor[7]>-1 ? "-":"",
+      // (int)sensor[7], 
+      // abs((sensor[7] - (int)sensor[7]) * 100),
+      // (int)tP1In,
+      // abs((tP1In - (int)tP1In) * 100),
+      // (int)tP1Out,
+      // abs((tP1Out - (int)tP1Out) * 100),
+      // (int)tP2In,
+      // abs((tP2In - (int)tP2In) * 100),
+      // (int)tP2Out,
+      // abs((tP2Out - (int)tP2Out) * 100),
+      // (int)tBojlerIn,
+      // abs((tBojlerIn - (int)tBojlerIn) * 100),
+      // (int)tBojlerOut,
+      // abs((tBojlerOut - (int)tBojlerOut) * 100),
+      // (int)tBojler1,
+      // abs((tBojler1 - (int)tBojler1) * 100)
+      // // ,
+      // // (int)tRoom,
+      // // abs((tRoom - (int)tRoom) * 100)
+    // );
 	server.send ( 200, "text/html", temp );
   digitalWrite(LED_BUILTIN, HIGH);
 }
@@ -609,21 +625,21 @@ bool tempMeas(void *) {
   DEBUG_PRINTLN(F("DONE"));
   
   float t_temp=dsSensors.getTempC(T1Addr);
-  if (t_temp>-127) tP1In         = t_temp;
+  if (t_temp>TEMP_ERR) tP1In         = t_temp;
   t_temp=dsSensors.getTempC(T2Addr);
-  if (t_temp>-127) tP1Out        = t_temp;
+  if (t_temp>TEMP_ERR) tP1Out        = t_temp;
   t_temp=dsSensors.getTempC(T7Addr);
-  if (t_temp>-127) tP2In         = t_temp;
+  if (t_temp>TEMP_ERR) tP2In         = t_temp;
   t_temp=dsSensors.getTempC(T8Addr);   
-  if (t_temp>-127) tP2Out        = t_temp;
+  if (t_temp>TEMP_ERR) tP2Out        = t_temp;
   t_temp=dsSensors.getTempC(T6Addr);  
-  if (t_temp>-127) tBojlerIn     = t_temp;
+  if (t_temp>TEMP_ERR) tBojlerIn     = t_temp;
   t_temp=dsSensors.getTempC(T4Addr);
-  if (t_temp>-127) tBojlerOut    = t_temp;
+  if (t_temp>TEMP_ERR) tBojlerOut    = t_temp;
   t_temp=dsSensors.getTempC(T5Addr);   
-  if (t_temp>-127) tBojler1      = t_temp;
+  if (t_temp>TEMP_ERR) tBojler1      = t_temp;
   t_temp=dsSensors.getTempC(T3Addr);
-  if (t_temp>-127) tBojler2      = t_temp;
+  if (t_temp>TEMP_ERR) tBojler2      = t_temp;
   
   DEBUG_PRINT(F("P1 In:"));
   DEBUG_PRINTLN(tP1In);
@@ -715,13 +731,6 @@ void display() {
   if (displayType>=100) { 
     lcd.setCursor(POZ0X,POZ0Y);
   }
-  // if (millis() > SHOW_INFO_DELAY + showInfo) {
-    // showInfo = millis();
-    // lcd.setCursor(0,3);
-    // for (byte i=0;i<14;i++) {
-      // PRINT_SPACE;
-    // }
-  // }
   
   if (displayType==DISPLAY_MAIN) {
     //    012345678901234567890

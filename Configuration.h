@@ -10,14 +10,14 @@
 #include <DallasTemperature.h>
 
 //SW name & version
-#define     VERSION                       "2.43"
+#define     VERSION                       "2.44"
 #define     SW_NAME                       "Solar"
 
 #define ota
 #define cas
 #define verbose
 #define flowSensor
-//#define serverHTTP
+#define serverHTTP
 #define PIR
 #define timers
 
@@ -166,9 +166,8 @@ keyboard
 #define ROOMTEMPON                           25.0 //teplota, pri niz sepne rele kdyz je kontrolni cidlo mistnost
   
 #define SEND_DELAY                           20000  //prodleva mezi poslanim dat v ms
-#define SHOW_INFO_DELAY                      5000  //
 #define SENDSTAT_DELAY                       60000 //poslani statistiky kazdou minutu
-#define MEAS_DELAY                           2000  //mereni teplot
+#define MEAS_DELAY                           5000  //mereni teplot
 #define CALC_DELAY                           1000  //mereni prutoku a vypocet energie kazdou sekundu
 #define CONNECT_DELAY                        5000 //ms
   
