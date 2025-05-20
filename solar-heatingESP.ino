@@ -258,7 +258,7 @@ void setup() {
   
   ticker.detach();
   //keep LED on
-  digitalWrite(LED_BUILTIN, HIGH);
+  digitalWrite(LED_BUILTIN, LOW);
 
   drd->stop();
 
