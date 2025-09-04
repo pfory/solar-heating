@@ -1,27 +1,22 @@
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 
-//#include <ESP8266WiFi.h>          //https://github.com/esp8266/Arduino
-#include <FS.h>          //this needs to be first
-#include <LittleFS.h>
-#include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson
 #include <LiquidCrystal_I2C.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <ArduinoJson.h>
 
 //SW name & version
-#define     VERSION                       "2.44"
+#define     VERSION                       "2.50"
 #define     SW_NAME                       "Solar"
 
 #define ota
 #define cas
 #define verbose
 #define flowSensor
-#define serverHTTP
+//#define serverHTTP
 #define PIR
 #define timers
-
-#define CFGFILE "/config.json"
 
 static const char* const      mqtt_server                    = "192.168.1.56";
 static const uint16_t         mqtt_port                      = 1883;
@@ -158,6 +153,10 @@ keyboard
 #define RELAY_STATUSX                       17
 #define RELAY_STATUSY                        3
 
+#define RELAY_TYPE_MANUAL_OFF               0
+#define RELAY_TYPE_MANUAL_ON                1
+#define RELAY_TYPE_AUTO                     2
+
 #define PRINT_SPACE                          lcd.print(F(" "));
 
 #define DELAY_AFTER_ON                       120000 //1000*60*2; //po tento cas zustane rele sepnute bez ohledu na stav teplotnich cidel
@@ -172,6 +171,8 @@ keyboard
 #define CONNECT_DELAY                        5000 //ms
   
 #define TEMP_ERR                            -127
+
+#define CFGFILE                             "/config.txt"
 
 #include <fce.h>
 

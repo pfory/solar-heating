@@ -86,11 +86,24 @@ unsigned long showInfo                      = 0; //zobrazeni 4 radky na displeji
 
 LiquidCrystal_I2C lcd(LCDADDRESS,LCDCOLS,LCDROWS);  // set the LCD
 
-//promenne ulozene v pameti (viz CFGFILE "/config.json")
-byte            tDiffON                    = 5; //rozdil vystupni teploty panelu 1 tP1Out nebo panelu 2 tP2Out proti teplote bojleru1 pri kterem dojde ke spusteni cerpadla
-byte            tDiffOFF                   = 2; //rozdil vystupni teploty panelu 2 tP2Out proti teplote bojleru1 pri kterem dojde k vypnuti cerpadla
+struct StoreStruct {
+  // The variables of your settings
+  float           tDiffON; //rozdil vystupni teploty panelu 1 tP1Out nebo panelu 2 tP2Out proti teplote bojleru1 pri kterem dojde ke spusteni cerpadla
+  float           tDiffOFF; //rozdil vystupni teploty panelu 2 tP2Out proti teplote bojleru1 pri kterem dojde k vypnuti cerpadla
+  float           tempAlarm;
+  int             relayType;
+} storage = {
+  5,
+  2,
+  90,
+  RELAY_TYPE_AUTO
+};
 
-byte            sensorOrder[NUMBER_OF_DEVICES];
+//promenne ulozene v pameti (viz CFGFILE "/config.json")
+//byte            tDiffON                    = 5; //rozdil vystupni teploty panelu 1 tP1Out nebo panelu 2 tP2Out proti teplote bojleru1 pri kterem dojde ke spusteni cerpadla
+//byte            tDiffOFF                   = 2; //rozdil vystupni teploty panelu 2 tP2Out proti teplote bojleru1 pri kterem dojde k vypnuti cerpadla
+
+//byte            sensorOrder[NUMBER_OF_DEVICES];
 
 
 byte sunAngle[12]                           = {17,23,32,44,55,62,63,58,48,37,26,19}; //uhel slunce nad obzorem kdyz je na jihu
@@ -116,19 +129,19 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_tDiffOFF)).c_str())==0) {
     printMessageToLCD(topic, val);
     DEBUG_PRINT("set tDiffOFF to ");
-    tDiffOFF=val.toInt();
-    DEBUG_PRINT(tDiffOFF);
+    storage.tDiffOFF=val.toInt();
+    DEBUG_PRINT(storage.tDiffOFF);
     saveConfig();
   } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_tDiffON)).c_str())==0) {
     printMessageToLCD(topic, val);
     DEBUG_PRINT("set tDiffON to ");
-    tDiffON=val.toInt();
-    DEBUG_PRINT(tDiffON);
+    storage.tDiffON=val.toInt();
+    DEBUG_PRINT(storage.tDiffON);
     saveConfig();
   } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_restart)).c_str())==0) {
     printMessageToLCD(topic, val);
     DEBUG_PRINTLN("RESTART");
-    saveConfig();
+    //saveConfig();
     ESP.restart();
   } else if (strcmp(topic, (String(mqtt_base) + "/" + String(mqtt_topic_netinfo)).c_str())==0) {
     printMessageToLCD(topic, val);
@@ -195,14 +208,14 @@ void setup() {
   dsInit();
 
   if (!readConfig()) {
-    DEBUG_PRINTLN(F("ERROR config corrupted"));
+    DEBUG_PRINTLN("Error config corrupted");
   }
 
   lcd.setCursor(0,2);
   lcd.print(F("tON:"));  
-  lcd.print(tDiffON);
+  lcd.print(storage.tDiffON);
   lcd.print(F(" tOFF:"));  
-  lcd.print(tDiffOFF);
+  lcd.print(storage.tDiffOFF);
   lcd.setCursor(0,3);
   //lcd.print(F("Control:"));  
   //lcd.print(controlSensor);
@@ -217,9 +230,9 @@ void setup() {
   lcd.print("Connecting to WiFi..");
   
   DEBUG_PRINT(F("tON:"));  
-  DEBUG_PRINTLN(tDiffON);
+  DEBUG_PRINTLN(storage.tDiffON);
   DEBUG_PRINT(F("tOFF:"));  
-  DEBUG_PRINTLN(tDiffOFF);
+  DEBUG_PRINTLN(storage.tDiffOFF);
   //DEBUG_PRINT(F("Control:"));  
   //DEBUG_PRINT(controlSensor);
   // if (controlSensorBojler==1) {
@@ -228,9 +241,6 @@ void setup() {
     // DEBUG_PRINTLN("Room");
   // }
 
-  //keypad.begin();
-  //keypad.addEventListener(keypadEvent); //add an event listener for this keypad  
-  
   if (numberOfDevices>NUMBER_OF_DEVICES) {
     DEBUG_PRINTLN("ERROR - real number of devices DS18B20 > NUMBER_OF_DEVICES. Change variable NUMBER_OF_DEVICES in Configuration.h file!!!!!!!!");
   }
@@ -401,74 +411,6 @@ void handleRoot() {
             tP2Out
     );
   
-	// snprintf ( temp, TEXTLEN,
-      // "<html>\
-        // <head>\
-          // <meta charset='UTF-8'>\
-        // </head>\
-        // <body>\
-          // <b>Sensors:</b><br />\
-          // sensor[0]:%s%d.%02d<br />\
-          // sensor[1]:%s%d.%02d<br />\
-          // sensor[2]:%s%d.%02d<br />\
-          // sensor[3]:%s%d.%02d<br />\
-          // sensor[4]:%s%d.%02d<br />\
-          // sensor[5]:%s%d.%02d<br />\
-          // sensor[6]:%s%d.%02d<br />\
-          // sensor[7]:%s%d.%02d<br />\
-          // <br /><br />\
-          // <b>Temperatures:</b><br />\
-          // so0-Panel 1 Input:%d.%02d<br />\
-          // so1-Panel 1 Output:%d.%02d<br />\
-          // so2-Panel 2 Input:%d.%02d<br />\
-          // so3-Panel 2 Output:%d.%02d<br />\
-          // so4-Bojler Input:%d.%02d<br />\
-          // so5-Bojler Output:%d.%02d<br />\
-          // so6-Bojler:%d.%02d<br />\
-        // </body>\
-      // </html>",
-      // sensor[0]<0 && sensor[0]>-1 ? "-":"",
-      // (int)sensor[0], 
-      // abs((sensor[0] - (int)sensor[0]) * 100),
-      // sensor[1]<0 && sensor[1]>-1 ? "-":"",
-      // (int)sensor[1], 
-      // abs((sensor[1] - (int)sensor[1]) * 100),
-      // sensor[2]<0 && sensor[2]>-1 ? "-":"",
-      // (int)sensor[2], 
-      // abs((sensor[2] - (int)sensor[2]) * 100),
-      // sensor[3]<0 && sensor[3]>-1 ? "-":"",
-      // (int)sensor[3], 
-      // abs((sensor[3] - (int)sensor[3]) * 100),
-      // sensor[4]<0 && sensor[4]>-1 ? "-":"",
-      // (int)sensor[4], 
-      // abs((sensor[4] - (int)sensor[4]) * 100),
-      // sensor[5]<0 && sensor[5]>-1 ? "-":"",
-      // (int)sensor[5], 
-      // abs((sensor[5] - (int)sensor[5]) * 100),
-      // sensor[6]<0 && sensor[6]>-1 ? "-":"",
-      // (int)sensor[6], 
-      // abs((sensor[6] - (int)sensor[6]) * 100),
-      // sensor[7]<0 && sensor[7]>-1 ? "-":"",
-      // (int)sensor[7], 
-      // abs((sensor[7] - (int)sensor[7]) * 100),
-      // (int)tP1In,
-      // abs((tP1In - (int)tP1In) * 100),
-      // (int)tP1Out,
-      // abs((tP1Out - (int)tP1Out) * 100),
-      // (int)tP2In,
-      // abs((tP2In - (int)tP2In) * 100),
-      // (int)tP2Out,
-      // abs((tP2Out - (int)tP2Out) * 100),
-      // (int)tBojlerIn,
-      // abs((tBojlerIn - (int)tBojlerIn) * 100),
-      // (int)tBojlerOut,
-      // abs((tBojlerOut - (int)tBojlerOut) * 100),
-      // (int)tBojler1,
-      // abs((tBojler1 - (int)tBojler1) * 100)
-      // // ,
-      // // (int)tRoom,
-      // // abs((tRoom - (int)tRoom) * 100)
-    // );
 	server.send ( 200, "text/html", temp );
   digitalWrite(LED_BUILTIN, HIGH);
 }
@@ -487,55 +429,32 @@ bool saveConfig() {
     DEBUG_PRINTLN(LittleFS.format());
   }
 
-  StaticJsonDocument<1024> doc;
+  JsonDocument doc;
 
-  // doc["MQTT_server"]             = mqtt_server;
-  // doc["MQTT_port"]               = mqtt_port;
-  // doc["MQTT_uname"]              = mqtt_username;
-  // doc["MQTT_pwd"]                = mqtt_key;
-  // doc["MQTT_base"]               = mqtt_base;
-  
-  // doc["ip"]                      = WiFi.localIP().toString();
-  // doc["gateway"]                 = WiFi.gatewayIP().toString();
-  // doc["subnet"]                  = WiFi.subnetMask().toString();
-
-  doc["tDiffON"]                 = tDiffON;
-  doc["tDiffOFF"]                = tDiffOFF;
-//  doc["controlSensor"]           = controlSensorBojler;
-  // for (int i=0; i<numberOfDevices; i++) {
-    // //doc["sensorOrder[" + String(i) + "0]"]          = sensorOrder[i];
-    // doc["sensorOrder[" + String(i) + "]"]          = sensorOrder[i];
-  // }
-
-  lcd.clear();
- 
+  doc["tempON"]                   = storage.tDiffON;
+  doc["tempOFFDiff"]              = storage.tDiffOFF;
+  // doc["tempAlarm"]                = storage.tempAlarm;
+  // doc["relayType"]                = storage.relayType;
   File configFile = LittleFS.open(CFGFILE, "w+");
   if (!configFile) {
     DEBUG_PRINTLN(F("Failed to open config file for writing"));
     LittleFS.end();
-    lcd.print("Failed to open config file for writing");
-    delay(2000);
-    lcd.clear();
     return false;
   } else {
     if (isDebugEnabled) {
       serializeJson(doc, Serial);
     }
     serializeJson(doc, configFile);
-    //json.printTo(configFile);
     configFile.close();
     LittleFS.end();
     DEBUG_PRINTLN(F("\nSaved successfully"));
-    lcd.print("Config saved.");
-    delay(2000);
-    lcd.clear();
     return true;
   }
 }
 
 bool readConfig() {
+  DEBUG_PRINTLN();
   DEBUG_PRINT(F("Mounting FS..."));
-
   if (LittleFS.begin()) {
     DEBUG_PRINTLN(F(" mounted!"));
     if (LittleFS.exists(CFGFILE)) {
@@ -551,15 +470,15 @@ bool readConfig() {
          json[l] = 0;
          DEBUG_PRINTLN(json);
         }
-
-        DynamicJsonDocument doc(1024);
+        
+        JsonDocument doc;
         deserializeJson(doc, json);
-        tDiffON        = doc["tDiffON"];
-        DEBUG_PRINT(F("tDiffON: "));
-        DEBUG_PRINTLN(tDiffON);
-        tDiffOFF       = doc["tDiffOFF"];
-        DEBUG_PRINT(F("tDiffOFF: "));
-        DEBUG_PRINTLN(tDiffOFF);
+
+        storage.tDiffON       = doc["tDiffON"];
+        storage.tDiffOFF      = doc["tDiffOFF"];
+        // storage.tempAlarm     = doc["tempAlarm"];
+        // storage.relayType     = doc["relayType"];
+        
         return true;
       }
       DEBUG_PRINTLN(F("ERROR: unable to open config file"));
@@ -572,6 +491,7 @@ bool readConfig() {
   return false;
 }
 
+
 void sendRelayMQTT(byte akce) {
   digitalWrite(LED_BUILTIN, LOW);
   client.publish((String(mqtt_base) + "/relayChange").c_str(), String(akce).c_str());
@@ -583,15 +503,15 @@ void sendRelayMQTT(byte akce) {
 }
 
 
-bool sendSOMQTT(void *) {
-  digitalWrite(LED_BUILTIN, LOW);
-  DEBUG_PRINTLN(F("Sensor order"));
-  for (int i=0; i<NUMBER_OF_DEVICES; i++) {
-    client.publish((String(mqtt_base) + "/so" + String(i)).c_str(), String(sensorOrder[i]).c_str());
-  }
-  digitalWrite(LED_BUILTIN, HIGH);
-  return true;
-}
+// bool sendSOMQTT(void *) {
+  // digitalWrite(LED_BUILTIN, LOW);
+  // DEBUG_PRINTLN(F("Sensor order"));
+  // for (int i=0; i<NUMBER_OF_DEVICES; i++) {
+    // client.publish((String(mqtt_base) + "/so" + String(i)).c_str(), String(sensorOrder[i]).c_str());
+  // }
+  // digitalWrite(LED_BUILTIN, HIGH);
+  // return true;
+// }
 
 bool sendDataMQTT(void *) {
   digitalWrite(LED_BUILTIN, LOW);
@@ -607,6 +527,9 @@ bool sendDataMQTT(void *) {
   client.publish((String(mqtt_base) + "/tBojler2").c_str(), String(tBojler2).c_str());
   client.publish((String(mqtt_base) + "/tBojlerIN").c_str(), String(tBojlerIn).c_str());
   client.publish((String(mqtt_base) + "/tBojlerOUT").c_str(), String(tBojlerOut).c_str());
+  client.publish((String(mqtt_base) + "/storage.tDiffON").c_str(), String(storage.tDiffON).c_str());
+  client.publish((String(mqtt_base) + "/storage.tDiffOFF").c_str(), String(storage.tDiffOFF).c_str());
+  
  
   digitalWrite(LED_BUILTIN, HIGH);
   return true;
@@ -694,13 +617,13 @@ void relay() {
     DEBUG_PRINTLN(F("SAFETY CONTROL!!!!"));
   } else if (manualRelay==2) {
     //-----------------------------------zmena 0-1--------------------------------------------
-    if (relayStatus == RELAY_OFF && ((tP1Out - tBojler1) >= tDiffON || (tP2Out - tBojler1) >= tDiffON || (tP1In - tBojler1) >= tDiffON || (tP2In - tBojler1) >= tDiffON)) {
+    if (relayStatus == RELAY_OFF && ((tP1Out - tBojler1) >= storage.tDiffON || (tP2Out - tBojler1) >= storage.tDiffON || (tP1In - tBojler1) >= storage.tDiffON || (tP2In - tBojler1) >= storage.tDiffON)) {
       lastOffOn = millis();
       relayStatus = RELAY_ON;
       changeRelay(relayStatus);
       sendRelayMQTT(1);
     //-----------------------------------zmena 1-0--------------------------------------------
-    } else if (relayStatus == RELAY_ON && ((((tP2Out - tBojler1) < tDiffOFF)) && (millis() - DELAY_AFTER_ON >= lastOffOn))) { 
+    } else if (relayStatus == RELAY_ON && ((((tP2Out - tBojler1) < storage.tDiffOFF)) && (millis() - DELAY_AFTER_ON >= lastOffOn))) { 
       DEBUG_PRINT(F("millis()="));
       DEBUG_PRINT(millis());
       DEBUG_PRINT(F(" delayAfterON="));
@@ -777,128 +700,8 @@ void display() {
     lcd.print(90- sunAngle[month()-1]);
     lcd.write(byte(0));
 #endif    
-  //} else if (displayType==DISPLAY_T_DIFF_ON) {
-    //displayInfoValue('TDiffON', tDiffON, 'C');
-  //} else if (displayType==DISPLAY_T_DIFF_OFF) { 
-    //displayInfoValue('TDiffOFF', tDiffOFF, 'C');
-  //} else if (displayType==DISPLAY_FLOW) {
-    //displayInfoValue('Flow', lMin, 'l/min');
-  //} else if (displayType==DISPLAY_MAX_IO_TEMP) {
-    //lcd.setCursor(POZ0X,POZ0Y);
-    //lcd.print(F("Max IN:"));
-    //lcd.print(tMaxIn);
-    //lcd.print(F("     "));
-    //lcd.setCursor(0,1);
-    //lcd.print(F("Max OUT:"));
-    //lcd.print(tMaxOut);
-    //lcd.print(F("     "));
-  //} else if (displayType==DISPLAY_MAX_BOJLER) {
-    //displayInfoValue('Max bojler', tMaxBojler, 'C');
-  //} else if (displayType==DISPLAY_MAX_POWER_TODAY) { 
-    //displayInfoValue('Max power today', maxPower, 'W');
-  // } else if (displayType==DISPLAY_CONTROL_SENSOR) {
-    // lcd.setCursor(POZ0X,POZ0Y);
-    // lcd.print(F("Control sensor"));
-    // lcd.setCursor(0,1);
-    // lcd.print(F(" ["));
-    // lcd.setCursor(0,2);
-    // if (controlSensorBojler==1) {
-      // lcd.print(tBojler1);
-      // lcd.print(F("]   "));
-      // lcd.print(F("Bojler"));
-    // } else {
-      // lcd.print(tRoom);
-      // lcd.print(F("]   "));
-      // lcd.print(F("Room"));
-    // }
   }
 }
-
-//---------------------------------------------K E Y B O A R D ------------------------------------------------
-// void keyBoard() {
-  // char key = keypad.getKey();
-  // if (key!=NO_KEY){
-    // lcd.clear();
-    // //DEBUG_PRINTLN(key);
-    // /*
-    // Keyboard layout
-    // -----------
-    // | 1 2 3 A |
-    // | 4 5 6 B |
-    // | 7 8 9 C |
-    // | * 0 # D |
-    // -----------
-   
-    // INFO
-    // 1 - 
-    // 2 - TDiffON
-    // 3 - TDiffOFF
-    // 4 - prutok
-    // 5 - Max IN OUT temp
-    // 6 - Max bojler
-    // B - clear display
-    // 7 - Max power today
-    // 8 - Control sensor
-    // 9 - 
-    // C - RESTART
-    // * -
-    // 0 - main display
-    // D - manual/auto
-    // */
-    
-    // if (key=='1') { 
-    // }
-    // else if (key=='2') { 
-      // displayType=DISPLAY_T_DIFF_ON;
-    // }
-    // else if (key=='3') { 
-      // displayType=DISPLAY_T_DIFF_OFF;
-    // }
-    // else if (key=='4') {
-      // displayType=DISPLAY_FLOW;
-    // }
-    // else if (key=='5') { 
-      // displayType=DISPLAY_MAX_IO_TEMP;
-    // }
-    // else if (key=='6') { 
-      // displayType=DISPLAY_MAX_BOJLER;
-    // }
-    // else if (key=='B') {
-      // lcd.clear();
-    // }
-    // else if (key=='7') { 
-      // displayType=DISPLAY_MAX_POWER_TODAY;
-    // }
-    // else if (key=='8') { 
-      // displayType=DISPLAY_CONTROL_SENSOR;
-    // }
-    // else if (key=='9') { 
-    // }
-    // if (key=='C') {
-      // saveConfig();
-      // ESP.restart();
-    // }
-    // if (key=='*') {
-      // lcd.clear();
-    // }
-    // if (key=='0') { 
-      // displayType=DISPLAY_MAIN;
-    // }
-    // if (key=='D') {
-      // // manualON = !manualON;
-      // // if (manualON) {
-        // // manualRelay=1;
-      // // } else {
-        // // manualRelay=0;
-      // // }
-      // manualRelay++;
-      // if (manualRelay>2) {
-        // manualRelay=0;
-      // }
-    // }
-    // key = ' ';
-  // }
-// }
 
 void dsInit(void) {
   dsSensors.begin();
@@ -1067,6 +870,7 @@ void sendDSAddrMQTT() {
     
     serializeJson(doc, buffer);
     client.publish((String(mqtt_base) + "/DSAddress[" + String(cidlo++) + "]").c_str(), buffer);
+    delay(1000);
     if (OneWire::crc8( addr, 7) != addr[7]) {
         DEBUG_PRINTLN("CRC is not valid!");
         return;
